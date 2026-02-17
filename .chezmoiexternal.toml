@@ -1,0 +1,4 @@
+[".tmux/plugins/tmux-sensible"]
+    type = "archive"
+    url = "https://github.com/tmux-plugins/tmux-sensible/archive/25cb91f42d020f675bb0a2ce3fbd3a5d96119efa.tar.gz"
+    stripComponents = 1
