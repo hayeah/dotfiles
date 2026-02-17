@@ -1,2 +1,6 @@
-# do nothing
+# Sourced for every zsh session (interactive, non-interactive, login, non-login).
+# Keep minimal — only things needed by scripts and non-interactive shells (e.g. mosh).
+
+# Homebrew — needed so tools like mosh-server can be found in non-login shells
+export PATH="/opt/homebrew/bin:/opt/homebrew/sbin:$PATH"
 
