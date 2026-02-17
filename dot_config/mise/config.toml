@@ -3,11 +3,13 @@
 
 [tools]
 bun = "1.3.6"
+chezmoi = "2.69.4"
 fd = "10.2.0"
 foundry = "1.2.3"
 fzf = "0.57.0"
 go = "1.24.1"
 python = "3.13.1"
+tmux = "3.6a"
 uv = "0.7.2"
 zoxide = "0.9.6"
 
