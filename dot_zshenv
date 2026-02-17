@@ -4,3 +4,6 @@
 # Homebrew — needed so tools like mosh-server can be found in non-login shells
 export PATH="/opt/homebrew/bin:/opt/homebrew/sbin:$PATH"
 
+# mise — must be in PATH before .zprofile runs `mise activate`
+export PATH="$HOME/.local/bin:$PATH"
+

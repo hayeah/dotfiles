@@ -18,7 +18,4 @@ path_add "$HOME/.foundry/bin"
 path_add "$HOME/go/bin"                   # Go user binaries
 path_add "/usr/local/go/bin"              # Go toolchain (if you use the official pkg)
 
-# uv
-path_add "$HOME/.local/bin"
-
 export BAT_THEME="Visual Studio Dark+"
