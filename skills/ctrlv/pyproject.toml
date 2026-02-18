@@ -1,0 +1,38 @@
+[project]
+name = "ctrlv"
+version = "0.1.0"
+description = "Paste iCloud clipboard contents to files"
+requires-python = ">=3.11"
+dependencies = [
+    "typer",
+    "pyobjc-framework-Cocoa",
+]
+
+[project.scripts]
+ctrlv = "ctrlv.main:run"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/ctrlv"]
+
+[dependency-groups]
+dev = [
+    "pytest",
+    "ruff",
+    "pyright",
+]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "I"]
+
+[tool.pyright]
+pythonVersion = "3.11"
+include = ["src"]
+typeCheckingMode = "basic"
