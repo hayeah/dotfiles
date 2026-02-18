@@ -65,6 +65,12 @@
 	required = true
 [credential]
 	helper = osxkeychain
+[credential "https://github.com"]
+	helper =
+	helper = !/usr/bin/env gh auth git-credential
+[credential "https://gist.github.com"]
+	helper =
+	helper = !/usr/bin/env gh auth git-credential
 [user]
 	name = {{ .gitName }}
 	email = {{ .gitEmail }}
