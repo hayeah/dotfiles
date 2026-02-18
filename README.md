@@ -1,38 +1,9 @@
 # dotfiles
 
-Personal dotfiles managed with [chezmoi](https://www.chezmoi.io/).
+Personal dotfiles managed with [chezmoi](https://www.chezmoi.io/). See [INSTALL.md](INSTALL.md) for setup.
 
-## Fresh machine setup
+## Skills
 
-Assumes [mise](https://mise.jdx.dev/) is already installed.
-
-### Configure chezmoi
-
-```sh
-curl -o ~/.config/chezmoi/chezmoi.toml https://raw.githubusercontent.com/hayeah/dotfiles/master/chezmoi.toml.example
-```
-
-Fill in your git identity:
-
-```toml
-[data]
-    gitName = "Your Name"
-    gitEmail = "you@example.com"
-```
-
-### Install chezmoi and apply
-
-```sh
-mise use -g chezmoi
-chezmoi init --apply hayeah
-```
-
-This clones the repo, applies all dotfiles, and fetches external dependencies (tmux plugins, etc.).
-
-### Install tools
-
-```sh
-mise install
-```
-
-Installs the pinned toolchain versions from `~/.config/mise/config.toml`.
+- **[ctrlv](skills/ctrlv/)** — Saves macOS clipboard contents to files in a .ctrlv/ subdirectory. Use when the user wants to paste clipboard items (text, images, or files) to disk.
+- **[git-quick-clone](skills/git-quick-clone/)** — Clone GitHub repos with shallow depth. Use when the user provides a GitHub URL or user/repo and wants to clone it locally.
+- **[python](skills/python/)** — Coding convention, style guide, and tooling for writing Python.
