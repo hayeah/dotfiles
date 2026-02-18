@@ -1,0 +1,72 @@
+[alias]
+  ai = add --interactive
+  ap = add -p
+  s = status -uno
+  ss = status -unormal
+  d = diff
+  c = commit
+  cc = commit -a
+  cm = commit -m
+  cma = commit -a -m
+  ca = commit --amend -C HEAD
+  cam = commit --amend
+  caa = commit -a --amend -C HEAD
+  a = add
+  co = checkout
+  com = checkout master
+  cod = checkout deploy
+  b = branch
+
+  sm = submodule
+
+  lf = log -p --follow
+  f = fetch
+
+  l = log --graph --all --format=format:'%C(bold cyan)%h%C(reset) - %C(bold green)(%ar)%C(reset) %C(white)%s%C(reset) %C(bold white)— %an%C(reset)%C(bold yellow)%d%C(reset)' --abbrev-commit --date=relative
+
+  lg2 = log --graph --all --format=format:'%C(bold blue)%h%C(reset) - %C(bold cyan)%aD%C(reset) %C(bold green)(%ar)%C(reset)%C(bold yellow)%d%C(reset)%n''          %C(white)%s%C(reset) %C(bold white)— %an%C(reset)' --abbrev-commit
+
+
+  m = merge --no-ff
+  mff = merge
+
+  p = push
+  po = push origin
+  pom = push origin master
+  pd = push deploy
+  ph = push heroku master
+
+  rhm = reset --hard master
+  rhom = reset --hard origin/master
+  rh = reset --hard
+  r1 = reset HEAD^
+  r2 = reset HEAD^^
+  r1h = reset HEAD^ --hard
+  r2h = reset HEAD^^ --hard
+
+
+  z = rebase
+  zc = rebase --continue
+  zm = rebase master
+  zom = rebase origin/master
+
+  y = cherry-pick
+  yy = cherry-pick --strategy=recursive -X theirs
+
+[rerere]
+	enabled = true
+[grep]
+    linenumber = true
+
+[filter "lfs"]
+	clean = git-lfs clean -- %f
+	smudge = git-lfs smudge -- %f
+	process = git-lfs filter-process
+	required = true
+[credential]
+	helper = osxkeychain
+[user]
+	name = {{ .gitName }}
+	email = {{ .gitEmail }}
+[fetch]
+	prune = true

@@ -6,7 +6,21 @@ Personal dotfiles managed with [chezmoi](https://www.chezmoi.io/).
 
 Assumes [mise](https://mise.jdx.dev/) is already installed.
 
-### 1. Install chezmoi and apply
+### Configure chezmoi
+
+```sh
+curl -o ~/.config/chezmoi/chezmoi.toml https://raw.githubusercontent.com/hayeah/dotfiles/master/chezmoi.toml.example
+```
+
+Fill in your git identity:
+
+```toml
+[data]
+    gitName = "Your Name"
+    gitEmail = "you@example.com"
+```
+
+### Install chezmoi and apply
 
 ```sh
 mise use -g chezmoi
@@ -15,7 +29,7 @@ chezmoi init --apply hayeah
 
 This clones the repo, applies all dotfiles, and fetches external dependencies (tmux plugins, etc.).
 
-### 2. Install tools
+### Install tools
 
 ```sh
 mise install
