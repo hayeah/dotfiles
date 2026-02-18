@@ -27,6 +27,7 @@ ctrlv [OUTPUT_PATH]
 |------|-------------|
 | `-l`, `--list` | Preview clipboard contents without writing |
 | `-a`, `--add` | Append to `.ctrlv/` instead of wiping it first |
+| `-i`, `--icloud` | Write to iCloud Drive (`~/Library/Mobile Documents/com~apple~CloudDocs/ctrlv/`) |
 
 ## Output format
 
@@ -69,6 +70,10 @@ ctrlv -l
 # Append clipboard to existing .ctrlv/ (paste multiple times)
 ctrlv --add
 ctrlv -a
+
+# Paste to iCloud Drive (syncs across devices)
+ctrlv --icloud
+ctrlv -i
 ```
 
 ## Notes

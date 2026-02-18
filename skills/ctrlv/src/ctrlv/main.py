@@ -29,11 +29,15 @@ def _print_items(indexed: list[tuple[int, object]]) -> None:
         typer.echo(_item_line(index, item))
 
 
+ICLOUD_DIR = Path.home() / "Library" / "Mobile Documents" / "com~apple~CloudDocs"
+
+
 @app.command()
 def paste(
     output_path: Path = typer.Argument(Path("."), help="Directory to write files into (files go to OUTPUT_PATH/.ctrlv/)"),
     dry_run: bool = typer.Option(False, "--list", "-l", help="List items without pasting"),
     append: bool = typer.Option(False, "--add", "-a", help="Append to .ctrlv/ instead of wiping it"),
+    icloud: bool = typer.Option(False, "--icloud", "-i", help="Write to iCloud Drive (ctrlv/ in ~/Library/Mobile Documents/com~apple~CloudDocs/)"),
 ) -> None:
     """Paste clipboard contents to OUTPUT_PATH/.ctrlv/ as 1.ext, 2.ext, ..."""
     setup_logging()
@@ -49,7 +53,13 @@ def paste(
         _print_items(list(enumerate(items, start=1)))
         return
 
-    output_path = output_path.resolve() / ".ctrlv"
+    if icloud:
+        if not ICLOUD_DIR.exists():
+            typer.echo(f"iCloud Drive not found: {ICLOUD_DIR}", err=True)
+            raise typer.Exit(1)
+        output_path = ICLOUD_DIR / "ctrlv"
+    else:
+        output_path = output_path.resolve() / ".ctrlv"
     writer = ClipboardWriter(dest_dir=output_path)
     result = writer.write_all(items, append=append)
 
