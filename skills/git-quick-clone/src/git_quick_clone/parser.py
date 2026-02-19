@@ -34,7 +34,7 @@ class RepoURLParser:
             info = self._parse_shorthand(repo_url)
         elif repo_url.startswith("https://"):
             info = self._parse_https(repo_url)
-        elif repo_url.startswith("git@github.com:"):
+        elif repo_url.startswith("git@"):
             info = self._parse_ssh(repo_url)
         else:
             raise ValueError("Unsupported URL format")
@@ -54,20 +54,21 @@ class RepoURLParser:
         user, repo = repo_url.split("/")
         return RepoInfo(
             url=f"https://github.com/{repo_url}",
-            dest_dir=repo_url,
+            dest_dir=f"github.com/{repo_url}",
             user=user,
             repo=repo,
         )
 
     def _parse_https(self, repo_url: str) -> RepoInfo:
-        """Handle full HTTPS GitHub URLs, including tree/blob paths."""
+        """Handle full HTTPS URLs for GitHub and GitLab, including tree/blob paths."""
         parsed = urlparse(repo_url)
-        if parsed.netloc != "github.com":
-            raise ValueError("Only GitHub URLs are supported")
+        host = parsed.netloc
+        if host not in ("github.com", "gitlab.com"):
+            raise ValueError(f"Unsupported host: {host} (supported: github.com, gitlab.com)")
 
         parts = parsed.path.strip("/").split("/")
         if len(parts) < 2:
-            raise ValueError("Could not deduce user/repo from GitHub URL")
+            raise ValueError("Could not deduce user/repo from URL")
 
         user = parts[0]
         repo = parts[1].removesuffix(".git")
@@ -92,7 +93,7 @@ class RepoURLParser:
 
         return RepoInfo(
             url=base_url,
-            dest_dir=user_repo,
+            dest_dir=f"{host}/{user_repo}",
             user=user,
             repo=repo,
             branch=branch,
@@ -100,17 +101,20 @@ class RepoURLParser:
         )
 
     def _parse_ssh(self, repo_url: str) -> RepoInfo:
-        """Handle git@github.com:user/repo(.git) format."""
-        match = re.search(r"^git@github\.com:([^/]+)/([^/\s]+?)(?:\.git)?$", repo_url)
+        """Handle git@<host>:user/repo(.git) format for GitHub and GitLab."""
+        match = re.search(
+            r"^git@(github\.com|gitlab\.com):([^/]+)/([^/\s]+?)(?:\.git)?$", repo_url
+        )
         if not match:
             raise ValueError("Could not deduce user/repo from SSH URL")
 
-        user = match.group(1)
-        repo = match.group(2)
-        dest_dir = f"{user}/{repo}"
+        host = match.group(1)
+        user = match.group(2)
+        repo = match.group(3)
+        user_repo = f"{user}/{repo}"
         return RepoInfo(
-            url=f"git@github.com:{dest_dir}",
-            dest_dir=dest_dir,
+            url=f"git@{host}:{user_repo}",
+            dest_dir=f"{host}/{user_repo}",
             user=user,
             repo=repo,
         )

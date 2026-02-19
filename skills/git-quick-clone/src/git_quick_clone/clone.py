@@ -5,6 +5,7 @@ from __future__ import annotations
 import logging
 import os
 import subprocess
+import sys
 from pathlib import Path
 from urllib.parse import urlparse, urlunparse
 
@@ -15,7 +16,7 @@ log = logging.getLogger(__name__)
 
 def sh(cmd: str, cwd: Path | None = None) -> None:
     log.info("$ %s", cmd)
-    subprocess.run(cmd, shell=True, check=True, cwd=cwd)
+    subprocess.run(cmd, shell=True, check=True, cwd=cwd, stdout=sys.stderr)
 
 
 def access_token(token_arg: str | None) -> str | None:
@@ -49,8 +50,32 @@ def inject_token(url: str, token: str | None) -> str:
     )
 
 
+def get_remote_url(dest: Path) -> str | None:
+    """Get the remote origin URL of an existing git repo, normalized."""
+    try:
+        result = subprocess.run(
+            ["git", "-C", str(dest), "config", "--get", "remote.origin.url"],
+            capture_output=True,
+            text=True,
+            check=True,
+        )
+        return _normalize_clone_url(result.stdout.strip())
+    except (subprocess.CalledProcessError, FileNotFoundError):
+        return None
+
+
+def _normalize_clone_url(url: str) -> str:
+    """Normalize a clone URL for comparison (strip .git suffix, trailing slash)."""
+    url = url.rstrip("/")
+    if url.endswith(".git"):
+        url = url[:-4]
+    return url
+
+
 class RepoCloner:
-    def __init__(self, repo_info: RepoInfo, dest: Path, shallow_depth: int | None, full: bool) -> None:
+    def __init__(
+        self, repo_info: RepoInfo, dest: Path, shallow_depth: int | None, full: bool
+    ) -> None:
         self.repo_info = repo_info
         self.dest = dest
         self.shallow_depth = shallow_depth
@@ -106,7 +131,12 @@ class RepoCloner:
         self._sh("git branch --set-upstream-to=origin/HEAD master")
         self._sh("git config push.default upstream")
 
+    def _has_submodules(self) -> bool:
+        return (self.dest / ".gitmodules").is_file()
+
     def _init_submodules(self) -> None:
+        if not self._has_submodules():
+            return
         if self.full or self.shallow_depth is not None:
             self._sh("git submodule update --init --recursive")
         else:

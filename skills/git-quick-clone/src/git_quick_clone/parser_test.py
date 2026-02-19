@@ -11,7 +11,7 @@ VALID_CASES: list[tuple[str, RepoInfo]] = [
         "user/repo",
         RepoInfo(
             url="https://github.com/user/repo.git",
-            dest_dir="user/repo",
+            dest_dir="github.com/user/repo",
             user="user",
             repo="repo",
         ),
@@ -20,7 +20,7 @@ VALID_CASES: list[tuple[str, RepoInfo]] = [
         "https://github.com/user/repo",
         RepoInfo(
             url="https://github.com/user/repo.git",
-            dest_dir="user/repo",
+            dest_dir="github.com/user/repo",
             user="user",
             repo="repo",
         ),
@@ -29,7 +29,7 @@ VALID_CASES: list[tuple[str, RepoInfo]] = [
         "https://github.com/user/repo.git",
         RepoInfo(
             url="https://github.com/user/repo.git",
-            dest_dir="user/repo",
+            dest_dir="github.com/user/repo",
             user="user",
             repo="repo",
         ),
@@ -38,7 +38,7 @@ VALID_CASES: list[tuple[str, RepoInfo]] = [
         "git@github.com:user/repo.git",
         RepoInfo(
             url="git@github.com:user/repo.git",
-            dest_dir="user/repo",
+            dest_dir="github.com/user/repo",
             user="user",
             repo="repo",
         ),
@@ -47,7 +47,7 @@ VALID_CASES: list[tuple[str, RepoInfo]] = [
         "user/complex-repo-name.js",
         RepoInfo(
             url="https://github.com/user/complex-repo-name.js.git",
-            dest_dir="user/complex-repo-name.js",
+            dest_dir="github.com/user/complex-repo-name.js",
             user="user",
             repo="complex-repo-name.js",
         ),
@@ -56,7 +56,7 @@ VALID_CASES: list[tuple[str, RepoInfo]] = [
         "https://github.com/user/repo/blob/main/README.md",
         RepoInfo(
             url="https://github.com/user/repo.git",
-            dest_dir="user/repo",
+            dest_dir="github.com/user/repo",
             user="user",
             repo="repo",
             branch="main",
@@ -67,7 +67,7 @@ VALID_CASES: list[tuple[str, RepoInfo]] = [
         "https://github.com/user/repo/tree/master/src",
         RepoInfo(
             url="https://github.com/user/repo.git",
-            dest_dir="user/repo",
+            dest_dir="github.com/user/repo",
             user="user",
             repo="repo",
             branch="master",
@@ -78,7 +78,7 @@ VALID_CASES: list[tuple[str, RepoInfo]] = [
         "https://github.com/bigcode-project/bigcode-evaluation-harness/blob/main/docs/guide.md",
         RepoInfo(
             url="https://github.com/bigcode-project/bigcode-evaluation-harness.git",
-            dest_dir="bigcode-project/bigcode-evaluation-harness",
+            dest_dir="github.com/bigcode-project/bigcode-evaluation-harness",
             user="bigcode-project",
             repo="bigcode-evaluation-harness",
             branch="main",
@@ -89,7 +89,7 @@ VALID_CASES: list[tuple[str, RepoInfo]] = [
         "https://github.com/EleutherAI/lm-evaluation-harness?tab=readme-ov-file",
         RepoInfo(
             url="https://github.com/EleutherAI/lm-evaluation-harness.git",
-            dest_dir="EleutherAI/lm-evaluation-harness",
+            dest_dir="github.com/EleutherAI/lm-evaluation-harness",
             user="EleutherAI",
             repo="lm-evaluation-harness",
         ),
@@ -98,7 +98,7 @@ VALID_CASES: list[tuple[str, RepoInfo]] = [
         "https://github.com/EleutherAI/lm-evaluation-harness/tree/main?tab=readme-ov-file",
         RepoInfo(
             url="https://github.com/EleutherAI/lm-evaluation-harness.git",
-            dest_dir="EleutherAI/lm-evaluation-harness",
+            dest_dir="github.com/EleutherAI/lm-evaluation-harness",
             user="EleutherAI",
             repo="lm-evaluation-harness",
             branch="main",
@@ -108,7 +108,7 @@ VALID_CASES: list[tuple[str, RepoInfo]] = [
         "https://github.com/raycast/extensions/tree/main/extensions/promptlab",
         RepoInfo(
             url="https://github.com/raycast/extensions.git",
-            dest_dir="raycast/extensions",
+            dest_dir="github.com/raycast/extensions",
             user="raycast",
             repo="extensions",
             branch="main",
