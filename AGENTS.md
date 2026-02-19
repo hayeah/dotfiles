@@ -17,6 +17,13 @@ godotenv -f ~/.env.secret gosay "one sentence description of what was done"
 - For npm/TypeScript, use `bunx` to install packages and run CLI tools.
   - Fall back to pnpm if bunx doesn't work.
 
+## General Code Style
+
+- For complex features, avoid bags of loose functions 
+  - Group related methods in a class or struct.
+  - Prefer class properties over passing shared state through parameters.
+- Name getters as nouns, not `get*` — e.g. `user()` not `getUser()`.
+
 ## Markdown Style
 
 - Avoid numbering in lists — use plain `-` bullets
