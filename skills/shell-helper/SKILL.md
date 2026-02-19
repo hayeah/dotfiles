@@ -35,12 +35,13 @@ shell-helper editor project myproject
 shell-helper editor project -i myproject
 ```
 
-## Shell aliases
+## Shell helpers
 
-Source `aliases.sh` in your zshrc to get:
+Source `helpers.sh` in your zshrc to get:
 
 - `ed` — alias for `shell-helper editor`
 - `project` — alias for `shell-helper project`
+- `g` — git wrapper with extensions (`g qc` for quick-clone with cd)
 
 ## Notes
 

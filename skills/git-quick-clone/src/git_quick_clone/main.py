@@ -10,7 +10,7 @@ from .clone import RepoCloner, _normalize_clone_url, access_token, get_remote_ur
 from .log import setup_logging
 from .parser import parse_repo_url
 
-app = typer.Typer(help="Clone a GitHub repo with optional shallow depth or sparse checkout.")
+app = typer.Typer()
 
 
 @app.command()
@@ -23,7 +23,20 @@ def clone(
     full: bool = typer.Option(False, "--full", "-f", help="Full clone (no filters)"),
     token: str | None = typer.Option(None, "--token", help="GitHub access token"),
 ) -> None:
-    """Clone a GitHub repository with smart defaults."""
+    """Clone a GitHub/GitLab repo using treeless partial clone (--filter=tree:0).
+
+    Accepts user/repo shorthand, full HTTPS URLs, or SSH URLs. Pastes a GitHub
+    tree/blob URL to auto-detect sparse checkout paths. Idempotent — re-running
+    on an existing clone with the same origin is a no-op.
+
+    \b
+    Examples:
+      git-quick-clone user/repo
+      git-quick-clone https://github.com/user/repo
+      git-quick-clone https://github.com/user/repo/tree/main/src
+      git-quick-clone user/repo --shallow 1
+      git-quick-clone user/repo --full
+    """
     setup_logging()
 
     repo_info = parse_repo_url(repo_url)
