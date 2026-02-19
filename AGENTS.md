@@ -1,4 +1,15 @@
 
+## Notification / Human Attention
+
+Notify the user with voice when:
+
+- A long-running task completes.
+- You require user intervention or a response to carry on.
+
+```
+godotenv -f ~/.env.secret gosay "one sentence description of what was done"
+```
+
 ## Install Tools
 
 - Prefer mise > homebrew when installing tools.
