@@ -41,6 +41,7 @@ Source `helpers.sh` in your zshrc to get:
 
 - `ed` — alias for `shell-helper editor`
 - `project` — alias for `shell-helper project`
+- `gg <repo>` — clone to `~/<host>/<user>/<repo>` and cd into it
 - `g` — git wrapper with extensions (`g qc` for quick-clone with cd)
 
 ## Notes
