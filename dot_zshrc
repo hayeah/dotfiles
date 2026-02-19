@@ -81,5 +81,8 @@ eval "$(zoxide init zsh)"
 # This won't be added again if you remove it.
 source ~/.orbstack/shell/init.zsh 2>/dev/null || :
 
+# shell-helper aliases
+[ -f ~/.local/share/chezmoi/skills/shell-helper/aliases.sh ] && source ~/.local/share/chezmoi/skills/shell-helper/aliases.sh
+
 # Added by Antigravity
 export PATH="$HOME/.antigravity/antigravity/bin:$PATH"
