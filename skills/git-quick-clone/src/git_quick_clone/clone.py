@@ -50,7 +50,7 @@ def inject_token(url: str, token: str | None) -> str:
 
 
 class RepoCloner:
-    def __init__(self, repo_info: RepoInfo, dest: Path, shallow_depth: int, full: bool) -> None:
+    def __init__(self, repo_info: RepoInfo, dest: Path, shallow_depth: int | None, full: bool) -> None:
         self.repo_info = repo_info
         self.dest = dest
         self.shallow_depth = shallow_depth
@@ -85,13 +85,16 @@ class RepoCloner:
         sparse_path = self.repo_info.sparse_path
         if sparse_path is not None:
             self._fetch_sparse(sparse_path)
-        else:
+        elif self.shallow_depth is not None:
             self._sh(f"git fetch --depth={self.shallow_depth} origin")
+        else:
+            # Default: treeless partial clone — fastest clone with full history
+            self._sh("git fetch --filter=tree:0 origin")
 
     def _fetch_sparse(self, sparse_path: str) -> None:
         self._sh("git config remote.origin.promisor true")
-        self._sh('git config remote.origin.partialclonefilter "blob:none"')
-        self._sh(f"git fetch --depth={self.shallow_depth} --filter=blob:none origin")
+        self._sh('git config remote.origin.partialclonefilter "tree:0"')
+        self._sh("git fetch --filter=tree:0 origin")
         self._sh("git sparse-checkout init --cone")
         self._sh("git config core.sparseCheckout true")
         self._sh(f"git sparse-checkout set {sparse_path}")
@@ -104,4 +107,8 @@ class RepoCloner:
         self._sh("git config push.default upstream")
 
     def _init_submodules(self) -> None:
-        self._sh("git submodule update --init --recursive")
+        if self.full or self.shallow_depth is not None:
+            self._sh("git submodule update --init --recursive")
+        else:
+            # Propagate treeless partial clone to submodules
+            self._sh("git submodule update --init --recursive --filter=tree:0")

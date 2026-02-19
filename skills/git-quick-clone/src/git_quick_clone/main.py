@@ -17,8 +17,8 @@ app = typer.Typer(help="Clone a GitHub repo with optional shallow depth or spars
 def clone(
     repo_url: str = typer.Argument(..., help="Repository (user/repo or URL)"),
     dest_dir: str | None = typer.Argument(None, help="Destination directory"),
-    shallow: int = typer.Option(3, "--shallow", "-s", help="Shallow clone depth"),
-    full: bool = typer.Option(False, "--full", "-f", help="Full clone (no depth limit)"),
+    shallow: int | None = typer.Option(None, "--shallow", "-s", help="Shallow clone depth (e.g. --shallow 1). Default: treeless partial clone"),
+    full: bool = typer.Option(False, "--full", "-f", help="Full clone (no filters, no depth limit)"),
     token: str | None = typer.Option(None, "--token", help="GitHub access token"),
 ) -> None:
     """Clone a GitHub repository with smart defaults."""
