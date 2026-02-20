@@ -1,4 +1,23 @@
 
+## Dotfiles
+
+- Use chezmoi to manage dotfiles.
+- Make changes directly to the chezmoi repo at `~/.local/share/chezmoi`.
+- Run chezmoi apply when you make changes.
+
+## Research Notes
+
+- Keep notes in the iCloud Obsidian directory: `OB_PATH=~/Library/Mobile Documents/iCloud~md~obsidian/Documents`
+- Create a folder for each research topic.
+  - `$OB_PATH/<topic>`
+- List `$OB_PATH` to find existing topics.
+
+If working in a project repo:
+
+- By convention, projects are kept in `~/<host>/<user>/<repo>`.
+- Put notes in `~/Library/Mobile Documents/iCloud~md~obsidian/Documents/<host>/<user>/<repo>`.
+  - Symlink this directory as `.bnotes/` in the repo.
+
 ## Notification / Human Attention
 
 Notify the user with voice when:
