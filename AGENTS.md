@@ -7,15 +7,14 @@
 
 ## Research Notes
 
-- Keep notes in the iCloud Obsidian directory: `OB_PATH=~/Library/Mobile Documents/iCloud~md~obsidian/Documents`
-- Create a folder for each research topic.
-  - `$OB_PATH/<topic>`
+Notes are kept in iCloud Obsidian: `OB_PATH=~/Library/Mobile Documents/iCloud~md~obsidian/Documents`
+
+- Create a folder per research topic: `$OB_PATH/<topic>`
 - List `$OB_PATH` to find existing topics.
 
-If working in a project repo:
+When working in project repos (`~/<host>/<user>/<repo>`):
 
-- By convention, projects are kept in `~/<host>/<user>/<repo>`.
-- Put notes in `~/Library/Mobile Documents/iCloud~md~obsidian/Documents/<host>/<user>/<repo>`.
+- Put notes in `$OB_PATH/<host>/<user>/<repo>`.
   - Symlink this directory as `.bnotes/` in the repo.
 
 ## Notification / Human Attention
