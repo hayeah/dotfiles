@@ -20,7 +20,7 @@ When researching a code library:
 When working in project repos (`~/<host>/<user>/<repo>`):
 
 - Put notes in `$OB_PATH/<host>/<user>/<repo>`.
-  - Symlink this directory as `.bnotes/` in the repo.
+  - Symlink this directory as `.obnotes/` in the repo.
 
 ## Notification / Human Attention
 
