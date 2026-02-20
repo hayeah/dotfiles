@@ -7,3 +7,6 @@ export PATH="/opt/homebrew/bin:/opt/homebrew/sbin:$PATH"
 # mise — must be in PATH before .zprofile runs `mise activate`
 export PATH="$HOME/.local/bin:$PATH"
 
+# Obsidian vault in iCloud
+export OB_PATH="$HOME/Library/Mobile Documents/iCloud~md~obsidian/Documents"
+

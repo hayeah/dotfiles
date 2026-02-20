@@ -12,6 +12,11 @@ Notes are kept in iCloud Obsidian: `OB_PATH=~/Library/Mobile Documents/iCloud~md
 - Create a folder per research topic: `$OB_PATH/<topic>`
 - List `$OB_PATH` to find existing topics.
 
+When researching a code library:
+
+- Prefer cloning the repo over web search.
+- Use the git-quick-clone skill to clone to `~/<host>/<user>/<repo>`.
+
 When working in project repos (`~/<host>/<user>/<repo>`):
 
 - Put notes in `$OB_PATH/<host>/<user>/<repo>`.
