@@ -12,6 +12,7 @@ from .log import setup_logging
 from .project import github_url as project_github_url
 from .project import name as project_name
 from .project import root as project_root
+from .tmux import app as tmux_app
 
 app = typer.Typer(help="Shell utilities for project detection and editor launching.")
 
@@ -63,6 +64,11 @@ def editor_project_cmd(
     """Use zoxide to find a project and open editor there."""
     setup_logging()
     open_editor_project(query, editor, interactive)
+
+
+# -- tm subcommand group -------------------------------------------------------
+
+app.add_typer(tmux_app, name="tm")
 
 
 def run() -> None:
