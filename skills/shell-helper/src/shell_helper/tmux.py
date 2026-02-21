@@ -83,13 +83,27 @@ def _session_name_from_remote(root_dir: Path) -> str | None:
     return None
 
 
+def _session_name_from_path(root_dir: Path) -> str | None:
+    """Extract <user>/<repo> from ~/github.com/<user>/<repo> path."""
+    github_base = Path.home() / "github.com"
+    try:
+        rel = root_dir.resolve().relative_to(github_base)
+        parts = rel.parts
+        if len(parts) >= 2:
+            return f"{parts[0]}/{parts[1]}"
+    except ValueError:
+        pass
+    return None
+
+
 def session_name(path: Path | None = None) -> str | None:
     """Derive tmux session name. Returns None if not in a project."""
     root_dir = project_root(path)
     if not _is_project(root_dir):
         return None
     raw = (
-        _session_name_from_remote(root_dir)
+        _session_name_from_path(root_dir)
+        or _session_name_from_remote(root_dir)
         or _name_from_files(root_dir)
         or _name_from_git(root_dir)
         or root_dir.name
@@ -161,9 +175,10 @@ def _do_find() -> None:
     fzf_input = "\n".join(label for label, _ in projects)
     lookup = {label: path for label, path in projects}
 
+    tmux_opts = "--tmux center,50%,50% " if _in_tmux() else ""
     fzf_cmd = (
         "fzf --exit-0 --reverse "
-        f"--tmux center,50%,50% "
+        f"{tmux_opts}"
         f"{border_opts} "
         f"--preview 'ls {shlex.quote(base)}/{{}}' "
         "--preview-window=right,40%,nowrap"
