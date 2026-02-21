@@ -1,18 +1,7 @@
 alias ed='shell-helper editor'
 alias project='shell-helper project'
 
-# tm: tmux session management
-#   tm          — fzf project picker (find)
-#   tm .        — enter session for cwd
-#   tm <path>   — enter session for path
-#   tm <cmd>    — subcommands: enter, find, select, rename
-tm() {
-    if [[ $# -eq 1 && -d "$1" ]]; then
-        shell-helper tm enter "$1"
-    else
-        shell-helper tm "$@"
-    fi
-}
+alias tm='shell-helper tm'
 
 # gg: clone to ~/<host>/<user>/<repo> and cd into it (shorthand for g qc)
 unalias gg 2>/dev/null

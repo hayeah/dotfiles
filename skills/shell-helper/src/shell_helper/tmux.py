@@ -9,7 +9,9 @@ import subprocess
 from itertools import zip_longest
 from pathlib import Path
 
+import click
 import typer
+from typer.core import TyperGroup
 
 from .project import (
     PROJECT_FILES,
@@ -19,7 +21,19 @@ from .project import (
     root as project_root,
 )
 
-app = typer.Typer(help="Tmux session management.")
+
+class _FallbackGroup(TyperGroup):
+    """Click group that treats unknown subcommands as args to `enter`."""
+
+    def resolve_command(self, ctx: click.Context, args: list[str]) -> tuple:
+        try:
+            return super().resolve_command(ctx, args)
+        except click.UsageError:
+            # Unknown subcommand — rewrite as `enter <arg>`
+            return super().resolve_command(ctx, ["enter", *args])
+
+
+app = typer.Typer(help="Tmux session management.", cls=_FallbackGroup)
 
 
 # ---------------------------------------------------------------------------
@@ -124,8 +138,8 @@ def _renumber_sessions() -> None:
             _run(["tmux", "rename-session", "-t", old_name, str(new_index)])
 
 
-def _do_enter(path: Path | None) -> None:
-    """Core logic for enter — attach/create project-named session."""
+def _enter_path(path: Path | None) -> None:
+    """Attach/create project-named session for a resolved path."""
     name = session_name(path)
     if not name:
         typer.echo("Not in a project directory", err=True)
@@ -154,20 +168,14 @@ def _github_projects() -> list[tuple[str, Path]]:
     return projects
 
 
-def _do_find() -> None:
-    """Interactive project finder — fzf over ~/github.com repos, then enter."""
+def _fzf_pick(projects: list[tuple[str, Path]], query: str | None = None) -> None:
+    """Interactive project picker — fzf over projects, then enter."""
     fzf_ver = _fzf_version()
     if not fzf_ver:
-        typer.echo("fzf is required for find", err=True)
-        raise typer.Exit(1)
-
-    projects = _github_projects()
-    if not projects:
-        typer.echo("No projects found under ~/github.com", err=True)
+        typer.echo("fzf is required", err=True)
         raise typer.Exit(1)
 
     border_opts = _build_border_opts(fzf_ver)
-    # Replace labels for project context
     border_opts = border_opts.replace("' Panes '", "' Projects '")
     border_opts = border_opts.replace("' Preview '", "' Files '")
 
@@ -176,9 +184,11 @@ def _do_find() -> None:
     lookup = {label: path for label, path in projects}
 
     tmux_opts = "--tmux center,50%,50% " if _in_tmux() else ""
+    query_opt = f"--query {shlex.quote(query)} " if query else ""
     fzf_cmd = (
         "fzf --exit-0 --reverse "
         f"{tmux_opts}"
+        f"{query_opt}"
         f"{border_opts} "
         f"--preview 'ls {shlex.quote(base)}/{{}}' "
         "--preview-window=right,40%,nowrap"
@@ -195,18 +205,76 @@ def _do_find() -> None:
     if not selected or selected not in lookup:
         return
 
-    _do_enter(lookup[selected])
+    _enter_path(lookup[selected])
+
+
+class _Resolved:
+    """Result of resolving a query to a project."""
+
+    def __init__(self, kind: str, path: Path | None = None, label: str | None = None,
+                 matches: list[tuple[str, Path]] | None = None, error: str | None = None):
+        self.kind = kind      # "path" | "match" | "ambiguous" | "picker" | "error"
+        self.path = path
+        self.label = label
+        self.matches = matches
+        self.error = error
+
+
+def _resolve(query: str | None) -> _Resolved:
+    """Resolve a query to a project without side effects."""
+    if query is None:
+        projects = _github_projects()
+        if not projects:
+            return _Resolved("error", error="No projects found under ~/github.com")
+        return _Resolved("picker", matches=projects)
+
+    # Try as a filesystem path first
+    candidate = Path(query).resolve()
+    if candidate.is_dir():
+        return _Resolved("path", path=candidate)
+
+    # Fuzzy match against github projects
+    projects = _github_projects()
+    if not projects:
+        return _Resolved("error", error="No projects found under ~/github.com")
+
+    q_lower = query.lower()
+    matches = [(label, path) for label, path in projects if q_lower in label.lower()]
+
+    if len(matches) == 1:
+        return _Resolved("match", path=matches[0][1], label=matches[0][0])
+    elif len(matches) > 1:
+        return _Resolved("ambiguous", matches=matches)
+    else:
+        return _Resolved("error", error=f"No projects matching '{query}'")
+
+
+def _do_enter(query: str | None) -> None:
+    """Unified enter: path, fuzzy match, or interactive picker."""
+    r = _resolve(query)
+
+    if r.kind == "error":
+        typer.echo(r.error, err=True)
+        raise typer.Exit(1)
+    elif r.kind == "path":
+        _enter_path(r.path)
+    elif r.kind == "match":
+        _enter_path(r.path)
+    elif r.kind == "picker":
+        _fzf_pick(r.matches)
+    elif r.kind == "ambiguous":
+        _fzf_pick(r.matches, query)
 
 
 # ---------------------------------------------------------------------------
-# default callback — `shell-helper tm` with no subcommand runs find
+# default callback — `shell-helper tm` with no subcommand runs enter
 # ---------------------------------------------------------------------------
 
 
 @app.callback(invoke_without_command=True)
 def _default(ctx: typer.Context) -> None:
     if ctx.invoked_subcommand is None:
-        _do_find()
+        _do_enter(None)
 
 
 # ---------------------------------------------------------------------------
@@ -216,21 +284,44 @@ def _default(ctx: typer.Context) -> None:
 
 @app.command()
 def enter(
-    path: Path = typer.Argument(None, help="Directory to start from (default: cwd)"),
+    query: str = typer.Argument(None, help="Path or project name to match (default: fzf picker)"),
 ) -> None:
-    """Attach to the project-named session, creating it when needed."""
-    _do_enter(path)
+    """Attach to a project session.
+
+    With no argument, opens an interactive fzf picker.
+    With a directory path, enters that project directly.
+    With a search string, fuzzy-matches against ~/github.com repos.
+    """
+    _do_enter(query)
 
 
 # ---------------------------------------------------------------------------
-# find — fzf project picker
+# which — show what a query resolves to
 # ---------------------------------------------------------------------------
 
 
 @app.command()
-def find() -> None:
-    """Interactive project finder — pick from ~/github.com repos via fzf."""
-    _do_find()
+def which(
+    query: str = typer.Argument(None, help="Path or project name to resolve"),
+) -> None:
+    """Show what a query would resolve to without entering."""
+    r = _resolve(query)
+
+    if r.kind == "error":
+        typer.echo(r.error, err=True)
+        raise typer.Exit(1)
+    elif r.kind == "path":
+        name = session_name(r.path)
+        typer.echo(f"{r.path}  (session: {name})")
+    elif r.kind == "match":
+        name = session_name(r.path)
+        typer.echo(f"{r.label}  {r.path}  (session: {name})")
+    elif r.kind == "ambiguous":
+        typer.echo(f"{len(r.matches)} matches:")
+        for label, path in r.matches:
+            typer.echo(f"  {label}  {path}")
+    elif r.kind == "picker":
+        typer.echo(f"{len(r.matches)} projects (would open fzf picker)")
 
 
 # ---------------------------------------------------------------------------
