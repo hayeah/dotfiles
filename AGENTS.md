@@ -59,6 +59,7 @@ godotenv -f ~/.env.secret gosay "one sentence description of what was done"
 - On personal projects `(~/github.com/hayeah/*)`, you can use `push --force-with-lease` to update remote.
 - Use `gh` when you require authentication.
   - Prefer HTTPS auth.
+- Default to use "master" rather than "main".
 
 ## Env & Secrets
 
