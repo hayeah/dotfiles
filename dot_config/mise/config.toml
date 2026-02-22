@@ -17,6 +17,8 @@ python = "3.14.3"
 tmux = "3.6a"
 uv = "0.10.3"
 zoxide = "0.9.6"
+node = "lts"
+pnpm = "latest"
 
 [settings]
 idiomatic_version_file_enable_tools = ["node"]
