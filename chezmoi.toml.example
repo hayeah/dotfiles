@@ -1,3 +1,5 @@
+sourceDir = "~/github.com/hayeah/dotfiles"
+
 [data]
     gitName = ""
     gitEmail = ""

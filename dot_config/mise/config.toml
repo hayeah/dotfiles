@@ -17,6 +17,7 @@ python = "3.14.3"
 tmux = "3.6a"
 uv = "0.10.3"
 zoxide = "0.9.6"
+neovim = "stable"
 node = "lts"
 pnpm = "latest"
 

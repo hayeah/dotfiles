@@ -2,7 +2,7 @@
 ## Dotfiles
 
 - Use chezmoi to manage dotfiles.
-- Make changes directly to the chezmoi repo at `~/.local/share/chezmoi`.
+- Make changes directly to the chezmoi repo at `~/github.com/hayeah/dotfiles`.
 - Run chezmoi apply when you make changes.
 
 # Personal Peeves

@@ -20,10 +20,10 @@ Fill in your git identity:
 
 ```sh
 mise use -g chezmoi
-chezmoi init --apply hayeah
+chezmoi init --apply --source ~/github.com/hayeah/dotfiles hayeah
 ```
 
-This clones the repo, applies all dotfiles, and fetches external dependencies (tmux plugins, etc.).
+This clones the repo to `~/github.com/hayeah/dotfiles`, applies all dotfiles, and fetches external dependencies (tmux plugins, etc.).
 
 ## Install tools
 
