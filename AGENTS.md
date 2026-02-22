@@ -5,6 +5,14 @@
 - Make changes directly to the chezmoi repo at `~/.local/share/chezmoi`.
 - Run chezmoi apply when you make changes.
 
+# Personal Peeves
+
+My peeves, but IMPORTANT for my happiness. Petty, I Know.
+
+- When using CamelCase, preserve cap for acronyms.
+  - OAuthAiModalFlow -> OAuthAIModalFlow
+  - JsonApi -> JSONAPI
+
 ## Research Notes
 
 Notes are kept in iCloud Obsidian: `OB_PATH=~/Library/Mobile Documents/iCloud~md~obsidian/Documents`
