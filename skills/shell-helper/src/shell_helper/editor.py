@@ -1,54 +1,249 @@
-"""Editor launching with project root detection and zoxide integration."""
+"""Editor launching with project picker and SSH remote support."""
 
 from __future__ import annotations
 
 import os
+import shlex
 import subprocess
 from pathlib import Path
+from typing import Optional
 
-from .project import root
+import typer
+
+from . import fzf
+from .cli import fallback_group
+from .project import resolve
+
+# ---------------------------------------------------------------------------
+# Editor shim — dict-based abstraction for zed vs code/cursor
+# ---------------------------------------------------------------------------
+
+EDITORS: dict[str, dict[str, str | None]] = {
+    "zed": {
+        "local": "{editor} {path}",
+        "ssh": "{editor} ssh://{host}{path}",
+    },
+    "code": {
+        "local": "{editor} {path}",
+        "ssh": "{editor} --remote ssh-remote+{host} {path}",
+    },
+    "cursor": {
+        "local": "{editor} {path}",
+        "ssh": "{editor} --remote ssh-remote+{host} {path}",
+    },
+    "vim": {
+        "local": "{editor} {path}",
+        "ssh": None,
+    },
+    "nvim": {
+        "local": "{editor} {path}",
+        "ssh": None,
+    },
+}
+
+DEFAULT_EDITOR = "zed"
 
 
-def open_editor(
-    path: Path | None = None,
-    editor: str | None = None,
-) -> None:
-    """Open an editor at the project root, optionally opening a specific file.
+def resolve_editor(name: str | None = None) -> tuple[str, dict[str, str | None]]:
+    """Return (editor_cmd, patterns) from name, $CODE_EDITOR, or default."""
+    cmd = name or os.getenv("CODE_EDITOR", DEFAULT_EDITOR)
+    patterns = EDITORS.get(cmd, EDITORS["code"])  # unknown editors use code-style patterns
+    return cmd, patterns
 
-    If path is a file, opens the editor at the project root AND opens the file.
-    If path is a directory or None, opens the editor at the project root.
+
+def open_local(editor: str, patterns: dict[str, str | None], path: str) -> None:
+    """Open editor locally at path."""
+    cmd = patterns["local"].format(editor=editor, path=shlex.quote(path))
+    subprocess.run(cmd, shell=True, check=True)
+
+
+def open_ssh(editor: str, patterns: dict[str, str | None], host: str, path: str) -> None:
+    """Open editor with SSH remote at host:path."""
+    pattern = patterns["ssh"]
+    if pattern is None:
+        typer.echo(f"{editor} does not support SSH remote opening", err=True)
+        raise typer.Exit(1)
+    cmd = pattern.format(editor=editor, host=host, path=path)
+    subprocess.run(cmd, shell=True, check=True)
+
+
+# ---------------------------------------------------------------------------
+# Remote project discovery
+# ---------------------------------------------------------------------------
+
+
+def ssh_github_projects(host: str) -> list[tuple[str, str]]:
+    """List ~/github.com/*/* projects on a remote host via SSH.
+
+    Returns (user/repo, absolute_remote_path) pairs.
     """
-    editor_cmd = editor or os.getenv("CODE_EDITOR", "code")
-    target = path or Path.cwd()
-    project_root = root(target)
+    ssh_cmd = [
+        "ssh", host,
+        "for d in ~/github.com/*/*; do "
+        "[ -d \"$d/.git\" ] && echo \"$d\"; "
+        "done",
+    ]
+    try:
+        r = subprocess.run(ssh_cmd, capture_output=True, text=True, check=True)
+    except subprocess.CalledProcessError:
+        return []
 
-    cmd = [editor_cmd, str(project_root)]
-    if target.is_file():
-        cmd.append(str(target))
+    projects: list[tuple[str, str]] = []
+    for line in r.stdout.strip().splitlines():
+        line = line.strip()
+        if not line:
+            continue
+        parts = line.split("/")
+        if len(parts) >= 2:
+            label = f"{parts[-2]}/{parts[-1]}"
+            projects.append((label, line))
+    return projects
 
-    subprocess.run(cmd, check=True)
+
+# ---------------------------------------------------------------------------
+# Shared helpers
+# ---------------------------------------------------------------------------
 
 
-def open_editor_project(
-    query: str,
-    editor: str | None = None,
-    interactive: bool = False,
+def _fzf_select(
+    projects: list[tuple[str, str]],
+    query: str | None,
+    *,
+    preview_cmd: str | None = None,
+    list_label: str = "Projects",
+) -> tuple[str, str] | None:
+    """Run fzf picker over projects, return (label, path) or None."""
+    return fzf.select_project(
+        projects,
+        query,
+        list_label=list_label,
+        preview_label="Files",
+        preview_cmd=preview_cmd,
+    )
+
+
+def _default_preview() -> str:
+    base = str(Path.home() / "github.com")
+    return f"ls {shlex.quote(base)}/{{}}"
+
+
+def _open_resolved_local(query: str | None, editor_name: str | None = None) -> None:
+    """Resolve query to a local project via fzf/fuzzy match, then open editor."""
+    editor, patterns = resolve_editor(editor_name)
+    r = resolve(query)
+
+    if r.kind == "error":
+        typer.echo(r.error, err=True)
+        raise typer.Exit(1)
+    elif r.kind in ("path", "match"):
+        open_local(editor, patterns, str(r.path))
+    elif r.kind in ("picker", "ambiguous"):
+        str_projects = [(label, str(path)) for label, path in r.matches]
+        fzf_query = query if r.kind == "ambiguous" else None
+        result = _fzf_select(str_projects, fzf_query, preview_cmd=_default_preview())
+        if result:
+            _, path = result
+            open_local(editor, patterns, path)
+
+
+def _open_resolved_ssh(
+    host: str, query: str | None, editor_name: str | None = None,
 ) -> None:
-    """Use zoxide to match a query to a project, then open editor there.
+    """Resolve query to a remote project via SSH + fzf, then open editor."""
+    editor, patterns = resolve_editor(editor_name)
+    projects = ssh_github_projects(host)
 
-    With interactive=True, uses zoxide's fzf-based interactive picker.
+    if not projects:
+        typer.echo(f"No projects found on {host}", err=True)
+        raise typer.Exit(1)
+
+    if query:
+        q_lower = query.lower()
+        matches = [
+            (label, p) for label, p in projects if q_lower in label.lower()
+        ]
+        if len(matches) == 1:
+            open_ssh(editor, patterns, host, matches[0][1])
+            return
+        elif not matches:
+            typer.echo(f"No projects matching '{query}' on {host}", err=True)
+            raise typer.Exit(1)
+        projects = matches
+
+    result = _fzf_select(projects, query)
+    if result:
+        _, path = result
+        open_ssh(editor, patterns, host, path)
+
+
+def _print_which(query: str | None) -> None:
+    """Print what a query resolves to without acting."""
+    r = resolve(query)
+
+    if r.kind == "error":
+        typer.echo(r.error, err=True)
+        raise typer.Exit(1)
+    elif r.kind == "path":
+        typer.echo(str(r.path))
+    elif r.kind == "match":
+        typer.echo(f"{r.label}  {r.path}")
+    elif r.kind == "ambiguous":
+        typer.echo(f"{len(r.matches)} matches:")
+        for label, path in r.matches:
+            typer.echo(f"  {label}  {path}")
+    elif r.kind == "picker":
+        typer.echo(f"{len(r.matches)} projects (would open fzf picker)")
+
+
+# ---------------------------------------------------------------------------
+# CLI app
+# ---------------------------------------------------------------------------
+
+app = typer.Typer(help="Open editor at a project.", cls=fallback_group("open"))
+
+
+@app.callback(invoke_without_command=True)
+def _default(
+    ctx: typer.Context,
+    ssh: Optional[str] = typer.Option(None, "--ssh", help="SSH host for remote project"),
+    editor_name: Optional[str] = typer.Option(
+        None, "--editor", "-e", help="Override editor (default: $CODE_EDITOR or zed)",
+    ),
+) -> None:
+    """Open editor at a project.
+
+    With no argument, opens an interactive fzf picker over ~/github.com projects.
+    With '.' or a directory path, opens editor at that path.
+    With a search string, fuzzy-matches against ~/github.com repos.
+    With --ssh, discovers projects on a remote host.
     """
-    editor_cmd = editor or os.getenv("CODE_EDITOR", "code")
+    ctx.ensure_object(dict)
+    ctx.obj["ssh"] = ssh
+    ctx.obj["editor_name"] = editor_name
+    if ctx.invoked_subcommand is None:
+        if ssh:
+            _open_resolved_ssh(ssh, None, editor_name)
+        else:
+            _open_resolved_local(None, editor_name)
 
-    zoxide_cmd = ["zoxide", "query"]
-    if interactive:
-        zoxide_cmd.append("-i")
-    zoxide_cmd.append(query)
 
-    result = subprocess.run(zoxide_cmd, capture_output=True, text=True, check=True)
-    project_path = result.stdout.strip()
+@app.command("open")
+def open_cmd(
+    ctx: typer.Context,
+    query: Optional[str] = typer.Argument(None, help="Path, project name, or '.' for cwd"),
+) -> None:
+    """Open editor at a resolved project."""
+    ssh = ctx.obj.get("ssh")
+    editor_name = ctx.obj.get("editor_name")
+    if ssh:
+        _open_resolved_ssh(ssh, query, editor_name)
+    else:
+        _open_resolved_local(query, editor_name)
 
-    if not project_path:
-        raise SystemExit("zoxide: no match found")
 
-    subprocess.run([editor_cmd, project_path], check=True)
+@app.command()
+def which(
+    query: Optional[str] = typer.Argument(None, help="Path or project name to resolve"),
+) -> None:
+    """Show what a query would resolve to without opening."""
+    _print_which(query)

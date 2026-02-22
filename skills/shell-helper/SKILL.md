@@ -12,27 +12,55 @@ Shell utilities for project root detection, project name inference, and editor l
 ### project
 
 ```bash
-# Print project root and name as JSON: {"root": "/path", "name": "my-project"}
+# Print project root and name as JSON
 shell-helper project
-
-# For a specific path
 shell-helper project /path/to/file
+
+# Find a project — fzf picker, echoes selected path
+shell-helper project find
+shell-helper project find <query>
+
+# Show what a query resolves to
+shell-helper project which
+shell-helper project which <query>
 ```
 
 ### editor
 
 ```bash
-# Open $CODE_EDITOR (default: code) at the project root
+# Open $CODE_EDITOR (default: zed) at cwd
+shell-helper editor .
+
+# Open editor at a given path
+shell-helper editor /path/to/project
+
+# Interactive fzf picker over ~/github.com projects
 shell-helper editor
 
-# Open editor at the project root for a given path, also open the file
-shell-helper editor /path/to/file.py
+# Fuzzy match against github projects
+shell-helper editor <query>
 
-# Use zoxide to match a query and open editor there
-shell-helper editor project myproject
+# SSH remote: list projects on host, fzf pick, open zed ssh://host/path
+shell-helper editor --ssh <host>
+shell-helper editor --ssh <host> <query>
 
-# Interactive zoxide picker
-shell-helper editor project -i myproject
+# Show what a query resolves to
+shell-helper editor which
+shell-helper editor which <query>
+```
+
+### tm
+
+```bash
+# Attach to a project tmux session — fzf picker
+shell-helper tm
+
+# Fuzzy match and attach
+shell-helper tm <query>
+
+# Show what a query resolves to (includes session name)
+shell-helper tm which
+shell-helper tm which <query>
 ```
 
 ## Shell helpers
@@ -48,5 +76,7 @@ Source `helpers.sh` in your zshrc to get:
 
 - Project root detection: tries `git rev-parse` first, then walks up looking for project files (pyproject.toml, package.json, Cargo.toml, go.mod)
 - Project name: reads from project files, falls back to git remote URL, falls back to directory name
-- Editor: resolves `$CODE_EDITOR` env var, defaults to `code`
-- Zoxide integration: `editor project` uses `zoxide query` to match project paths
+- Editor: resolves `$CODE_EDITOR` env var, defaults to `zed`
+- Editor shim: supports `zed` (native SSH via `ssh://`), `code`/`cursor` (via `--remote ssh-remote+host`)
+- Project discovery: scans `~/github.com/*/*` for directories with `.git` or project files
+- All three domains share `which` for query resolution and FallbackGroup for natural CLI usage

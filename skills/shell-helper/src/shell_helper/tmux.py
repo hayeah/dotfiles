@@ -6,34 +6,22 @@ import os
 import re
 import shlex
 import subprocess
-from itertools import zip_longest
 from pathlib import Path
 
-import click
 import typer
-from typer.core import TyperGroup
 
+from . import fzf
+from .cli import fallback_group
 from .project import (
-    PROJECT_FILES,
     _git_remote_url,
     _name_from_files,
     _name_from_git,
-    root as project_root,
+    is_project,
+    resolve,
 )
+from .project import root as project_root
 
-
-class _FallbackGroup(TyperGroup):
-    """Click group that treats unknown subcommands as args to `enter`."""
-
-    def resolve_command(self, ctx: click.Context, args: list[str]) -> tuple:
-        try:
-            return super().resolve_command(ctx, args)
-        except click.UsageError:
-            # Unknown subcommand — rewrite as `enter <arg>`
-            return super().resolve_command(ctx, ["enter", *args])
-
-
-app = typer.Typer(help="Tmux session management.", cls=_FallbackGroup)
+app = typer.Typer(help="Tmux session management.", cls=fallback_group("enter"))
 
 
 # ---------------------------------------------------------------------------
@@ -50,10 +38,6 @@ def _run(cmd: str | list[str], check: bool = True) -> str:
     return r.stdout.strip()
 
 
-def _in_tmux() -> bool:
-    return bool(os.environ.get("TMUX"))
-
-
 def _session_exists(name: str) -> bool:
     try:
         _run(["tmux", "has-session", "-t", f"={name}"])
@@ -64,16 +48,10 @@ def _session_exists(name: str) -> bool:
 
 def _tmux_attach(target: str) -> None:
     """Exec into tmux attach/switch — replaces the current process."""
-    if _in_tmux():
+    if fzf.in_tmux():
         os.execvp("tmux", ["tmux", "switch-client", "-t", target])
     else:
         os.execvp("tmux", ["tmux", "attach-session", "-t", target])
-
-
-def _is_project(root_dir: Path) -> bool:
-    if (root_dir / ".git").exists():
-        return True
-    return any((root_dir / f).is_file() for f in PROJECT_FILES)
 
 
 def _sanitize_session_name(name: str) -> str:
@@ -113,7 +91,7 @@ def _session_name_from_path(root_dir: Path) -> str | None:
 def session_name(path: Path | None = None) -> str | None:
     """Derive tmux session name. Returns None if not in a project."""
     root_dir = project_root(path)
-    if not _is_project(root_dir):
+    if not is_project(root_dir):
         return None
     raw = (
         _session_name_from_path(root_dir)
@@ -151,107 +129,26 @@ def _enter_path(path: Path | None) -> None:
     _tmux_attach(f"={name}")
 
 
-def _github_projects() -> list[tuple[str, Path]]:
-    """Return (user/repo, path) pairs for all projects under ~/github.com."""
-    base = Path.home() / "github.com"
-    if not base.is_dir():
-        return []
-    projects: list[tuple[str, Path]] = []
-    for user_dir in sorted(base.iterdir()):
-        if not user_dir.is_dir():
-            continue
-        for repo_dir in sorted(user_dir.iterdir()):
-            if not repo_dir.is_dir():
-                continue
-            if _is_project(repo_dir):
-                projects.append((f"{user_dir.name}/{repo_dir.name}", repo_dir))
-    return projects
-
-
 def _fzf_pick(projects: list[tuple[str, Path]], query: str | None = None) -> None:
     """Interactive project picker — fzf over projects, then enter."""
-    fzf_ver = _fzf_version()
-    if not fzf_ver:
-        typer.echo("fzf is required", err=True)
-        raise typer.Exit(1)
-
-    border_opts = _build_border_opts(fzf_ver)
-    border_opts = border_opts.replace("' Panes '", "' Projects '")
-    border_opts = border_opts.replace("' Preview '", "' Files '")
-
     base = str(Path.home() / "github.com")
-    fzf_input = "\n".join(label for label, _ in projects)
-    lookup = {label: path for label, path in projects}
-
-    tmux_opts = "--tmux center,50%,50% " if _in_tmux() else ""
-    query_opt = f"--query {shlex.quote(query)} " if query else ""
-    fzf_cmd = (
-        "fzf --exit-0 --reverse "
-        f"{tmux_opts}"
-        f"{query_opt}"
-        f"{border_opts} "
-        f"--preview 'ls {shlex.quote(base)}/{{}}' "
-        "--preview-window=right,40%,nowrap"
+    preview_cmd = f"ls {shlex.quote(base)}/{{}}"
+    str_projects = [(label, str(path)) for label, path in projects]
+    result = fzf.select_project(
+        str_projects,
+        query,
+        list_label="Projects",
+        preview_label="Files",
+        preview_cmd=preview_cmd,
     )
-
-    try:
-        r = subprocess.run(
-            fzf_cmd, shell=True, input=fzf_input, capture_output=True, text=True, check=True,
-        )
-        selected = r.stdout.strip()
-    except subprocess.CalledProcessError:
-        return
-
-    if not selected or selected not in lookup:
-        return
-
-    _enter_path(lookup[selected])
-
-
-class _Resolved:
-    """Result of resolving a query to a project."""
-
-    def __init__(self, kind: str, path: Path | None = None, label: str | None = None,
-                 matches: list[tuple[str, Path]] | None = None, error: str | None = None):
-        self.kind = kind      # "path" | "match" | "ambiguous" | "picker" | "error"
-        self.path = path
-        self.label = label
-        self.matches = matches
-        self.error = error
-
-
-def _resolve(query: str | None) -> _Resolved:
-    """Resolve a query to a project without side effects."""
-    if query is None:
-        projects = _github_projects()
-        if not projects:
-            return _Resolved("error", error="No projects found under ~/github.com")
-        return _Resolved("picker", matches=projects)
-
-    # Try as a filesystem path first
-    candidate = Path(query).resolve()
-    if candidate.is_dir():
-        return _Resolved("path", path=candidate)
-
-    # Fuzzy match against github projects
-    projects = _github_projects()
-    if not projects:
-        return _Resolved("error", error="No projects found under ~/github.com")
-
-    q_lower = query.lower()
-    matches = [(label, path) for label, path in projects if q_lower in label.lower()]
-
-    if len(matches) == 1:
-        return _Resolved("match", path=matches[0][1], label=matches[0][0])
-    elif len(matches) > 1:
-        return _Resolved("ambiguous", matches=matches)
-    else:
-        return _Resolved("error", error=f"No projects matching '{query}'")
+    if result:
+        _, path_str = result
+        _enter_path(Path(path_str))
 
 
 def _do_enter(query: str | None) -> None:
     """Unified enter: path, fuzzy match, or interactive picker."""
-    r = _resolve(query)
+    r = resolve(query)
 
     if r.kind == "error":
         typer.echo(r.error, err=True)
@@ -305,7 +202,7 @@ def which(
     query: str = typer.Argument(None, help="Path or project name to resolve"),
 ) -> None:
     """Show what a query would resolve to without entering."""
-    r = _resolve(query)
+    r = resolve(query)
 
     if r.kind == "error":
         typer.echo(r.error, err=True)
@@ -340,37 +237,6 @@ def rename() -> None:
 # ---------------------------------------------------------------------------
 
 
-def _fzf_version() -> str | None:
-    try:
-        return _run(["fzf", "--version"]).split()[0]
-    except (subprocess.CalledProcessError, FileNotFoundError):
-        return None
-
-
-def _version_gte(actual: str, minimum: str) -> bool:
-    def parts(v: str) -> list[int]:
-        return [int(x) for x in v.split(".")]
-
-    a, b = parts(actual), parts(minimum)
-    for x, y in zip_longest(a, b, fillvalue=0):
-        if x != y:
-            return x > y
-    return True
-
-
-def _build_border_opts(fzf_ver: str) -> str:
-    opts = ""
-    if _version_gte(fzf_ver, "0.58.0"):
-        opts += (
-            "--input-border --input-label ' Search ' --info=inline-right "
-            "--list-border --list-label ' Panes ' "
-            "--preview-border --preview-label ' Preview ' "
-        )
-    if _version_gte(fzf_ver, "0.61.0"):
-        opts += "--ghost 'type to search...' "
-    return opts or "--preview-label='pane preview'"
-
-
 @app.command()
 def select(
     preview_pane: bool = typer.Option(True, "--preview/--no-preview", help="Live preview"),
@@ -384,12 +250,12 @@ def select(
     ),
 ) -> None:
     """Interactive pane switcher using fzf."""
-    fzf_ver = _fzf_version()
+    fzf_ver = fzf.fzf_version()
     if not fzf_ver:
         typer.echo("fzf is required for select", err=True)
         raise typer.Exit(1)
 
-    border_opts = _build_border_opts(fzf_ver)
+    border_opts = fzf.build_border_opts(fzf_ver, list_label="Panes", preview_label="Preview")
     preview_opts = (
         f"--preview 'tmux capture-pane -ep -t {{1}}' "
         f"--preview-window={fzf_preview_window_position}"

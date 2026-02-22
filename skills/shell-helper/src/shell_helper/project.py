@@ -1,10 +1,11 @@
-"""Project root detection and name inference."""
+"""Project root detection, name inference, and project discovery."""
 
 from __future__ import annotations
 
 import json
 import subprocess
 import tomllib
+from dataclasses import dataclass, field
 from pathlib import Path
 
 PROJECT_FILES = ("pyproject.toml", "package.json", "Cargo.toml", "go.mod")
@@ -163,3 +164,75 @@ def name(path: Path | None = None) -> str:
     """Infer the project name from project files, git remote, or directory name."""
     root_dir = root(path)
     return _name_from_files(root_dir) or _name_from_git(root_dir) or root_dir.name
+
+
+# ---------------------------------------------------------------------------
+# Project discovery
+# ---------------------------------------------------------------------------
+
+
+def is_project(root_dir: Path) -> bool:
+    """Check if a directory looks like a project (has .git or project files)."""
+    if (root_dir / ".git").exists():
+        return True
+    return any((root_dir / f).is_file() for f in PROJECT_FILES)
+
+
+def github_projects() -> list[tuple[str, Path]]:
+    """Return (user/repo, path) pairs for all projects under ~/github.com."""
+    base = Path.home() / "github.com"
+    if not base.is_dir():
+        return []
+    projects: list[tuple[str, Path]] = []
+    for user_dir in sorted(base.iterdir()):
+        if not user_dir.is_dir():
+            continue
+        for repo_dir in sorted(user_dir.iterdir()):
+            if not repo_dir.is_dir():
+                continue
+            if is_project(repo_dir):
+                projects.append((f"{user_dir.name}/{repo_dir.name}", repo_dir))
+    return projects
+
+
+@dataclass
+class Resolved:
+    """Result of resolving a query to a project."""
+
+    kind: str  # "path" | "match" | "ambiguous" | "picker" | "error"
+    path: Path | None = None
+    label: str | None = None
+    matches: list[tuple[str, Path]] = field(default_factory=list)
+    error: str | None = None
+
+
+def resolve(query: str | None, projects: list[tuple[str, Path]] | None = None) -> Resolved:
+    """Resolve a query to a project without side effects.
+
+    If projects is None, discovers them via github_projects().
+    """
+    if query is None:
+        all_projects = projects if projects is not None else github_projects()
+        if not all_projects:
+            return Resolved("error", error="No projects found under ~/github.com")
+        return Resolved("picker", matches=all_projects)
+
+    # Try as a filesystem path first
+    candidate = Path(query).resolve()
+    if candidate.is_dir():
+        return Resolved("path", path=candidate)
+
+    # Fuzzy match against github projects
+    all_projects = projects if projects is not None else github_projects()
+    if not all_projects:
+        return Resolved("error", error="No projects found under ~/github.com")
+
+    q_lower = query.lower()
+    matches = [(label, path) for label, path in all_projects if q_lower in label.lower()]
+
+    if len(matches) == 1:
+        return Resolved("match", path=matches[0][1], label=matches[0][0])
+    elif len(matches) > 1:
+        return Resolved("ambiguous", matches=matches)
+    else:
+        return Resolved("error", error=f"No projects matching '{query}'")
