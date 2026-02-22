@@ -1,3 +1,8 @@
+---
+name: typescript
+description: Tooling and style guide for TypeScript projects.
+---
+
 # TypeScript project
 
 Tooling and style guide for TypeScript projects.
