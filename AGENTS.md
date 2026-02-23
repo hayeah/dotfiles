@@ -7,11 +7,12 @@
 
 # Personal Peeves
 
-My peeves, but IMPORTANT for my happiness. Petty, I Know.
+Petty, I Know. But IMPORTANT for my happiness.
 
 - When using CamelCase, preserve cap for acronyms.
   - OAuthAiModalFlow -> OAuthAIModalFlow
   - JsonApi -> JSONAPI
+- The default git branch SHOULD be `master`, not `main`.
 
 ## Research Notes
 
