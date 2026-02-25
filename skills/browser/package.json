@@ -1,0 +1,24 @@
+{
+	"name": "browser-tools",
+	"version": "1.0.0",
+	"type": "module",
+	"description": "Chrome DevTools Protocol tools for agent-assisted web automation",
+	"scripts": {
+		"browser": "tsx src/main.ts"
+	},
+	"dependencies": {
+		"@mozilla/readability": "^0.6.0",
+		"jsdom": "^27.0.1",
+		"puppeteer-core": "^24.31.0",
+		"turndown": "^7.2.2",
+		"turndown-plugin-gfm": "^1.0.2",
+		"yargs": "^17.7.2"
+	},
+	"devDependencies": {
+		"@types/jsdom": "^21.1.7",
+		"@types/turndown": "^5.0.5",
+		"@types/yargs": "^17.0.33",
+		"tsx": "^4.19.0",
+		"typescript": "^5.7.0"
+	}
+}
