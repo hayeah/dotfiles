@@ -43,16 +43,32 @@ Options:
 - `--size` — `1024x1024`, `1024x1536`, `1536x1024`, `auto` (default: `auto`)
 - `--quality` — `low`, `medium`, `high`, `auto` (default: `auto`)
 - `--background` — `transparent`, `opaque`, `auto` (default: `auto`)
-- `--previous` — path to a previous output image for multi-turn editing
+- `--previous` — response ID from a previous `create` for multi-turn editing
+- `--partial` — number of partial image previews during streaming, 0-3 (default: `3`)
+
+### Streaming partial images
+
+By default, `create` streams 3 partial image previews to the output path while the final image is being generated. This provides faster visual feedback. The final full-quality image overwrites the partials on completion.
+
+```bash
+# Default: 3 partial previews
+imagegen openai create "a river of owl feathers" -o out.png
+
+# Fewer partials for faster completion
+imagegen openai create "a river of owl feathers" -o out.png --partial 1
+
+# Disable partial previews
+imagegen openai create "a river of owl feathers" -o out.png --partial 0
+```
 
 ### Multi-turn editing
 
-Each `create` saves a sidecar `{output}.imagegen.json` with the response ID (also printed to stderr). Use `--previous` to chain:
+Each `create` prints the response ID to stderr. Use `--previous` with a response ID to chain edits:
 
 ```bash
 imagegen openai create "a cat in a garden" -o v1.png
-imagegen openai create "make the cat orange" -o v2.png --previous v1.png
-imagegen openai create "add a butterfly" -o v3.png --previous v2.png
+# stderr: response_id: resp_abc123
+imagegen openai create "make the cat orange" -o v2.png --previous resp_abc123
 ```
 
 ## Gemini

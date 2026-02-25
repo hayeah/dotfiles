@@ -3,15 +3,56 @@
 from __future__ import annotations
 
 import base64
-import json
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 from .attachments import Attachment
-from .openai_cmd import (
-    OpenAIResponses,
-    _load_previous_response_id,
-)
+from .openai_cmd import OpenAIResponses
+
+
+# ---------------------------------------------------------------------------
+# Helpers
+# ---------------------------------------------------------------------------
+
+
+def _make_partial_event(index: int, image_bytes: bytes) -> MagicMock:
+    ev = MagicMock()
+    ev.type = "response.image_generation_call.partial_image"
+    ev.partial_image_index = index
+    ev.partial_image_b64 = base64.b64encode(image_bytes).decode()
+    return ev
+
+
+def _make_completed_event(response: MagicMock) -> MagicMock:
+    ev = MagicMock()
+    ev.type = "response.completed"
+    ev.response = response
+    return ev
+
+
+def _make_response(image_bytes: bytes, response_id: str = "resp_123") -> MagicMock:
+    """Build a mock Response with a single image_generation_call output."""
+    encoded = base64.b64encode(image_bytes).decode("ascii")
+    mock_output = MagicMock()
+    mock_output.type = "image_generation_call"
+    mock_output.result = encoded
+    mock_response = MagicMock()
+    mock_response.output = [mock_output]
+    mock_response.id = response_id
+    return mock_response
+
+
+def _mock_stream(events: list[MagicMock]) -> MagicMock:
+    """Create a mock context manager that yields events."""
+    stream = MagicMock()
+    stream.__enter__ = MagicMock(return_value=iter(events))
+    stream.__exit__ = MagicMock(return_value=False)
+    return stream
+
+
+# ---------------------------------------------------------------------------
+# _build_content / _build_request
+# ---------------------------------------------------------------------------
 
 
 def test_build_content_text_only() -> None:
@@ -46,6 +87,14 @@ def test_build_request_defaults() -> None:
     assert tool["type"] == "image_generation"
     assert "model" not in tool
     assert "previous_response_id" not in req
+    assert tool["partial_images"] == 3
+
+
+def test_build_request_no_partial_when_zero() -> None:
+    gen = OpenAIResponses(prompt="test", output_path=Path("/tmp/out.png"), partial_images=0)
+    req = gen._build_request()
+    tool = req["tools"][0]
+    assert "partial_images" not in tool
 
 
 def test_build_request_with_image_model() -> None:
@@ -79,103 +128,91 @@ def test_build_request_with_previous() -> None:
     assert req["previous_response_id"] == "resp_abc123"
 
 
+# ---------------------------------------------------------------------------
+# _extract_image
+# ---------------------------------------------------------------------------
+
+
 def test_extract_image() -> None:
     image_bytes = b"fake-image-data"
-    encoded = base64.b64encode(image_bytes).decode("ascii")
-
-    mock_output = MagicMock()
-    mock_output.type = "image_generation_call"
-    mock_output.result = encoded
-
-    mock_response = MagicMock()
-    mock_response.output = [mock_output]
-
+    mock_response = _make_response(image_bytes)
     gen = OpenAIResponses(prompt="test", output_path=Path("/tmp/out.png"))
     result = gen._extract_image(mock_response)
-
     assert result == image_bytes
 
 
-def test_run_saves_image_and_sidecar(tmp_path: Path) -> None:
-    image_bytes = b"PNG-image-content"
-    encoded = base64.b64encode(image_bytes).decode("ascii")
+# ---------------------------------------------------------------------------
+# run (streaming via Responses API)
+# ---------------------------------------------------------------------------
 
-    mock_output = MagicMock()
-    mock_output.type = "image_generation_call"
-    mock_output.result = encoded
 
-    mock_response = MagicMock()
-    mock_response.output = [mock_output]
-    mock_response.id = "resp_test123"
+def test_run_with_partials(tmp_path: Path) -> None:
+    final_bytes = b"final-hq-image"
+    response = _make_response(final_bytes, "resp_abc")
 
-    output_path = tmp_path / "result.png"
-    gen = OpenAIResponses(prompt="test", output_path=output_path)
+    events = [
+        _make_partial_event(0, b"partial-0"),
+        _make_partial_event(1, b"partial-1"),
+        _make_completed_event(response),
+    ]
 
-    with patch("imagegen.openai_cmd.OpenAI") as mock_openai_cls:
+    output_path = tmp_path / "out.png"
+    gen = OpenAIResponses(prompt="test", output_path=output_path, partial_images=2)
+
+    with patch("imagegen.openai_cmd.OpenAI") as mock_cls:
         mock_client = MagicMock()
-        mock_client.responses.create.return_value = mock_response
-        mock_openai_cls.return_value = mock_client
+        mock_client.responses.stream.return_value = _mock_stream(events)
+        mock_cls.return_value = mock_client
 
         result_path, response_id = gen.run()
 
     assert result_path == output_path
-    assert response_id == "resp_test123"
-    assert output_path.read_bytes() == image_bytes
-
-    sidecar = Path(str(output_path) + ".imagegen.json")
-    assert sidecar.exists()
-    meta = json.loads(sidecar.read_text())
-    assert meta["response_id"] == "resp_test123"
-    assert meta["model"] == "gpt-5"
-    assert "image_model" not in meta
+    assert response_id == "resp_abc"
+    assert output_path.read_bytes() == final_bytes
 
 
-def test_sidecar_includes_image_model(tmp_path: Path) -> None:
-    encoded = base64.b64encode(b"img").decode("ascii")
+def test_run_no_partials(tmp_path: Path) -> None:
+    """partial_images=0 still works — just no partial events."""
+    final_bytes = b"final-image"
+    response = _make_response(final_bytes, "resp_nop")
 
-    mock_output = MagicMock()
-    mock_output.type = "image_generation_call"
-    mock_output.result = encoded
+    events = [_make_completed_event(response)]
 
-    mock_response = MagicMock()
-    mock_response.output = [mock_output]
-    mock_response.id = "resp_456"
+    output_path = tmp_path / "out.png"
+    gen = OpenAIResponses(prompt="test", output_path=output_path, partial_images=0)
 
-    output_path = tmp_path / "result.png"
-    gen = OpenAIResponses(
-        prompt="test",
-        output_path=output_path,
-        image_model="gpt-image-1.5",
-    )
-
-    with patch("imagegen.openai_cmd.OpenAI") as mock_openai_cls:
+    with patch("imagegen.openai_cmd.OpenAI") as mock_cls:
         mock_client = MagicMock()
-        mock_client.responses.create.return_value = mock_response
-        mock_openai_cls.return_value = mock_client
-        gen.run()
+        mock_client.responses.stream.return_value = _mock_stream(events)
+        mock_cls.return_value = mock_client
 
-    sidecar = Path(str(output_path) + ".imagegen.json")
-    meta = json.loads(sidecar.read_text())
-    assert meta["image_model"] == "gpt-image-1.5"
+        result_path, response_id = gen.run()
+
+    assert result_path == output_path
+    assert response_id == "resp_nop"
+    assert output_path.read_bytes() == final_bytes
 
 
-def test_load_previous_response_id(tmp_path: Path) -> None:
-    img = tmp_path / "prev.png"
-    img.write_bytes(b"fake")
-    sidecar = tmp_path / "prev.png.imagegen.json"
-    sidecar.write_text(
-        json.dumps({"response_id": "resp_xyz", "model": "gpt-5"})
+def test_run_with_previous(tmp_path: Path) -> None:
+    """--previous passes previous_response_id to the request."""
+    final_bytes = b"edited"
+    response = _make_response(final_bytes, "resp_edit")
+    events = [_make_completed_event(response)]
+
+    output_path = tmp_path / "out.png"
+    gen = OpenAIResponses(
+        prompt="make it blue",
+        output_path=output_path,
+        previous_response_id="resp_prev",
     )
 
-    assert _load_previous_response_id(img) == "resp_xyz"
+    with patch("imagegen.openai_cmd.OpenAI") as mock_cls:
+        mock_client = MagicMock()
+        mock_client.responses.stream.return_value = _mock_stream(events)
+        mock_cls.return_value = mock_client
 
+        _, response_id = gen.run()
 
-def test_load_previous_response_id_missing(tmp_path: Path) -> None:
-    img = tmp_path / "no_sidecar.png"
-    img.write_bytes(b"fake")
-
-    try:
-        _load_previous_response_id(img)
-        assert False, "Should have raised"
-    except Exception as e:
-        assert "No sidecar metadata" in str(e)
+    assert response_id == "resp_edit"
+    call_kwargs = mock_client.responses.stream.call_args[1]
+    assert call_kwargs["previous_response_id"] == "resp_prev"
