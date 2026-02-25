@@ -1,4 +1,15 @@
-alias ed='shell-helper editor'
+# ed: open editor at a project
+# ed @host [query] — shortcut for ed --ssh host [query]
+unalias ed 2>/dev/null
+ed() {
+    if [[ "$1" == @* ]]; then
+        local host="${1#@}"
+        shift
+        shell-helper editor --ssh "$host" "$@"
+    else
+        shell-helper editor "$@"
+    fi
+}
 alias project='shell-helper project'
 
 alias tm='shell-helper tm'
