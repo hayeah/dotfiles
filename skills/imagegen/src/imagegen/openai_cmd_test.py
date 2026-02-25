@@ -8,11 +8,14 @@ from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 from .attachments import Attachment
-from .openai_cmd import OpenAIGenerator, _load_previous_response_id
+from .openai_cmd import (
+    OpenAIResponses,
+    _load_previous_response_id,
+)
 
 
 def test_build_content_text_only() -> None:
-    gen = OpenAIGenerator(prompt="a red circle", output_path=Path("/tmp/out.png"))
+    gen = OpenAIResponses(prompt="a red circle", output_path=Path("/tmp/out.png"))
     content = gen._build_content()
 
     assert len(content) == 1
@@ -21,7 +24,7 @@ def test_build_content_text_only() -> None:
 
 def test_build_content_with_image_attachments() -> None:
     att = Attachment(path=Path("ref.png"), is_image=True, data="AAAA")
-    gen = OpenAIGenerator(
+    gen = OpenAIResponses(
         prompt="remix this",
         output_path=Path("/tmp/out.png"),
         image_attachments=[att],
@@ -35,18 +38,18 @@ def test_build_content_with_image_attachments() -> None:
 
 
 def test_build_request_defaults() -> None:
-    gen = OpenAIGenerator(prompt="test", output_path=Path("/tmp/out.png"))
+    gen = OpenAIResponses(prompt="test", output_path=Path("/tmp/out.png"))
     req = gen._build_request()
 
     assert req["model"] == "gpt-5"
     tool = req["tools"][0]
     assert tool["type"] == "image_generation"
-    assert "model" not in tool  # no image_model by default
+    assert "model" not in tool
     assert "previous_response_id" not in req
 
 
 def test_build_request_with_image_model() -> None:
-    gen = OpenAIGenerator(
+    gen = OpenAIResponses(
         prompt="test",
         output_path=Path("/tmp/out.png"),
         model="gpt-4.1",
@@ -66,7 +69,7 @@ def test_build_request_with_image_model() -> None:
 
 
 def test_build_request_with_previous() -> None:
-    gen = OpenAIGenerator(
+    gen = OpenAIResponses(
         prompt="make it blue",
         output_path=Path("/tmp/out.png"),
         previous_response_id="resp_abc123",
@@ -87,7 +90,7 @@ def test_extract_image() -> None:
     mock_response = MagicMock()
     mock_response.output = [mock_output]
 
-    gen = OpenAIGenerator(prompt="test", output_path=Path("/tmp/out.png"))
+    gen = OpenAIResponses(prompt="test", output_path=Path("/tmp/out.png"))
     result = gen._extract_image(mock_response)
 
     assert result == image_bytes
@@ -106,16 +109,17 @@ def test_run_saves_image_and_sidecar(tmp_path: Path) -> None:
     mock_response.id = "resp_test123"
 
     output_path = tmp_path / "result.png"
-    gen = OpenAIGenerator(prompt="test", output_path=output_path)
+    gen = OpenAIResponses(prompt="test", output_path=output_path)
 
     with patch("imagegen.openai_cmd.OpenAI") as mock_openai_cls:
         mock_client = MagicMock()
         mock_client.responses.create.return_value = mock_response
         mock_openai_cls.return_value = mock_client
 
-        result = gen.run()
+        result_path, response_id = gen.run()
 
-    assert result == output_path
+    assert result_path == output_path
+    assert response_id == "resp_test123"
     assert output_path.read_bytes() == image_bytes
 
     sidecar = Path(str(output_path) + ".imagegen.json")
@@ -138,7 +142,11 @@ def test_sidecar_includes_image_model(tmp_path: Path) -> None:
     mock_response.id = "resp_456"
 
     output_path = tmp_path / "result.png"
-    gen = OpenAIGenerator(prompt="test", output_path=output_path, image_model="gpt-image-1.5")
+    gen = OpenAIResponses(
+        prompt="test",
+        output_path=output_path,
+        image_model="gpt-image-1.5",
+    )
 
     with patch("imagegen.openai_cmd.OpenAI") as mock_openai_cls:
         mock_client = MagicMock()
@@ -155,7 +163,9 @@ def test_load_previous_response_id(tmp_path: Path) -> None:
     img = tmp_path / "prev.png"
     img.write_bytes(b"fake")
     sidecar = tmp_path / "prev.png.imagegen.json"
-    sidecar.write_text(json.dumps({"response_id": "resp_xyz", "model": "gpt-5"}))
+    sidecar.write_text(
+        json.dumps({"response_id": "resp_xyz", "model": "gpt-5"})
+    )
 
     assert _load_previous_response_id(img) == "resp_xyz"
 

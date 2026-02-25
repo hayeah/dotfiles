@@ -17,15 +17,15 @@ API keys are loaded automatically from `~/.env.secret` if the file exists.
 
 ## OpenAI
 
-Uses the [Responses API](https://developers.openai.com/api/docs/guides/image-generation) with the `image_generation` tool.
-
 ### List models
 
 ```bash
 imagegen openai ls
 ```
 
-### Create image
+### Create
+
+Uses the [Responses API](https://developers.openai.com/api/docs/guides/image-generation) with the `image_generation` tool. Supports multi-turn editing and attachments.
 
 ```bash
 imagegen openai create "a cat wearing a hat" -o out.png
@@ -47,7 +47,7 @@ Options:
 
 ### Multi-turn editing
 
-Each `create` saves a sidecar `{output}.imagegen.json` with the response ID. Use `--previous` to chain:
+Each `create` saves a sidecar `{output}.imagegen.json` with the response ID (also printed to stderr). Use `--previous` to chain:
 
 ```bash
 imagegen openai create "a cat in a garden" -o v1.png

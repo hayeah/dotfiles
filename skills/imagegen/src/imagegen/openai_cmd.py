@@ -1,4 +1,4 @@
-"""OpenAI provider — ls and create commands using the Responses API."""
+"""OpenAI provider — ls and create commands."""
 
 from __future__ import annotations
 
@@ -29,7 +29,7 @@ TEXT_MODELS = [
     "gpt-5.2",
 ]
 
-# Underlying image generation models (used by the tool internally).
+# Underlying image generation models.
 IMAGE_MODELS = [
     "gpt-image-1.5",
     "gpt-image-1",
@@ -39,7 +39,12 @@ IMAGE_MODELS = [
 app = typer.Typer(help="OpenAI image generation")
 
 
-class OpenAIGenerator:
+# ---------------------------------------------------------------------------
+# Responses API
+# ---------------------------------------------------------------------------
+
+
+class OpenAIResponses:
     def __init__(
         self,
         prompt: str,
@@ -97,13 +102,14 @@ class OpenAIGenerator:
 
     def _save_sidecar(self, response: Response) -> None:
         meta_path = Path(str(self.output_path) + ".imagegen.json")
-        meta = {"response_id": response.id, "model": self.model}
+        meta: dict[str, str] = {"response_id": response.id, "model": self.model}
         if self.image_model:
             meta["image_model"] = self.image_model
         meta_path.write_text(json.dumps(meta, indent=2) + "\n", encoding="utf-8")
         log.info("Saved sidecar metadata to %s", meta_path)
 
-    def run(self) -> Path:
+    def run(self) -> tuple[Path, str]:
+        """Run generation. Returns (output_path, response_id)."""
         client = OpenAI()
         request = self._build_request()
         log.info(
@@ -119,7 +125,12 @@ class OpenAIGenerator:
         self.output_path.write_bytes(image_bytes)
         log.info("Saved image to %s (%d bytes)", self.output_path, len(image_bytes))
         self._save_sidecar(response)
-        return self.output_path
+        return self.output_path, response.id
+
+
+# ---------------------------------------------------------------------------
+# Helpers
+# ---------------------------------------------------------------------------
 
 
 def _load_previous_response_id(previous: Path) -> str:
@@ -136,41 +147,59 @@ def _load_previous_response_id(previous: Path) -> str:
     return response_id
 
 
+# ---------------------------------------------------------------------------
+# CLI commands
+# ---------------------------------------------------------------------------
+
+
 @app.command()
 def ls() -> None:
     """List models that support image generation."""
-    typer.echo("Text models (--model):")
+    typer.echo("Text models (--model with --previous):")
     for m in TEXT_MODELS:
         typer.echo(f"  {m}")
     typer.echo("")
-    typer.echo("Image models (--image-model):")
+    typer.echo("Image models (--model):")
     for m in IMAGE_MODELS:
         typer.echo(f"  {m}")
 
 
 @app.command()
 def create(
-    prompt: list[str] = typer.Argument(..., help="Text prompt fragments (joined by newlines)"),
-    output: Path = typer.Option(..., "--output", "-o", help="Output file path"),
-    attach: Optional[list[Path]] = typer.Option(
-        None, "--attach", "-a", help="Attachments (images or text files)"
+    prompt: list[str] = typer.Argument(
+        ..., help="Text prompt fragments (joined by newlines)"
     ),
-    model: str = typer.Option("gpt-5", "--model", help="Text model"),
+    output: Path = typer.Option(
+        ..., "--output", "-o", help="Output file path"
+    ),
+    attach: Optional[list[Path]] = typer.Option(
+        None, "--attach", "-a",
+        help="Attachments (images or text files)",
+    ),
+    model: str = typer.Option(
+        "gpt-5", "--model", help="Text model"
+    ),
     image_model: Optional[str] = typer.Option(
-        None, "--image-model", help="Image model (e.g. gpt-image-1.5)"
+        None, "--image-model",
+        help="Image model (e.g. gpt-image-1.5)",
     ),
     size: str = typer.Option("auto", "--size", help="Image size"),
-    quality: str = typer.Option("auto", "--quality", help="Quality: low / medium / high / auto"),
+    quality: str = typer.Option(
+        "auto", "--quality",
+        help="Quality: low / medium / high / auto",
+    ),
     background: str = typer.Option(
-        "auto", "--background", help="Background: transparent / opaque / auto"
+        "auto", "--background",
+        help="Background: transparent / opaque / auto",
     ),
     previous: Optional[Path] = typer.Option(
-        None, "--previous", help="Previous image path for multi-turn editing"
+        None, "--previous",
+        help="Previous image for multi-turn editing",
     ),
 ) -> None:
-    """Generate an image using the OpenAI Responses API."""
+    """Generate an image via the Responses API."""
     text_parts = list(prompt)
-    image_attachments = []
+    image_attachments: list[Attachment] = []
 
     for path in attach or []:
         att = load_attachment(path)
@@ -179,13 +208,18 @@ def create(
         else:
             text_parts.append(att.data)
 
-    previous_response_id = None
+    full_prompt = "\n".join(text_parts)
+
+    previous_response_id: str | None = None
     if previous:
         previous_response_id = _load_previous_response_id(previous)
-        log.info("Continuing from previous response: %s", previous_response_id)
+        log.info(
+            "Continuing from previous response: %s",
+            previous_response_id,
+        )
 
-    gen = OpenAIGenerator(
-        prompt="\n".join(text_parts),
+    gen = OpenAIResponses(
+        prompt=full_prompt,
         output_path=output,
         model=model,
         image_model=image_model,
@@ -195,5 +229,6 @@ def create(
         image_attachments=image_attachments,
         previous_response_id=previous_response_id,
     )
-    result = gen.run()
-    typer.echo(result)
+    result_path, response_id = gen.run()
+    typer.echo(result_path)
+    typer.echo(f"response_id: {response_id}", err=True)
