@@ -45,3 +45,6 @@ g() {
             ;;
     esac
 }
+
+# img: imagegen shorthand
+alias img='imagegen'
