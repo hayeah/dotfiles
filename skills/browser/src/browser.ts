@@ -2,16 +2,21 @@ import puppeteer, { type Browser as PuppeteerBrowser, type Page } from "puppetee
 import { execSync, spawn } from "node:child_process";
 import { homedir } from "node:os";
 
-const CDP_URL = "http://localhost:9222";
+const DEFAULT_PORT = 9222;
 const CONNECT_TIMEOUT = 5000;
 const CACHE_DIR = `${homedir()}/.cache/browser-tools`;
+
+function cdpURL(): string {
+	const port = process.env.BROWSER_CDP_PORT || DEFAULT_PORT;
+	return `http://localhost:${port}`;
+}
 
 export class Browser {
 	private browser: PuppeteerBrowser | null = null;
 
 	async connect(): Promise<this> {
 		this.browser = await Promise.race([
-			puppeteer.connect({ browserURL: CDP_URL, defaultViewport: null }),
+			puppeteer.connect({ browserURL: cdpURL(), defaultViewport: null }),
 			new Promise<never>((_, reject) =>
 				setTimeout(() => reject(new Error("timeout connecting to Chrome")), CONNECT_TIMEOUT),
 			),
@@ -42,7 +47,7 @@ export class Browser {
 	static async startChrome(opts: { profile?: boolean } = {}): Promise<void> {
 		// Check if already running
 		try {
-			const b = await puppeteer.connect({ browserURL: CDP_URL, defaultViewport: null });
+			const b = await puppeteer.connect({ browserURL: cdpURL(), defaultViewport: null });
 			await b.disconnect();
 			console.log("✓ Chrome already running on :9222");
 			return;
@@ -89,7 +94,7 @@ export class Browser {
 		// Wait for Chrome to be ready
 		for (let i = 0; i < 30; i++) {
 			try {
-				const b = await puppeteer.connect({ browserURL: CDP_URL, defaultViewport: null });
+				const b = await puppeteer.connect({ browserURL: cdpURL(), defaultViewport: null });
 				await b.disconnect();
 				console.log(`✓ Chrome started on :9222${opts.profile ? " with your profile" : ""}`);
 				return;

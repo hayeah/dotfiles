@@ -73,6 +73,17 @@ pnpm --silent --prefix {baseDir} browser cookies
 
 Display all cookies for the current tab including domain, path, httpOnly, and secure flags.
 
+## Accessibility Tree
+
+```bash
+pnpm --silent --prefix {baseDir} browser accessibility
+pnpm --silent --prefix {baseDir} browser a11y --depth 3
+```
+
+Dump the accessibility tree of the active tab. Returns a compact indented tree with roles, names, values, and key properties. Use `--depth N` to limit tree depth. Use `--include-ignored` to show hidden/ignored nodes.
+
+Prefer this over DOM inspection when you need to understand page structure, find interactive elements, or verify semantic markup. The tree is compact and structured — no need to parse raw HTML.
+
 ## Extract Page Content
 
 ```bash
@@ -93,9 +104,9 @@ Navigate to a URL and extract readable content as markdown. Uses Mozilla Readabi
 
 ## Efficiency Guide
 
-### DOM Inspection Over Screenshots
+### Accessibility Tree Over Screenshots
 
-**Don't** take screenshots to see page state. **Do** parse the DOM directly:
+**Don't** take screenshots to understand page state. **Do** use `browser a11y` first — it gives you the full semantic structure with roles, labels, and interactive elements in a compact tree. Fall back to DOM parsing for detailed markup:
 
 ```javascript
 // Get page structure

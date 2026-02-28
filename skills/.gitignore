@@ -2,3 +2,6 @@
 
 # macOS
 .DS_Store
+
+# External skills (symlinked by dotfiles Makefile.py)
+devport
