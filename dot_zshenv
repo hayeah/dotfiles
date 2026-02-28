@@ -10,3 +10,6 @@ export PATH="$HOME/.local/bin:$PATH"
 # Obsidian vault in iCloud
 export OB_PATH="$HOME/Library/Mobile Documents/iCloud~md~obsidian/Documents"
 
+# godzkilla — clone remote skill sources into ~/github.com/... layout
+export GODZKILLA_PATH="$HOME"
+
