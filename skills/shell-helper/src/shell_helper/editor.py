@@ -5,6 +5,7 @@ from __future__ import annotations
 import os
 import shlex
 import subprocess
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Optional
 
@@ -18,48 +19,49 @@ from .project import resolve
 # Editor shim — dict-based abstraction for zed vs code/cursor
 # ---------------------------------------------------------------------------
 
-EDITORS: dict[str, dict[str, str | None]] = {
-    "zed": {
-        "local": "{editor} {path}",
-        "ssh": "{editor} ssh://{host}{path}",
-    },
-    "code": {
-        "local": "{editor} {path}",
-        "ssh": "{editor} --remote ssh-remote+{host} {path}",
-    },
-    "cursor": {
-        "local": "{editor} {path}",
-        "ssh": "{editor} --remote ssh-remote+{host} {path}",
-    },
-    "vim": {
-        "local": "{editor} {path}",
-        "ssh": None,
-    },
-    "nvim": {
-        "local": "{editor} {path}",
-        "ssh": None,
-    },
+
+@dataclass
+class EditorConfig:
+    local: str
+    ssh: str | None = None
+
+
+EDITORS: dict[str, EditorConfig] = {
+    "zed": EditorConfig(
+        local="{editor} {path}",
+        ssh="{editor} ssh://{host}{path}",
+    ),
+    "code": EditorConfig(
+        local="{editor} {path}",
+        ssh="{editor} --remote ssh-remote+{host} {path}",
+    ),
+    "cursor": EditorConfig(
+        local="{editor} {path}",
+        ssh="{editor} --remote ssh-remote+{host} {path}",
+    ),
+    "vim": EditorConfig(local="{editor} {path}"),
+    "nvim": EditorConfig(local="{editor} {path}"),
 }
 
 DEFAULT_EDITOR = "zed"
 
 
-def resolve_editor(name: str | None = None) -> tuple[str, dict[str, str | None]]:
-    """Return (editor_cmd, patterns) from name, $CODE_EDITOR, or default."""
+def resolve_editor(name: str | None = None) -> tuple[str, EditorConfig]:
+    """Return (editor_cmd, config) from name, $CODE_EDITOR, or default."""
     cmd = name or os.getenv("CODE_EDITOR", DEFAULT_EDITOR)
-    patterns = EDITORS.get(cmd, EDITORS["code"])  # unknown editors use code-style patterns
-    return cmd, patterns
+    config = EDITORS.get(cmd, EDITORS["code"])  # unknown editors use code-style patterns
+    return cmd, config
 
 
-def open_local(editor: str, patterns: dict[str, str | None], path: str) -> None:
+def open_local(editor: str, config: EditorConfig, path: str) -> None:
     """Open editor locally at path."""
-    cmd = patterns["local"].format(editor=editor, path=shlex.quote(path))
+    cmd = config.local.format(editor=editor, path=shlex.quote(path))
     subprocess.run(cmd, shell=True, check=True)
 
 
-def open_ssh(editor: str, patterns: dict[str, str | None], host: str, path: str) -> None:
+def open_ssh(editor: str, config: EditorConfig, host: str, path: str) -> None:
     """Open editor with SSH remote at host:path."""
-    pattern = patterns["ssh"]
+    pattern = config.ssh
     if pattern is None:
         typer.echo(f"{editor} does not support SSH remote opening", err=True)
         raise typer.Exit(1)
@@ -129,28 +131,28 @@ def _default_preview() -> str:
 
 def _open_resolved_local(query: str | None, editor_name: str | None = None) -> None:
     """Resolve query to a local project via fzf/fuzzy match, then open editor."""
-    editor, patterns = resolve_editor(editor_name)
+    editor, config = resolve_editor(editor_name)
     r = resolve(query)
 
     if r.kind == "error":
         typer.echo(r.error, err=True)
         raise typer.Exit(1)
     elif r.kind in ("path", "match"):
-        open_local(editor, patterns, str(r.path))
+        open_local(editor, config, str(r.path))
     elif r.kind in ("picker", "ambiguous"):
         str_projects = [(label, str(path)) for label, path in r.matches]
         fzf_query = query if r.kind == "ambiguous" else None
         result = _fzf_select(str_projects, fzf_query, preview_cmd=_default_preview())
         if result:
             _, path = result
-            open_local(editor, patterns, path)
+            open_local(editor, config, path)
 
 
 def _open_resolved_ssh(
     host: str, query: str | None, editor_name: str | None = None,
 ) -> None:
     """Resolve query to a remote project via SSH + fzf, then open editor."""
-    editor, patterns = resolve_editor(editor_name)
+    editor, config = resolve_editor(editor_name)
     projects = ssh_github_projects(host)
 
     if not projects:
@@ -163,7 +165,7 @@ def _open_resolved_ssh(
             (label, p) for label, p in projects if q_lower in label.lower()
         ]
         if len(matches) == 1:
-            open_ssh(editor, patterns, host, matches[0][1])
+            open_ssh(editor, config, host, matches[0][1])
             return
         elif not matches:
             typer.echo(f"No projects matching '{query}' on {host}", err=True)
@@ -173,7 +175,7 @@ def _open_resolved_ssh(
     result = _fzf_select(projects, query)
     if result:
         _, path = result
-        open_ssh(editor, patterns, host, path)
+        open_ssh(editor, config, host, path)
 
 
 def _print_which(query: str | None) -> None:
