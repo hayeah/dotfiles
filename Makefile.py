@@ -8,9 +8,10 @@ HOME = Path.home()
 
 # Skill sources: local directories containing SKILL.md files
 SKILL_SOURCES = [
-    HOME / "github.com/hayeah/dotfiles/skills",
-    HOME / "github.com/hayeah/devport",
-    HOME / "github.com/hayeah/godzkilla",
+    "github.com/hayeah/dotfiles/skills",
+    "github.com/hayeah/devport",
+    "github.com/hayeah/godzkilla",
+    "github.com/hayeah/pymake",
 ]
 
 # Agent skill directories to sync into
@@ -28,15 +29,17 @@ def chezmoi():
 
 
 @task()
-def sync_skills():
+def sync_skills(dry: bool = False):
     """Sync skills from local repos into agent skill directories via godzkilla."""
+    dests = " ".join(f"--destination {d}" for d in SKILL_DESTS)
     sources = " ".join(f"--source {s}" for s in SKILL_SOURCES)
+    dry_flag = " --dry" if dry else ""
+
     for dest in SKILL_DESTS:
-        # Replace legacy symlink with a real directory
         if dest.is_symlink():
             dest.unlink()
 
-        sh(f"godzkilla sync --destination {dest} {sources}")
+    sh(f"godzkilla sync{dry_flag} {dests} {sources}")
 
 
 @task(inputs=[chezmoi, sync_skills])
