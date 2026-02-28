@@ -5,7 +5,7 @@ description: Saves macOS clipboard contents to files in a .ctrlv/ subdirectory. 
 
 # ctrlv
 
-Saves the macOS clipboard (including iCloud Universal Clipboard) to files in a `.ctrlv/` subdirectory.
+Saves the macOS clipboard to files in a `.ctrlv/` subdirectory.
 
 ## Install
 
@@ -19,7 +19,7 @@ uv tool install -e .
 ctrlv [OUTPUT_PATH]
 ```
 
-`OUTPUT_PATH` defaults to `.` (current directory). Files are always written to `OUTPUT_PATH/.ctrlv/`, named `1.ext`, `2.ext`, etc. The directory is wiped on every run.
+`OUTPUT_PATH` defaults to `~` (home directory). Files are always written to `OUTPUT_PATH/.ctrlv/`, named `1.ext`, `2.ext`, etc. The directory is wiped on every run.
 
 ## Options
 
@@ -27,7 +27,7 @@ ctrlv [OUTPUT_PATH]
 |------|-------------|
 | `-l`, `--list` | Preview clipboard contents without writing |
 | `-a`, `--add` | Append to `.ctrlv/` instead of wiping it first |
-| `-i`, `--icloud` | Write to iCloud Drive (`~/Library/Mobile Documents/com~apple~CloudDocs/ctrlv/`) |
+| `--ssh <host>` | Rsync `.ctrlv/` to the same path on a remote SSH host |
 
 ## Output format
 
@@ -57,7 +57,7 @@ When multiple files are copied (e.g. from Finder), each becomes a separate item.
 ## Examples
 
 ```bash
-# Paste to ./.ctrlv/
+# Paste to ~/.ctrlv/
 ctrlv
 
 # Paste to ~/Desktop/.ctrlv/
@@ -71,9 +71,11 @@ ctrlv -l
 ctrlv --add
 ctrlv -a
 
-# Paste to iCloud Drive (syncs across devices)
-ctrlv --icloud
-ctrlv -i
+# Paste locally and rsync to remote host
+ctrlv --ssh m4mini
+
+# Paste to custom dir and rsync to remote
+ctrlv ~/projects --ssh m4mini
 ```
 
 ## Notes
@@ -81,3 +83,4 @@ ctrlv -i
 - Reads the system pasteboard via `NSPasteboard`, which includes iCloud Universal Clipboard automatically when the Mac is signed into iCloud.
 - Item priority per clipboard slot: file URL > image > text.
 - If the same copy action produces both a file URL and a text representation (e.g. Finder copies), only the file is captured.
+- With `--ssh`, the remote `.ctrlv/` directory is synced with `rsync --delete`, so only the current paste contents remain on the remote.

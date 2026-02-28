@@ -1,8 +1,10 @@
-"""ctrlv - paste iCloud clipboard contents to files."""
+"""ctrlv - paste clipboard contents to files."""
 
 from __future__ import annotations
 
+import subprocess
 from pathlib import Path
+from typing import Optional
 
 import typer
 
@@ -29,15 +31,24 @@ def _print_items(indexed: list[tuple[int, object]]) -> None:
         typer.echo(_item_line(index, item))
 
 
-ICLOUD_DIR = Path.home() / "Library" / "Mobile Documents" / "com~apple~CloudDocs"
+def _rsync_to_ssh(local_ctrlv: Path, host: str) -> None:
+    remote_path = f"{host}:{local_ctrlv}"
+    # Create parent directory on remote
+    parent = str(local_ctrlv.parent)
+    subprocess.run(["ssh", host, f"mkdir -p {parent!r}"], check=True)
+    # Sync local .ctrlv/ to remote, deleting files not present locally
+    subprocess.run(
+        ["rsync", "-a", "--delete", f"{local_ctrlv}/", f"{remote_path}/"],
+        check=True,
+    )
 
 
 @app.command()
 def paste(
-    output_path: Path = typer.Argument(Path("."), help="Directory to write files into (files go to OUTPUT_PATH/.ctrlv/)"),
+    output_path: Path = typer.Argument(Path.home(), help="Directory to write files into (files go to OUTPUT_PATH/.ctrlv/)"),
     dry_run: bool = typer.Option(False, "--list", "-l", help="List items without pasting"),
     append: bool = typer.Option(False, "--add", "-a", help="Append to .ctrlv/ instead of wiping it"),
-    icloud: bool = typer.Option(False, "--icloud", "-i", help="Write to iCloud Drive (ctrlv/ in ~/Library/Mobile Documents/com~apple~CloudDocs/)"),
+    ssh: Optional[str] = typer.Option(None, "--ssh", help="Rsync .ctrlv/ to this SSH host at the same path"),
 ) -> None:
     """Paste clipboard contents to OUTPUT_PATH/.ctrlv/ as 1.ext, 2.ext, ..."""
     setup_logging()
@@ -53,17 +64,14 @@ def paste(
         _print_items(list(enumerate(items, start=1)))
         return
 
-    if icloud:
-        if not ICLOUD_DIR.exists():
-            typer.echo(f"iCloud Drive not found: {ICLOUD_DIR}", err=True)
-            raise typer.Exit(1)
-        output_path = ICLOUD_DIR / "ctrlv"
-    else:
-        output_path = output_path.resolve() / ".ctrlv"
-    writer = ClipboardWriter(dest_dir=output_path)
+    local_ctrlv = output_path.resolve() / ".ctrlv"
+    writer = ClipboardWriter(dest_dir=local_ctrlv)
     result = writer.write_all(items, append=append)
 
     _print_items([(wi.index, wi.item) for wi in result.items])
+
+    if ssh:
+        _rsync_to_ssh(local_ctrlv, ssh)
 
 
 def run() -> None:
