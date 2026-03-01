@@ -48,5 +48,11 @@ _init mise
 # Obsidian vault in iCloud
 export OB_PATH="$HOME/Library/Mobile Documents/iCloud~md~obsidian/Documents"
 
+# iCloud Drive root
+export ICLOUD_ROOT="$HOME/Library/Mobile Documents/com~apple~CloudDocs"
+
+# Manga library in iCloud
+export MANHUAGUI_ROOT="$ICLOUD_ROOT/manga"
+
 # godzkilla — clone remote skill sources into ~/github.com/... layout
 export GODZKILLA_PATH="$HOME"
