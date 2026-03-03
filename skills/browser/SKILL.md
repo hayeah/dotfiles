@@ -14,7 +14,10 @@ Run once before first use:
 ```bash
 cd {baseDir}
 pnpm install
+pnpm link --global
 ```
+
+After linking, the `browser` command is available globally — no need for the `pnpm --silent --prefix {baseDir}` prefix.
 
 ## Start Chrome
 
@@ -25,29 +28,73 @@ pnpm --silent --prefix {baseDir} browser start --profile
 
 Launch Chrome with remote debugging on `:9222`. Use `--profile` to preserve user's authentication state (cookies, logins).
 
+## Sessions
+
+Tabs are managed as sessions, like tmux windows. Each session has a numeric index and a stable CDP target ID. The most recently opened session is the default.
+
+All commands accept `--session <value>` (or `-s <value>`) to target a specific session:
+- By index: `--session 0`, `--session 2`
+- By target ID prefix: `--session 789D`, `--session 89C7`
+
+### List Sessions
+
+```bash
+pnpm --silent --prefix {baseDir} browser list
+```
+
+Output:
+```
+ 0  89C73DF4  https://google.com  Google
+*1  789D1532  https://example.com  Example Domain
+```
+
+The `*` marks the default (latest) session.
+
+### Open New Session
+
+```bash
+pnpm --silent --prefix {baseDir} browser new https://example.com
+```
+
+Open a new tab and navigate to the URL. The new session becomes the default.
+
+### Reload Session
+
+```bash
+pnpm --silent --prefix {baseDir} browser reload
+pnpm --silent --prefix {baseDir} browser reload -s 0
+```
+
+### Close Session
+
+```bash
+pnpm --silent --prefix {baseDir} browser close
+pnpm --silent --prefix {baseDir} browser close -s 0
+```
+
 ## Navigate
 
 ```bash
 pnpm --silent --prefix {baseDir} browser nav https://example.com
-pnpm --silent --prefix {baseDir} browser nav https://example.com --new
-pnpm --silent --prefix {baseDir} browser nav https://example.com --reload
+pnpm --silent --prefix {baseDir} browser nav https://example.com -s 0
 ```
 
-Navigate to URLs. Use `--new` to open in a new tab, `--reload` to force reload.
+Navigate the current (or specified) session to a URL in-place. Use `browser new` to open a new tab instead.
 
 ## Evaluate JavaScript
 
 ```bash
 pnpm --silent --prefix {baseDir} browser eval 'document.title'
-pnpm --silent --prefix {baseDir} browser eval 'document.querySelectorAll("a").length'
+pnpm --silent --prefix {baseDir} browser eval 'document.querySelectorAll("a").length' -s 0
 ```
 
-Execute JavaScript in the active tab. Code runs in async context. Use this to extract data, inspect page state, or perform DOM operations programmatically.
+Execute JavaScript in a session. Code runs in async context. Use this to extract data, inspect page state, or perform DOM operations programmatically.
 
 ## Screenshot
 
 ```bash
 pnpm --silent --prefix {baseDir} browser screenshot
+pnpm --silent --prefix {baseDir} browser screenshot -s 0
 ```
 
 Capture current viewport and return temporary file path. Use this to visually verify UI state.
@@ -69,18 +116,20 @@ Common use cases:
 
 ```bash
 pnpm --silent --prefix {baseDir} browser cookies
+pnpm --silent --prefix {baseDir} browser cookies -s 0
 ```
 
-Display all cookies for the current tab including domain, path, httpOnly, and secure flags.
+Display all cookies for a session including domain, path, httpOnly, and secure flags.
 
 ## Accessibility Tree
 
 ```bash
 pnpm --silent --prefix {baseDir} browser accessibility
 pnpm --silent --prefix {baseDir} browser a11y --depth 3
+pnpm --silent --prefix {baseDir} browser a11y -s 0
 ```
 
-Dump the accessibility tree of the active tab. Returns a compact indented tree with roles, names, values, and key properties. Use `--depth N` to limit tree depth. Use `--include-ignored` to show hidden/ignored nodes.
+Dump the accessibility tree of a session. Returns a compact indented tree with roles, names, values, and key properties. Use `--depth N` to limit tree depth. Use `--include-ignored` to show hidden/ignored nodes.
 
 Prefer this over DOM inspection when you need to understand page structure, find interactive elements, or verify semantic markup. The tree is compact and structured — no need to parse raw HTML.
 

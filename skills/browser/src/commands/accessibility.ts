@@ -1,5 +1,5 @@
 import type { CommandModule } from "yargs";
-import { Browser } from "../browser.js";
+import { Browser, sessionOption } from "../browser.js";
 
 interface AXNode {
 	nodeId: string;
@@ -16,6 +16,7 @@ interface AXNode {
 interface Args {
 	depth?: number;
 	"include-ignored"?: boolean;
+	session?: string;
 }
 
 function formatTree(nodes: AXNode[], maxDepth: number, includeIgnored: boolean): string {
@@ -86,7 +87,7 @@ function formatTree(nodes: AXNode[], maxDepth: number, includeIgnored: boolean):
 export const accessibilityCommand: CommandModule<{}, Args> = {
 	command: "accessibility",
 	aliases: ["a11y"],
-	describe: "Dump the accessibility tree of the active tab",
+	describe: "Dump the accessibility tree of a session",
 	builder: {
 		depth: {
 			type: "number",
@@ -98,11 +99,12 @@ export const accessibilityCommand: CommandModule<{}, Args> = {
 			describe: "Include ignored/hidden nodes",
 			default: false,
 		},
+		...sessionOption,
 	},
 	handler: async (argv) => {
 		const browser = await new Browser().connect();
 		try {
-			const page = await browser.activePage();
+			const page = await browser.resolvePage(argv.session);
 			const client = await page.createCDPSession();
 			const { nodes } = (await client.send("Accessibility.getFullAXTree" as any)) as {
 				nodes: AXNode[];

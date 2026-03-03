@@ -2,27 +2,22 @@ import type { CommandModule } from "yargs";
 import { Browser, sessionOption } from "../browser.js";
 
 interface Args {
-	url: string;
 	session?: string;
 }
 
-export const navCommand: CommandModule<{}, Args> = {
-	command: "nav <url>",
-	describe: "Navigate a session to a URL",
+export const closeCommand: CommandModule<{}, Args> = {
+	command: "close",
+	describe: "Close a session",
 	builder: {
-		url: {
-			type: "string",
-			describe: "URL to navigate to",
-			demandOption: true,
-		},
 		...sessionOption,
 	},
 	handler: async (argv) => {
 		const browser = await new Browser().connect();
 		try {
 			const page = await browser.resolvePage(argv.session);
-			await page.goto(argv.url, { waitUntil: "domcontentloaded" });
-			console.log("✓ Navigated to:", argv.url);
+			const url = page.url();
+			await page.close();
+			console.log("✓ Closed:", url);
 		} finally {
 			await browser.disconnect();
 		}

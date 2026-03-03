@@ -1,8 +1,9 @@
 import type { CommandModule } from "yargs";
-import { Browser } from "../browser.js";
+import { Browser, sessionOption } from "../browser.js";
 
 interface Args {
 	message: string;
+	session?: string;
 }
 
 function formatResult(result: unknown): void {
@@ -137,11 +138,12 @@ export const pickCommand: CommandModule<{}, Args> = {
 			describe: "Prompt message shown to the user",
 			demandOption: true,
 		},
+		...sessionOption,
 	},
 	handler: async (argv) => {
 		const browser = await new Browser().connect();
 		try {
-			const page = await browser.activePage();
+			const page = await browser.resolvePage(argv.session);
 			await page.evaluate(PICKER_SCRIPT);
 			const result = await page.evaluate(
 				(msg: string) => (window as any).pick(msg),

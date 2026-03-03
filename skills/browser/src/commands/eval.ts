@@ -1,8 +1,9 @@
 import type { CommandModule } from "yargs";
-import { Browser } from "../browser.js";
+import { Browser, sessionOption } from "../browser.js";
 
 interface Args {
 	code: string;
+	session?: string;
 }
 
 function formatResult(result: unknown): void {
@@ -24,18 +25,19 @@ function formatResult(result: unknown): void {
 
 export const evalCommand: CommandModule<{}, Args> = {
 	command: "eval <code>",
-	describe: "Execute JavaScript in the active tab",
+	describe: "Execute JavaScript in a session",
 	builder: {
 		code: {
 			type: "string",
 			describe: "JavaScript code to evaluate",
 			demandOption: true,
 		},
+		...sessionOption,
 	},
 	handler: async (argv) => {
 		const browser = await new Browser().connect();
 		try {
-			const page = await browser.activePage();
+			const page = await browser.resolvePage(argv.session);
 			const result = await page.evaluate((c: string) => {
 				const AsyncFunction = (async () => {}).constructor as new (...args: string[]) => Function;
 				return new AsyncFunction(`return (${c})`)();

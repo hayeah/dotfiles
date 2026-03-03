@@ -3,6 +3,9 @@
 	"version": "1.0.0",
 	"type": "module",
 	"description": "Chrome DevTools Protocol tools for agent-assisted web automation",
+	"bin": {
+		"browser": "bin/browser.mjs"
+	},
 	"scripts": {
 		"browser": "tsx src/main.ts"
 	},

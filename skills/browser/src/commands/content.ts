@@ -3,10 +3,11 @@ import { Readability } from "@mozilla/readability";
 import { JSDOM } from "jsdom";
 import TurndownService from "turndown";
 import { gfm } from "turndown-plugin-gfm";
-import { Browser } from "../browser.js";
+import { Browser, sessionOption } from "../browser.js";
 
 interface Args {
 	url: string;
+	session?: string;
 }
 
 function htmlToMarkdown(html: string): string {
@@ -35,6 +36,7 @@ export const contentCommand: CommandModule<{}, Args> = {
 			describe: "URL to extract content from",
 			demandOption: true,
 		},
+		...sessionOption,
 	},
 	handler: async (argv) => {
 		const TIMEOUT = 30_000;
@@ -45,7 +47,7 @@ export const contentCommand: CommandModule<{}, Args> = {
 
 		const browser = await new Browser().connect();
 		try {
-			const page = await browser.activePage();
+			const page = await browser.resolvePage(argv.session);
 
 			await Promise.race([
 				page.goto(argv.url, { waitUntil: "networkidle2" }),

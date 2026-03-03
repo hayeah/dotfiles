@@ -11,6 +11,25 @@ function cdpURL(): string {
 	return `http://localhost:${port}`;
 }
 
+function getTargetId(page: Page): string {
+	return (page.target() as any)._targetId as string;
+}
+
+export interface PageInfo {
+	index: number;
+	targetId: string;
+	url: string;
+	title: string;
+}
+
+export const sessionOption = {
+	session: {
+		type: "string" as const,
+		alias: "s" as const,
+		describe: "Target session (index or target ID prefix)",
+	},
+} as const;
+
 export class Browser {
 	private browser: PuppeteerBrowser | null = null;
 
@@ -28,15 +47,71 @@ export class Browser {
 		return this;
 	}
 
-	async activePage(): Promise<Page> {
+	async listPages(): Promise<PageInfo[]> {
 		if (!this.browser) throw new Error("Not connected");
 		const pages = await this.browser.pages();
-		const page = pages.at(-1);
-		if (!page) {
-			console.error("✗ No active tab found");
-			process.exit(1);
+		const result: PageInfo[] = [];
+		for (let i = 0; i < pages.length; i++) {
+			const page = pages[i];
+			result.push({
+				index: i,
+				targetId: getTargetId(page),
+				url: page.url(),
+				title: await page.title(),
+			});
 		}
-		return page;
+		return result;
+	}
+
+	async resolvePage(session?: string): Promise<Page> {
+		if (!this.browser) throw new Error("Not connected");
+		const pages = await this.browser.pages();
+
+		if (!session) {
+			const page = pages.at(-1);
+			if (!page) {
+				console.error("✗ No active tab found");
+				process.exit(1);
+			}
+			return page;
+		}
+
+		if (/^\d+$/.test(session)) {
+			const idx = parseInt(session);
+			if (idx < 0 || idx >= pages.length) {
+				console.error(`✗ Session index ${idx} out of range (0-${pages.length - 1})`);
+				process.exit(1);
+			}
+			return pages[idx];
+		}
+
+		// Target ID prefix match (case-insensitive)
+		const prefix = session.toLowerCase();
+		for (const page of pages) {
+			if (getTargetId(page).toLowerCase().startsWith(prefix)) {
+				return page;
+			}
+		}
+
+		console.error(`✗ No session matching "${session}"`);
+		process.exit(1);
+	}
+
+	async newPage(url: string): Promise<{ page: Page; info: PageInfo }> {
+		if (!this.browser) throw new Error("Not connected");
+		const page = await this.browser.newPage();
+		await page.goto(url, { waitUntil: "domcontentloaded" });
+		const pages = await this.browser.pages();
+		const index = pages.indexOf(page);
+		return {
+			page,
+			info: {
+				index,
+				targetId: getTargetId(page),
+				url: page.url(),
+				title: await page.title(),
+			},
+		};
 	}
 
 	async disconnect(): Promise<void> {
