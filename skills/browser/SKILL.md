@@ -126,7 +126,7 @@ Display all cookies for a session including domain, path, httpOnly, and secure f
 ```bash
 browser network
 browser network --reload --type xhr
-browser network --reload --type xhr --filter api
+browser network --reload --type xhr --filter 'api !analytics'
 browser network -d 30 -s 0
 ```
 
@@ -135,7 +135,7 @@ Capture network requests on a session via CDP Network domain. Listens for the sp
 Options:
 - `--reload` / `-r`: Reload the page after starting capture (ensures you catch all requests from page load)
 - `--duration <seconds>` / `-d`: How long to listen (default: 10)
-- `--filter <string>` / `-f`: Only show URLs containing this substring
+- `--filter <string>` / `-f`: fzf-style filter on URLs. Space-separated tokens are ANDed. Prefix with `!` to negate: `'api !google'` matches URLs containing "api" but not "google"
 - `--type <type>` / `-t`: Filter by resource type: `xhr`, `doc`, `css`, `js`, `img`, `font`, `all` (default: `all`)
 
 Output format:

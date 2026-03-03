@@ -112,8 +112,8 @@ export const networkCommand: CommandModule<{}, Args> = {
 			let entries = [...requests.values()].sort((a, b) => a.timestamp - b.timestamp);
 
 			if (argv.filter) {
-				const pattern = argv.filter.toLowerCase();
-				entries = entries.filter((e) => e.url.toLowerCase().includes(pattern));
+				const matcher = fzfMatcher(argv.filter);
+				entries = entries.filter((e) => matcher(e.url));
 			}
 
 			if (allowedTypes) {
@@ -137,6 +137,24 @@ export const networkCommand: CommandModule<{}, Args> = {
 		}
 	},
 };
+
+function fzfMatcher(pattern: string): (s: string) => boolean {
+	const tokens = pattern.split(/\s+/).filter(Boolean);
+	const must: string[] = [];
+	const mustNot: string[] = [];
+	for (const t of tokens) {
+		if (t.startsWith("!") || t.startsWith("\\!")) {
+			const neg = t.replace(/^\\?!/, "");
+			if (neg) mustNot.push(neg.toLowerCase());
+		} else {
+			must.push(t.toLowerCase());
+		}
+	}
+	return (s: string) => {
+		const lower = s.toLowerCase();
+		return must.every((t) => lower.includes(t)) && mustNot.every((t) => !lower.includes(t));
+	};
+}
 
 function resolveTypeFilter(type: string): Set<string> | null {
 	switch (type) {
