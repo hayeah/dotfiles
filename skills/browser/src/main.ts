@@ -12,6 +12,7 @@ import { listCommand } from "./commands/list.js";
 import { newCommand } from "./commands/new.js";
 import { reloadCommand } from "./commands/reload.js";
 import { closeCommand } from "./commands/close.js";
+import { networkCommand } from "./commands/network.js";
 
 yargs(hideBin(process.argv))
 	.scriptName("browser")
@@ -27,6 +28,7 @@ yargs(hideBin(process.argv))
 	.command(cookiesCommand)
 	.command(contentCommand)
 	.command(accessibilityCommand)
+	.command(networkCommand)
 	.demandCommand(1, "Please specify a command")
 	.strict()
 	.help()

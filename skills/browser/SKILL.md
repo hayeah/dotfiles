@@ -17,13 +17,13 @@ pnpm install
 pnpm link --global
 ```
 
-After linking, the `browser` command is available globally — no need for the `pnpm --silent --prefix {baseDir}` prefix.
+After linking, the `browser` command is available globally.
 
 ## Start Chrome
 
 ```bash
-pnpm --silent --prefix {baseDir} browser start
-pnpm --silent --prefix {baseDir} browser start --profile
+browser start
+browser start --profile
 ```
 
 Launch Chrome with remote debugging on `:9222`. Use `--profile` to preserve user's authentication state (cookies, logins).
@@ -33,13 +33,13 @@ Launch Chrome with remote debugging on `:9222`. Use `--profile` to preserve user
 Tabs are managed as sessions, like tmux windows. Each session has a numeric index and a stable CDP target ID. The most recently opened session is the default.
 
 All commands accept `--session <value>` (or `-s <value>`) to target a specific session:
-- By index: `--session 0`, `--session 2`
-- By target ID prefix: `--session 789D`, `--session 89C7`
+- By index: `-s 0`, `-s 2`
+- By target ID prefix: `-s 789D`, `-s 89C7`
 
 ### List Sessions
 
 ```bash
-pnpm --silent --prefix {baseDir} browser list
+browser list
 ```
 
 Output:
@@ -53,7 +53,7 @@ The `*` marks the default (latest) session.
 ### Open New Session
 
 ```bash
-pnpm --silent --prefix {baseDir} browser new https://example.com
+browser new https://example.com
 ```
 
 Open a new tab and navigate to the URL. The new session becomes the default.
@@ -61,22 +61,22 @@ Open a new tab and navigate to the URL. The new session becomes the default.
 ### Reload Session
 
 ```bash
-pnpm --silent --prefix {baseDir} browser reload
-pnpm --silent --prefix {baseDir} browser reload -s 0
+browser reload
+browser reload -s 0
 ```
 
 ### Close Session
 
 ```bash
-pnpm --silent --prefix {baseDir} browser close
-pnpm --silent --prefix {baseDir} browser close -s 0
+browser close
+browser close -s 0
 ```
 
 ## Navigate
 
 ```bash
-pnpm --silent --prefix {baseDir} browser nav https://example.com
-pnpm --silent --prefix {baseDir} browser nav https://example.com -s 0
+browser nav https://example.com
+browser nav https://example.com -s 0
 ```
 
 Navigate the current (or specified) session to a URL in-place. Use `browser new` to open a new tab instead.
@@ -84,8 +84,8 @@ Navigate the current (or specified) session to a URL in-place. Use `browser new`
 ## Evaluate JavaScript
 
 ```bash
-pnpm --silent --prefix {baseDir} browser eval 'document.title'
-pnpm --silent --prefix {baseDir} browser eval 'document.querySelectorAll("a").length' -s 0
+browser eval 'document.title'
+browser eval 'document.querySelectorAll("a").length' -s 0
 ```
 
 Execute JavaScript in a session. Code runs in async context. Use this to extract data, inspect page state, or perform DOM operations programmatically.
@@ -93,8 +93,8 @@ Execute JavaScript in a session. Code runs in async context. Use this to extract
 ## Screenshot
 
 ```bash
-pnpm --silent --prefix {baseDir} browser screenshot
-pnpm --silent --prefix {baseDir} browser screenshot -s 0
+browser screenshot
+browser screenshot -s 0
 ```
 
 Capture current viewport and return temporary file path. Use this to visually verify UI state.
@@ -102,7 +102,7 @@ Capture current viewport and return temporary file path. Use this to visually ve
 ## Pick Elements
 
 ```bash
-pnpm --silent --prefix {baseDir} browser pick "Click the submit button"
+browser pick "Click the submit button"
 ```
 
 **IMPORTANT**: Use this when the user wants to select specific DOM elements on the page. Launches an interactive picker — the user clicks elements to select them (Cmd/Ctrl+Click for multiple), then presses Enter to confirm. Returns element info including tag, id, class, text, and parent hierarchy.
@@ -115,18 +115,44 @@ Common use cases:
 ## Cookies
 
 ```bash
-pnpm --silent --prefix {baseDir} browser cookies
-pnpm --silent --prefix {baseDir} browser cookies -s 0
+browser cookies
+browser cookies -s 0
 ```
 
 Display all cookies for a session including domain, path, httpOnly, and secure flags.
 
+## Network
+
+```bash
+browser network
+browser network --reload --type xhr
+browser network --reload --type xhr --filter api
+browser network -d 30 -s 0
+```
+
+Capture network requests on a session via CDP Network domain. Listens for the specified duration (default 10s), then prints a summary of all captured requests. Ctrl+C stops early and still prints results.
+
+Options:
+- `--reload` / `-r`: Reload the page after starting capture (ensures you catch all requests from page load)
+- `--duration <seconds>` / `-d`: How long to listen (default: 10)
+- `--filter <string>` / `-f`: Only show URLs containing this substring
+- `--type <type>` / `-t`: Filter by resource type: `xhr`, `doc`, `css`, `js`, `img`, `font`, `all` (default: `all`)
+
+Output format:
+```
+METHOD STATUS MIME                            SIZE  URL
+POST   200    application/json                   -  https://example.com/api/search
+GET    200    text/css                        45KB  https://example.com/styles.css
+```
+
+Use `--type xhr --filter api` to quickly find API endpoints a page is calling.
+
 ## Accessibility Tree
 
 ```bash
-pnpm --silent --prefix {baseDir} browser accessibility
-pnpm --silent --prefix {baseDir} browser a11y --depth 3
-pnpm --silent --prefix {baseDir} browser a11y -s 0
+browser accessibility
+browser a11y --depth 3
+browser a11y -s 0
 ```
 
 Dump the accessibility tree of a session. Returns a compact indented tree with roles, names, values, and key properties. Use `--depth N` to limit tree depth. Use `--include-ignored` to show hidden/ignored nodes.
@@ -136,7 +162,7 @@ Prefer this over DOM inspection when you need to understand page structure, find
 ## Extract Page Content
 
 ```bash
-pnpm --silent --prefix {baseDir} browser content https://example.com
+browser content https://example.com
 ```
 
 Navigate to a URL and extract readable content as markdown. Uses Mozilla Readability for article extraction and Turndown for HTML-to-markdown conversion. Works on JavaScript-rendered pages.
@@ -148,6 +174,7 @@ Navigate to a URL and extract readable content as markdown. Uses Mozilla Readabi
 - When user needs to visually see or interact with a page
 - Debugging authentication or session issues
 - Scraping dynamic content that requires JS execution
+- Discovering API endpoints via network capture
 
 ---
 
@@ -199,7 +226,7 @@ Wrap everything in an IIFE to run multi-statement code:
 If DOM updates after actions, add a small delay:
 
 ```bash
-sleep 0.5 && pnpm --silent --prefix {baseDir} browser eval '...'
+sleep 0.5 && browser eval '...'
 ```
 
 ### Investigate Before Interacting
