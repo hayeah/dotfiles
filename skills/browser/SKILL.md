@@ -91,6 +91,25 @@ browser eval script.js
 
 Execute JavaScript in a session. Pass inline code or a `.js`/`.mjs`/`.ts` file path. Code runs in async context. Use this to extract data, inspect page state, or perform DOM operations programmatically.
 
+## Fetch
+
+```bash
+browser fetch https://api.example.com/data
+browser fetch https://api.example.com/data -o response.json
+browser fetch https://api.example.com/submit -X POST -d '{"query":"test"}' -H 'Content-Type: application/json'
+browser fetch https://api.example.com/page/2 -s 0 -o page2.json
+```
+
+Fetch a URL using the session's browser context (cookies, auth, origin). Runs `fetch()` inside the page, so requests inherit the session's credentials and CORS context. Useful for crawling APIs discovered via `browser network`.
+
+Options:
+- `-X <method>`: HTTP method (default: GET)
+- `-H <header>`: Request header, repeatable (e.g., `-H 'Content-Type: application/json'`)
+- `-d <body>`: Request body
+- `-o <file>`: Write response body to file instead of stdout
+
+Status and content-type are printed to stderr; response body goes to stdout (or file with `-o`).
+
 ## Screenshot
 
 ```bash
