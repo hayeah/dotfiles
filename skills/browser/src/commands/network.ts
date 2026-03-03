@@ -1,4 +1,6 @@
 import type { CommandModule } from "yargs";
+import { mkdirSync, writeFileSync } from "node:fs";
+import { join } from "node:path";
 import { Browser, sessionOption } from "../browser.js";
 
 interface Args {
@@ -7,9 +9,11 @@ interface Args {
 	filter?: string;
 	type?: string;
 	reload?: boolean;
+	dump?: string;
 }
 
 interface RequestEntry {
+	requestId: string;
 	method: string;
 	url: string;
 	resourceType: string;
@@ -24,6 +28,48 @@ function formatSize(bytes: number | undefined): string {
 	if (bytes < 1024) return `${bytes}B`;
 	if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)}KB`;
 	return `${(bytes / (1024 * 1024)).toFixed(1)}MB`;
+}
+
+const MIME_EXTENSIONS: Record<string, string> = {
+	"application/json": ".json",
+	"text/html": ".html",
+	"text/css": ".css",
+	"text/plain": ".txt",
+	"text/xml": ".xml",
+	"text/javascript": ".js",
+	"application/javascript": ".js",
+	"application/x-javascript": ".js",
+	"application/xml": ".xml",
+	"application/pdf": ".pdf",
+	"application/octet-stream": ".bin",
+	"image/png": ".png",
+	"image/jpeg": ".jpg",
+	"image/gif": ".gif",
+	"image/svg+xml": ".svg",
+	"image/webp": ".webp",
+	"image/x-icon": ".ico",
+	"font/woff2": ".woff2",
+	"font/woff": ".woff",
+	"font/ttf": ".ttf",
+};
+
+function extForMime(mime: string | undefined): string {
+	if (!mime) return ".bin";
+	const base = mime.split(";")[0].trim();
+	return MIME_EXTENSIONS[base] ?? `.${base.split("/")[1] ?? "bin"}`;
+}
+
+function slugifyURL(url: string): string {
+	try {
+		const u = new URL(url);
+		let path = u.pathname.replace(/^\//, "").replace(/\//g, "-") || "index";
+		// Strip file extension (will be re-added from mime type)
+		path = path.replace(/\.[^.]+$/, "");
+		// Trim to reasonable length
+		return path.slice(0, 60).replace(/[^a-zA-Z0-9._-]/g, "_");
+	} catch {
+		return "unknown";
+	}
 }
 
 export const networkCommand: CommandModule<{}, Args> = {
@@ -55,6 +101,11 @@ export const networkCommand: CommandModule<{}, Args> = {
 			describe: "Reload the page after starting capture",
 			default: false,
 		},
+		dump: {
+			type: "string",
+			alias: "o",
+			describe: "Directory to dump response bodies into",
+		},
 	},
 	handler: async (argv) => {
 		const browser = await new Browser().connect();
@@ -71,6 +122,7 @@ export const networkCommand: CommandModule<{}, Args> = {
 
 			client.on("Network.requestWillBeSent", (params: any) => {
 				requests.set(params.requestId, {
+					requestId: params.requestId,
 					method: params.request.method,
 					url: params.request.url,
 					resourceType: params.type,
@@ -105,9 +157,6 @@ export const networkCommand: CommandModule<{}, Args> = {
 				process.once("SIGINT", onSigint);
 			});
 
-			await client.send("Network.disable" as any);
-			await client.detach();
-
 			// Filter and sort
 			let entries = [...requests.values()].sort((a, b) => a.timestamp - b.timestamp);
 
@@ -120,10 +169,31 @@ export const networkCommand: CommandModule<{}, Args> = {
 				entries = entries.filter((e) => allowedTypes.has(e.resourceType));
 			}
 
-			if (entries.length === 0) {
-				console.log("No matching requests captured.");
-				return;
+			// Dump response bodies before disabling Network domain
+			if (argv.dump && entries.length > 0) {
+				mkdirSync(argv.dump, { recursive: true });
+				for (let i = 0; i < entries.length; i++) {
+					const e = entries[i];
+					const idx = String(i + 1).padStart(4, "0");
+					const slug = slugifyURL(e.url);
+					const ext = extForMime(e.mimeType);
+					const filename = `${idx}-${e.method}-${slug}${ext}`;
+					try {
+						const { body, base64Encoded } = (await client.send(
+							"Network.getResponseBody" as any,
+							{ requestId: e.requestId },
+						)) as { body: string; base64Encoded: boolean };
+						const data = base64Encoded ? Buffer.from(body, "base64") : body;
+						writeFileSync(join(argv.dump, filename), data);
+					} catch {
+						// Body unavailable (redirects, preflight, etc.)
+					}
+				}
+				console.error(`Dumped to ${argv.dump}/`);
 			}
+
+			await client.send("Network.disable" as any);
+			await client.detach();
 
 			for (const e of entries) {
 				const status = e.status ?? "---";

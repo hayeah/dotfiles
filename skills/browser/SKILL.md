@@ -128,6 +128,7 @@ Display all cookies for a session including domain, path, httpOnly, and secure f
 browser network
 browser network --reload --type xhr
 browser network --reload --type xhr --filter 'api !analytics'
+browser network --reload --type xhr --dump ./responses
 browser network -d 30 -s 0
 ```
 
@@ -138,6 +139,7 @@ Options:
 - `--duration <seconds>` / `-d`: How long to listen (default: 10)
 - `--filter <string>` / `-f`: fzf-style filter on URLs. Space-separated tokens are ANDed. Prefix with `!` to negate: `'api !google'` matches URLs containing "api" but not "google"
 - `--type <type>` / `-t`: Filter by resource type: `xhr`, `doc`, `css`, `js`, `img`, `font`, `all` (default: `all`)
+- `--dump <dir>` / `-o`: Save response bodies to a directory. Files are named by index, method, and URL slug with extensions derived from mime type (e.g., `0001-POST-api-_search.json`)
 
 Output format:
 ```
