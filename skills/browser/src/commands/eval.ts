@@ -1,4 +1,5 @@
 import type { CommandModule } from "yargs";
+import { readFileSync } from "node:fs";
 import { Browser, sessionOption } from "../browser.js";
 
 interface Args {
@@ -25,23 +26,27 @@ function formatResult(result: unknown): void {
 
 export const evalCommand: CommandModule<{}, Args> = {
 	command: "eval <code>",
-	describe: "Execute JavaScript in a session",
+	describe: "Execute JavaScript in a session (inline code or .js/.mjs/.ts file path)",
 	builder: {
 		code: {
 			type: "string",
-			describe: "JavaScript code to evaluate",
+			describe: "JavaScript code or path to a .js/.mjs/.ts file",
 			demandOption: true,
 		},
 		...sessionOption,
 	},
 	handler: async (argv) => {
+		const code = /\.(m?js|ts)$/.test(argv.code)
+			? readFileSync(argv.code, "utf-8")
+			: argv.code;
+
 		const browser = await new Browser().connect();
 		try {
 			const page = await browser.resolvePage(argv.session);
 			const result = await page.evaluate((c: string) => {
 				const AsyncFunction = (async () => {}).constructor as new (...args: string[]) => Function;
 				return new AsyncFunction(`return (${c})`)();
-			}, argv.code);
+			}, code);
 			formatResult(result);
 		} finally {
 			await browser.disconnect();

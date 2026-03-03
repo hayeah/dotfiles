@@ -86,9 +86,10 @@ Navigate the current (or specified) session to a URL in-place. Use `browser new`
 ```bash
 browser eval 'document.title'
 browser eval 'document.querySelectorAll("a").length' -s 0
+browser eval script.js
 ```
 
-Execute JavaScript in a session. Code runs in async context. Use this to extract data, inspect page state, or perform DOM operations programmatically.
+Execute JavaScript in a session. Pass inline code or a `.js`/`.mjs`/`.ts` file path. Code runs in async context. Use this to extract data, inspect page state, or perform DOM operations programmatically.
 
 ## Screenshot
 
