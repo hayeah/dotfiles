@@ -12,7 +12,30 @@ path_add() {
   [[ -d $1 ]] && [[ :$PATH: != *":$1:"* ]] && PATH="$1:$PATH"
 }
 
-source ~/.zsh_inits
+# Timed module loader
+#
+# Modules are loaded by name. _init checks two sources in order:
+#   - Function: if _init_<name> is defined, call it
+#   - File:     if ~/.zsh_inits/<name> exists, source it
+#   - Otherwise print an error
+#
+# Timing is printed to stderr in interactive shells.
+#
+# To add a new module, create ~/.zsh_inits/<name> (or define _init_<name>).
+_init() {
+  local name=$1
+  local start=$EPOCHREALTIME
+  if (( $+functions[_init_$name] )); then
+    _init_$name
+  elif [[ -f ~/.zsh_inits/$name ]]; then
+    source ~/.zsh_inits/$name
+  else
+    printf '_init: unknown module "%s"\n' "$name" >&2
+    return 1
+  fi
+  local elapsed=$(( (EPOCHREALTIME - start) * 1000 ))
+  [[ -o interactive ]] && printf '  %-20s %5.0fms\n' "$name" "$elapsed" >&2
+}
 
 # mise binary lives here — must be in PATH before mise activate
 path_add "$HOME/.local/bin"

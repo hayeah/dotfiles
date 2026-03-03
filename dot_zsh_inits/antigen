@@ -1,0 +1,8 @@
+source ~/.antigen.zsh
+antigen use oh-my-zsh
+antigen bundle git
+antigen bundle zsh-users/zsh-autosuggestions
+# antigen bundle fzf
+antigen bundle Aloxaf/fzf-tab
+antigen theme romkatv/powerlevel10k
+antigen apply
