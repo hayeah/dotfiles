@@ -1,6 +1,7 @@
 import puppeteer, { type Browser as PuppeteerBrowser, type Page } from "puppeteer-core";
 import { execSync, spawn } from "node:child_process";
 import { homedir } from "node:os";
+import { resolve } from "node:path";
 
 const DEFAULT_PORT = 9222;
 const CONNECT_TIMEOUT = 5000;
@@ -22,6 +23,12 @@ export interface PageInfo {
 	title: string;
 }
 
+/** Resolve a path against the caller's original cwd (before bin/browser.mjs changed it). */
+export function callerResolve(p: string): string {
+	const base = process.env.BROWSER_CALLER_CWD || process.cwd();
+	return resolve(base, p);
+}
+
 export const sessionOption = {
 	session: {
 		type: "string" as const,
@@ -35,7 +42,7 @@ export class Browser {
 
 	async connect(): Promise<this> {
 		this.browser = await Promise.race([
-			puppeteer.connect({ browserURL: cdpURL(), defaultViewport: null }),
+			puppeteer.connect({ browserURL: cdpURL(), defaultViewport: null, protocolTimeout: 0 }),
 			new Promise<never>((_, reject) =>
 				setTimeout(() => reject(new Error("timeout connecting to Chrome")), CONNECT_TIMEOUT),
 			),
@@ -61,6 +68,11 @@ export class Browser {
 			});
 		}
 		return result;
+	}
+
+	async allPages(): Promise<Page[]> {
+		if (!this.browser) throw new Error("Not connected");
+		return this.browser.pages();
 	}
 
 	async resolvePage(session?: string): Promise<Page> {

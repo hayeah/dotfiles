@@ -70,7 +70,10 @@ browser reload -s 0
 ```bash
 browser close
 browser close -s 0
+browser close --all
 ```
+
+Use `--all` to close every open session.
 
 ## Navigate
 

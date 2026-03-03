@@ -1,7 +1,7 @@
 import type { CommandModule } from "yargs";
 import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { Browser, sessionOption } from "../browser.js";
+import { Browser, callerResolve, sessionOption } from "../browser.js";
 
 interface Args {
 	session?: string;
@@ -171,7 +171,8 @@ export const networkCommand: CommandModule<{}, Args> = {
 
 			// Dump response bodies before disabling Network domain
 			if (argv.dump && entries.length > 0) {
-				mkdirSync(argv.dump, { recursive: true });
+				const dumpDir = callerResolve(argv.dump);
+				mkdirSync(dumpDir, { recursive: true });
 				for (let i = 0; i < entries.length; i++) {
 					const e = entries[i];
 					const idx = String(i + 1).padStart(4, "0");
@@ -184,12 +185,12 @@ export const networkCommand: CommandModule<{}, Args> = {
 							{ requestId: e.requestId },
 						)) as { body: string; base64Encoded: boolean };
 						const data = base64Encoded ? Buffer.from(body, "base64") : body;
-						writeFileSync(join(argv.dump, filename), data);
+						writeFileSync(join(dumpDir, filename), data);
 					} catch {
 						// Body unavailable (redirects, preflight, etc.)
 					}
 				}
-				console.error(`Dumped to ${argv.dump}/`);
+				console.error(`Dumped to ${dumpDir}/`);
 			}
 
 			await client.send("Network.disable" as any);

@@ -11,6 +11,7 @@ try {
 	execFileSync("npx", ["tsx", join(baseDir, "src/main.ts"), ...args], {
 		stdio: "inherit",
 		cwd: baseDir,
+		env: { ...process.env, BROWSER_CALLER_CWD: process.cwd() },
 	});
 } catch (e) {
 	process.exit(e.status ?? 1);
