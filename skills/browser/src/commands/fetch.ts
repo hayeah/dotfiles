@@ -84,6 +84,8 @@ export const fetchCommand: CommandModule<{}, Args> = {
 		let writeStream: WriteStream | null = null;
 		let totalBytes = 0;
 		let totalSize: number | null = null;
+		let lastProgressAt = 0;
+		const PROGRESS_INTERVAL = 5000;
 
 		const browser = await new Browser().connect();
 		try {
@@ -105,11 +107,15 @@ export const fetchCommand: CommandModule<{}, Args> = {
 				} else if (!outPath) {
 					process.stdout.write(buf);
 				}
-				if (totalSize) {
-					const pct = ((totalBytes / totalSize) * 100).toFixed(1);
-					process.stderr.write(`\r  ${formatBytes(totalBytes)} / ${formatBytes(totalSize)} (${pct}%)`);
-				} else {
-					process.stderr.write(`\r  ${formatBytes(totalBytes)}`);
+				const now = Date.now();
+				if (now - lastProgressAt >= PROGRESS_INTERVAL) {
+					lastProgressAt = now;
+					if (totalSize) {
+						const pct = ((totalBytes / totalSize) * 100).toFixed(1);
+						process.stderr.write(`  ${formatBytes(totalBytes)} / ${formatBytes(totalSize)} (${pct}%)\n`);
+					} else {
+						process.stderr.write(`  ${formatBytes(totalBytes)}\n`);
+					}
 				}
 			});
 
@@ -142,10 +148,14 @@ export const fetchCommand: CommandModule<{}, Args> = {
 				}
 			}, { ...fetchOpts, url: argv.url });
 
-			process.stderr.write("\n");
 			if (writeStream) {
 				await new Promise<void>((resolve) => writeStream!.end(resolve));
-				process.stderr.write(`Written to ${outPath}\n`);
+				process.stderr.write(`  ${formatBytes(totalBytes)} written to ${outPath}\n`);
+			} else if (outPath) {
+				// output was specified but no data received
+				process.stderr.write(`  0B written to ${outPath}\n`);
+			} else {
+				process.stderr.write(`  ${formatBytes(totalBytes)} total\n`);
 			}
 		} finally {
 			await browser.disconnect();
