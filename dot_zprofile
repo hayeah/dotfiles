@@ -1,14 +1,4 @@
-# Homebrew
-if [[ -x /opt/homebrew/bin/brew ]]; then
-  eval "$(/opt/homebrew/bin/brew shellenv)"
-fi
-
-# helper to prepend if directory exists and isn't already in the path
-path_add() {
-  [[ -d $1 ]] && [[ :$PATH: != *":$1:"* ]] && PATH="$1:$PATH"
-}
-
-eval "$(mise activate zsh)"
+# Login shell only — runs after .zshenv, before .zshrc
 
 # Web3 / crypto tooling
 path_add "$HOME/.local/share/solana/install/active_release/bin"

@@ -1,15 +1,27 @@
 # Sourced for every zsh session (interactive, non-interactive, login, non-login).
-# Keep minimal — only things needed by scripts and non-interactive shells (e.g. mosh).
 
-# Homebrew — needed so tools like mosh-server can be found in non-login shells
-export PATH="/opt/homebrew/bin:/opt/homebrew/sbin:$PATH"
+# Snapshot pristine PATH for zsh_reload
+if [[ -z "$_ORIGINAL_PATH" ]]; then
+  export _ORIGINAL_PATH="$PATH"
+fi
 
-# mise — must be in PATH before .zprofile runs `mise activate`
-export PATH="$HOME/.local/bin:$PATH"
+zmodload zsh/datetime
+
+# Prepend to PATH if directory exists and isn't already present
+path_add() {
+  [[ -d $1 ]] && [[ :$PATH: != *":$1:"* ]] && PATH="$1:$PATH"
+}
+
+source ~/.zsh_inits
+
+# mise binary lives here — must be in PATH before mise activate
+path_add "$HOME/.local/bin"
+
+_init homebrew
+_init mise
 
 # Obsidian vault in iCloud
 export OB_PATH="$HOME/Library/Mobile Documents/iCloud~md~obsidian/Documents"
 
 # godzkilla — clone remote skill sources into ~/github.com/... layout
 export GODZKILLA_PATH="$HOME"
-
