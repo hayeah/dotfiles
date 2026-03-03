@@ -8,11 +8,9 @@ local ret_status="%(?:%{$fg_bold[green]%}λ :%{$fg_bold[red]%}λ %s)"
 PROMPT='${ret_status}%{$fg_bold[green]%}%p %{$fg[cyan]%}${PWD/#$HOME/~} %{$fg_bold[blue]%}$(git_prompt_info)%{$fg_bold[blue]%} % %{$reset_color%}
 '
 
-# bun completions
-[ -s "$HOME/.bun/_bun" ] && source "$HOME/.bun/_bun"
+_init bun
 
-# OrbStack CLI integration
-source ~/.orbstack/shell/init.zsh 2>/dev/null || :
+_init orbstack
 
 # shell-helper
 [ -f ~/.local/share/chezmoi/skills/shell-helper/helpers.sh ] && source ~/.local/share/chezmoi/skills/shell-helper/helpers.sh
