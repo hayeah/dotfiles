@@ -1,5 +1,7 @@
 # Sourced for every zsh session (interactive, non-interactive, login, non-login).
 
+ZSH_INIT_PROFILE=0
+
 # Snapshot pristine PATH for zsh_reload
 if [[ -z "$_ORIGINAL_PATH" ]]; then
   export _ORIGINAL_PATH="$PATH"
@@ -19,7 +21,7 @@ path_add() {
 #   - File:     if ~/.zsh_inits/<name> exists, source it
 #   - Otherwise print an error
 #
-# Timing is printed to stderr in interactive shells.
+# Set ZSH_INIT_PROFILE=1 to print timing to stderr.
 #
 # To add a new module, create ~/.zsh_inits/<name> (or define _init_<name>).
 _init() {
@@ -34,7 +36,7 @@ _init() {
     return 1
   fi
   local elapsed=$(( (EPOCHREALTIME - start) * 1000 ))
-  [[ -o interactive ]] && printf '  %-20s %5.0fms\n' "$name" "$elapsed" >&2
+  [[ "$ZSH_INIT_PROFILE" == "1" && -o interactive ]] && printf '  %-20s %5.0fms\n' "$name" "$elapsed" >&2
 }
 
 # mise binary lives here — must be in PATH before mise activate
