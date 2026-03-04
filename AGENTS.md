@@ -1,4 +1,3 @@
-
 ## Dotfiles
 
 - Use chezmoi to manage dotfiles.

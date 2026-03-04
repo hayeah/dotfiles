@@ -20,6 +20,7 @@ zoxide = "0.9.6"
 neovim = "stable"
 node = "lts"
 pnpm = "latest"
+cloudflared = "latest"
 
 [settings]
 idiomatic_version_file_enable_tools = ["node"]
