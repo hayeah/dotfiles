@@ -44,8 +44,13 @@ def parse_env_files(filepaths: list[Path]) -> list[EnvVar]:
     Returns a list of EnvVar entries sorted by (filepath, name),
     showing which file each variable is resolved from.
     """
+    import sys
+
     resolved: dict[str, EnvVar] = {}
     for filepath in filepaths:
+        if not filepath.is_file():
+            print(f"dotenv-ls: skipping {filepath} (not found)", file=sys.stderr)
+            continue
         for entry in parse_env_file(filepath):
             resolved[entry.name] = entry
 
