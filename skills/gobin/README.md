@@ -83,9 +83,25 @@ exec go run -tags integration /abs/path/to/pkg "$@"
   repos/    ← cloned repos (default; see GOBIN_REPOS / GITHUB_REPOS)
 ```
 
+## Clone behavior
+
+Remote GitHub paths are cloned via `git-quick-clone` (treeless partial clone by default). Use `--full` for a complete clone.
+
+Clone root resolution (first set wins):
+
+| Priority | Source | Example result |
+|----------|--------|----------------|
+| 1 | `$GOBIN_REPOS` | `$GOBIN_REPOS/github.com/user/repo` |
+| 2 | `$GITHUB_REPOS` | `$GITHUB_REPOS/github.com/user/repo` |
+| 3 | default | `~/.gobin/repos/github.com/user/repo` |
+
+Set `GITHUB_REPOS=~` to reuse your normal dev layout (`~/github.com/user/repo`).
+
+If the repo already exists locally, it is reused as-is — no re-clone or pull.
+
 ## Quirks
 
-- `gobin ls` only shows shims that contain the `# gobin:` comment. Plain shell scripts in `~/.gobin/shims/` that were not created by gobin are silently ignored.
+- `gobin ls` only shows shims that contain the `# gobin:` comment. Plain shell scripts in `~/.gobin/shims/` not created by gobin are silently ignored.
 - The binary name defaults to the **last path segment** of the package path (same as `go install`). Use `--name` to override.
-- gobin never updates or pulls an existing clone. To get the latest code, `cd` into the repo and `git pull` yourself.
+- gobin never updates an existing clone. To get the latest code, `cd` into the repo and `git pull` yourself.
 - Shim paths embed the absolute local path at install time. If you move the repo, reinstall the shim.

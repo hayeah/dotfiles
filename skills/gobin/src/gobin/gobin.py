@@ -42,16 +42,14 @@ class GobinManager:
         self.repos_root.mkdir(parents=True, exist_ok=True)
 
     def _clone_github_repo(self, user: str, repo: str, full: bool = False) -> Path:
-        """Clone user/repo if not already present. Treeless by default, full with full=True."""
+        """Clone user/repo if not already present using git-quick-clone."""
         local = self.repos_root / "github.com" / user / repo
         if local.exists():
             return local
-        url = f"https://github.com/{user}/{repo}"
-        typer.echo(f"Cloning {url} ...", err=True)
-        cmd = ["git", "clone"]
-        if not full:
-            cmd += ["--filter=tree:0"]
-        cmd += [url, str(local)]
+        typer.echo(f"Cloning github.com/{user}/{repo} ...", err=True)
+        cmd = ["git-quick-clone", f"{user}/{repo}", str(local)]
+        if full:
+            cmd.append("--full")
         subprocess.run(cmd, check=True)
         return local
 
