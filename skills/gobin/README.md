@@ -1,11 +1,11 @@
 ---
 name: gobin
-description: Install a Go package as an editable binary (like `uv tool install -e`) using a `go run` shim — works with local paths or remote GitHub repos.
+description: Install a Go package as an editable binary (like `uv tool install -e`) using a `go build` shim — works with local paths or remote GitHub repos.
 ---
 
 # gobin
 
-`gobin` is for the **"I want to hack on this"** workflow. Every install creates a `go run` shim — never a compiled binary. The source is always live; edit it and the next run picks up your changes.
+`gobin` is for the **"I want to hack on this"** workflow. Every install creates a `go build` shim that rebuilds from source on each run. Edit the source and the next run picks up your changes.
 
 Binaries are installed to `~/.gobin/shims`.
 
@@ -21,7 +21,7 @@ uv tool install -e .
 
 ### `gobin install <path-or-url>`
 
-Creates a `go run` shim. Reinstalling an existing name overwrites the shim.
+Creates a `go build` shim. Reinstalling an existing name overwrites the shim.
 
 ```sh
 # Install from a local package directory
@@ -39,7 +39,7 @@ gobin install github.com/hayeah/foopkg
 # Override the binary name
 gobin install github.com/hayeah/foopkg/cli/foocmd --name foo
 
-# Pass build flags to go run (everything after -- is forwarded)
+# Pass build flags to go build (everything after -- is forwarded)
 gobin install github.com/hayeah/foopkg/cli/foocmd -- -tags integration
 
 # Full clone instead of treeless partial clone (needed for git history or worktrees)
@@ -55,27 +55,6 @@ gobin ls
 # foocmd  github.com/hayeah/foopkg/cli/foocmd
 # bar     /Users/me/projects/bar/cmd/bar
 ```
-
-## Shim format
-
-Each shim is a self-describing shell script that builds the binary on every run:
-
-```sh
-#!/bin/sh
-# gobin: github.com/hayeah/foopkg/cli/foocmd
-#
-# Always builds from source before running.
-# Set GOBIN_CACHE=1 (or any non-empty value) to skip the build and use the
-# cached binary at ~/.gobin/bins/<name> if it already exists.
-if [ -z "$GOBIN_CACHE" ] || [ ! -x "$HOME/.gobin/bins/foocmd" ]; then
-  (cd /Users/me/.gobin/repos/github.com/hayeah/foopkg && go build -o "$HOME/.gobin/bins/foocmd" ./cli/foocmd) || exit 1
-fi
-exec "$HOME/.gobin/bins/foocmd" "$@"
-```
-
-- Line 2: `# gobin: <original pkg path>` — used by `gobin ls` and human inspection
-- Build runs in a subshell so the caller's cwd is unchanged
-- The compiled binary lands in `~/.gobin/bins/`
 
 ## GOBIN_CACHE
 
