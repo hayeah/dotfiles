@@ -55,6 +55,10 @@ godotenv -f ~/.env.secret gosay "one sentence description of what was done"
 - For Python, use `uv` to install packages and run CLI tools.
 - For npm/TypeScript, use `bunx` to install packages and run CLI tools.
   - Fall back to pnpm if bunx doesn't work.
+- If working with a CLI tool that we have a repo for, prefer installing in editable mode so that source changes take effect immediately.
+  - Go CLI: `gobin install .` (use the `gobin` skill)
+  - Python CLI: `uv tool install -e .`
+  - TypeScript CLI: `pnpm link`
 
 ## General Code Style
 
