@@ -42,10 +42,8 @@ class GobinManager:
         self.repos_root.mkdir(parents=True, exist_ok=True)
 
     def _clone_github_repo(self, user: str, repo: str, full: bool = False) -> Path:
-        """Clone user/repo if not already present using git-quick-clone."""
+        """Clone user/repo using git-quick-clone (idempotent)."""
         local = self.repos_root / "github.com" / user / repo
-        if (local / ".git").is_dir():
-            return local
         typer.echo(f"Cloning github.com/{user}/{repo} ...", err=True)
         cmd = ["git-quick-clone", f"{user}/{repo}", str(local)]
         if full:
