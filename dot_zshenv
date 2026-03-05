@@ -56,3 +56,7 @@ export MANHUAGUI_ROOT="$ICLOUD_ROOT/manga"
 
 # godzkilla — clone remote skill sources into ~/github.com/... layout
 export GODZKILLA_PATH="$HOME"
+
+# gobin — go run shim manager
+export GITHUB_REPOS="$HOME"
+path_add "$HOME/.gobin/shims"
