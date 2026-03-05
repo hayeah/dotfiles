@@ -88,6 +88,14 @@ class JsonMixin:
         return json.dumps(self.to_dict(), **json_kwargs)
 ```
 
+## HTTP Client
+
+If an efficient HTTP client is called for (e.g. downloading many files), prefer `httpx[http2]` — async HTTP client with HTTP/2 multiplexing.
+
+```
+uv add "httpx[http2]"
+```
+
 ## Terminal Output
 
 Use `rich` if rich terminal output is called for:
