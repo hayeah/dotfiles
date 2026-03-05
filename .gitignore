@@ -1,3 +1,5 @@
 notes/
 .ctrlv
 skills/.system/
+__pycache__/
+*.pyc
