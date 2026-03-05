@@ -58,28 +58,42 @@ gobin ls
 
 ## Shim format
 
-Each shim is a self-describing shell script:
+Each shim is a self-describing shell script that builds the binary on every run:
 
 ```sh
 #!/bin/sh
 # gobin: github.com/hayeah/foopkg/cli/foocmd
-exec go run /Users/me/.gobin/repos/github.com/hayeah/foopkg/cli/foocmd "$@"
+#
+# Always builds from source before running.
+# Set GOBIN_CACHE=1 (or any non-empty value) to skip the build and use the
+# cached binary at ~/.gobin/bins/<name> if it already exists.
+if [ -z "$GOBIN_CACHE" ] || [ ! -x "$HOME/.gobin/bins/foocmd" ]; then
+  (cd /Users/me/.gobin/repos/github.com/hayeah/foopkg && go build -o "$HOME/.gobin/bins/foocmd" ./cli/foocmd) || exit 1
+fi
+exec "$HOME/.gobin/bins/foocmd" "$@"
 ```
 
 - Line 2: `# gobin: <original pkg path>` — used by `gobin ls` and human inspection
-- Line 3: absolute local path so `go run` finds the right `go.mod` without changing cwd
+- Build runs in a subshell so the caller's cwd is unchanged
+- The compiled binary lands in `~/.gobin/bins/`
 
-Build flags sit between the package path and `"$@"`:
+## GOBIN_CACHE
+
+By default every shim invocation rebuilds from source. Set `GOBIN_CACHE` to any non-empty value to skip the build and reuse the cached binary:
 
 ```sh
-exec go run -tags integration /abs/path/to/pkg "$@"
+GOBIN_CACHE=1 foocmd --help   # fast: skips go build
+foocmd --help                  # slow: rebuilds first
 ```
+
+If the cached binary does not exist yet, the build runs regardless of `GOBIN_CACHE`.
 
 ## Directory layout
 
 ```
 ~/.gobin/
   shims/    ← add this to PATH
+  bins/     ← compiled binaries (written by shims)
   repos/    ← cloned repos (default; see GOBIN_REPOS / GITHUB_REPOS)
 ```
 
