@@ -17,6 +17,7 @@ from .tunnel import (
     devport_restart_cloudflared,
     devport_rm_cloudflared,
     devport_start_cloudflared,
+    devport_start_service,
     resolve_account_id,
 )
 
@@ -65,6 +66,44 @@ def setup() -> None:
     token = mgr.token()
     devport_start_cloudflared(token)
     typer.echo("cloudflared is running via devport.")
+
+
+@app.command("start", context_settings={"allow_extra_args": True, "allow_interspersed_args": False})
+def start_service(
+    ctx: typer.Context,
+    fqdn: str = typer.Argument(help="FQDN to map (also used as devport key)"),
+) -> None:
+    """Start a service via devport and map FQDN to it.
+
+    Usage: cloudflare-tunnel start <fqdn> -- <cmd> [args...]
+    """
+    if not ctx.args:
+        typer.echo("Missing command after '--'. Usage: cloudflare-tunnel start <fqdn> -- <cmd>")
+        raise typer.Exit(1)
+
+    cfg = TunnelConfig.load_or_die()
+    client = create_client()
+    mgr = TunnelManager(client, cfg)
+
+    # Start the service via devport (uses fqdn as key)
+    port = devport_start_service(fqdn, ctx.args)
+    typer.echo(f"Service started on port {port}")
+
+    # Set up ingress + DNS
+    service = f"http://localhost:{port}"
+    rules = mgr.ingress_rules()
+    updated = False
+    for r in rules:
+        if r["hostname"] == fqdn:
+            r["service"] = service
+            updated = True
+            break
+    if not updated:
+        rules.append({"hostname": fqdn, "service": service})
+    mgr.update_ingress(rules)
+    mgr.ensure_cname(fqdn)
+    devport_restart_cloudflared()
+    typer.echo(f"Done. {fqdn} -> {service}")
 
 
 @app.command("set")

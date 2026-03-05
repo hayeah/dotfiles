@@ -197,6 +197,16 @@ def devport_start_cloudflared(tunnel_token: str) -> None:
     subprocess.run(cmd, check=True)
 
 
+def devport_start_service(key: str, cmd: list[str]) -> int:
+    """Start a service via devport and return the assigned port."""
+    result = subprocess.run(
+        [devport_path(), "start", "--key", key, "--"] + cmd,
+        capture_output=True, text=True, check=True,
+    )
+    info = json.loads(result.stdout)
+    return int(info["port"])
+
+
 def devport_restart_cloudflared() -> None:
     """Restart cloudflared via devport."""
     hashid = _devport_hashid_for_key("cloudflared")

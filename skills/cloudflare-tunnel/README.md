@@ -38,10 +38,13 @@ All commands require `CLOUDFLARE_API_TOKEN`. Use `godotenv` to load it:
 # First time: create tunnel and start cloudflared
 godotenv -f ~/.env.secret cloudflare-tunnel setup
 
-# Expose a local port as a public FQDN
+# Start a service and map it to a public FQDN in one step
+godotenv -f ~/.env.secret cloudflare-tunnel start app.example.com -- python3 server.py
+
+# Or map an existing local port
 godotenv -f ~/.env.secret cloudflare-tunnel set app.example.com 8080
 
-# Expose a devport service by hashid (resolves to its port)
+# Or map by devport hashid (resolves to its port)
 godotenv -f ~/.env.secret cloudflare-tunnel set app.example.com b7d
 
 # List current tunnel mappings (JSON output)
@@ -62,6 +65,10 @@ godotenv -f ~/.env.secret cloudflare-tunnel teardown
 ### `setup`
 
 Idempotent. Creates a remotely-managed tunnel named after the hostname, initializes empty ingress, saves config to `~/.cloudflare-tunnel.json`, and starts `cloudflared` via `devport start`. Safe to re-run.
+
+### `start <fqdn> -- <cmd> [args...]`
+
+Start a service via devport (using the FQDN as the devport key) and map it to a public FQDN in one step. Equivalent to `devport start --key <fqdn> -- <cmd>` followed by `set <fqdn> <port>`.
 
 ### `set <fqdn> <port|hashid>`
 
@@ -111,8 +118,9 @@ Created by `setup`. No tunnel token is persisted — it's fetched from the API e
 ```
 skills/cloudflare-tunnel/
   SKILL.md -> README.md
-  DESIGN.md
+  docs/DESIGN.md
   pyproject.toml
+  examples/now/        # example time server
   src/cloudflare_tunnel/
     __init__.py
     main.py          # typer CLI entrypoint
