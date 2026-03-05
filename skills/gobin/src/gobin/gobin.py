@@ -64,7 +64,7 @@ class GobinManager:
             repo_url = "https://" + "/".join(parts[:3])
             local_repo = self._clone(repo_url, full=full)
             local_pkg = local_repo / sub if sub else local_repo
-            return path_or_url, local_pkg
+            return str(local_pkg), local_pkg
         else:
             local = Path(path_or_url).resolve()
             return str(local), local
