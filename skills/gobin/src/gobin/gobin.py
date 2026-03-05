@@ -41,15 +41,14 @@ class GobinManager:
         self.shims_dir.mkdir(parents=True, exist_ok=True)
         self.repos_root.mkdir(parents=True, exist_ok=True)
 
-    def _clone_github_repo(self, user: str, repo: str, full: bool = False) -> Path:
-        """Clone user/repo using git-quick-clone (idempotent)."""
-        local = self.repos_root / "github.com" / user / repo
-        typer.echo(f"Cloning github.com/{user}/{repo} ...", err=True)
-        cmd = ["git-quick-clone", f"{user}/{repo}", str(local)]
+    def _clone(self, repo_url: str, full: bool = False) -> Path:
+        """Clone a repo using git-quick-clone (idempotent). Returns local path."""
+        self.repos_root.mkdir(parents=True, exist_ok=True)
+        cmd = ["git-quick-clone", repo_url]
         if full:
             cmd.append("--full")
-        subprocess.run(cmd, check=True)
-        return local
+        result = subprocess.run(cmd, check=True, capture_output=True, text=True, cwd=str(self.repos_root))
+        return Path(result.stdout.strip())
 
     def _resolve_pkg(self, path_or_url: str, full: bool = False) -> tuple[str, Path]:
         """Return (original_pkg_label, abs_local_path).
@@ -61,9 +60,9 @@ class GobinManager:
             parts = path_or_url.split("/")
             if len(parts) < 3:
                 raise typer.BadParameter(f"Invalid GitHub package path: {path_or_url}")
-            user, repo = parts[1], parts[2]
             sub = "/".join(parts[3:])
-            local_repo = self._clone_github_repo(user, repo, full=full)
+            repo_url = "https://" + "/".join(parts[:3])
+            local_repo = self._clone(repo_url, full=full)
             local_pkg = local_repo / sub if sub else local_repo
             return path_or_url, local_pkg
         else:
