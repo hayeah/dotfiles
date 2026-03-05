@@ -42,6 +42,16 @@ def install_cmd(
     typer.echo(f"installed: {shim}")
 
 
+@app.command("rm")
+def rm_cmd(
+    name: str = typer.Argument(..., help="Name of the shim to remove"),
+) -> None:
+    """Remove a shim and its cached binary."""
+    mgr = GobinManager()
+    mgr.remove(name)
+    typer.echo(f"removed: {name}")
+
+
 @app.command("ls")
 def ls_cmd() -> None:
     """List all gobin-managed shims."""

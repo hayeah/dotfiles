@@ -145,6 +145,16 @@ exec "{bin_path}" "$@"
         shim_path.chmod(0o755)
         return shim_path
 
+    def remove(self, name: str) -> None:
+        """Remove a shim and its cached binary."""
+        shim_path = self.shims_dir / name
+        if not shim_path.exists():
+            raise typer.BadParameter(f"Shim '{name}' not found in {self.shims_dir}")
+        shim_path.unlink()
+        bin_path = self.bins_dir / name
+        if bin_path.exists():
+            bin_path.unlink()
+
     def list_shims(self) -> list[ShimInfo]:
         """Return ShimInfo for all gobin-managed shims in shims_dir."""
         if not self.shims_dir.is_dir():

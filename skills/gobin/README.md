@@ -46,6 +46,14 @@ gobin install github.com/hayeah/foopkg/cli/foocmd -- -tags integration
 gobin install github.com/hayeah/foopkg/cli/foocmd --full
 ```
 
+### `gobin rm <name>`
+
+Removes the shim and its cached binary.
+
+```sh
+gobin rm foocmd
+```
+
 ### `gobin ls`
 
 Lists all gobin-managed shims. Reads the embedded metadata comment from each shim — no registry file needed.
