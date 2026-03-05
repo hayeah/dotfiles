@@ -1,3 +1,11 @@
+## Scripting
+
+- Prefer uv+python for ad-hoc scripting.
+  - `uv run --with cloudflare python -c`
+    - If you'd like to use a package.
+  - `godotenv -f ~/.env.secret uv run --with cloudflare python -c`
+    - If you need access tokens in the script.
+
 ## Dotfiles
 
 - Use chezmoi to manage dotfiles.
