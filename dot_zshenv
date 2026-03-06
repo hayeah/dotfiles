@@ -60,3 +60,7 @@ export GODZKILLA_PATH="$HOME"
 # gobin — go run shim manager
 export GITHUB_REPOS="$HOME"
 path_add "$HOME/.gobin/shims"
+
+# Dropbox
+export DROPBOX_ROOT="$HOME/Library/CloudStorage/Dropbox"
+export MDNOTES_ROOT="$DROPBOX_ROOT/notes"
