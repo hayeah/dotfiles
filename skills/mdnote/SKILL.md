@@ -7,17 +7,25 @@ description: Create markdown notes in $MDNOTES_ROOT. Use when the user wants to 
 
 Create notes in `$MDNOTES_ROOT`, typically a cloud drive that syncs to multiple devices.
 
-File naming: `<date>/<time>_<title>.md`
+File naming: `<date>/<title>_<agentName>.md`
 
-- Use lexicographic (ISO) date and time so files sort naturally.
+- Use ISO date for the folder (e.g. `2026-03-06/`).
+- `<agentName>` is the name of the AI agent creating the note (e.g. `claude`, `codex`).
+- Do NOT read or list other files in the output directory unless the user explicitly asks to reference them.
 
 Each note includes a YAML frontmatter header:
 
 - `overview`: short description of the note contents (2–3 sentences)
 - `repo`: path to the relevant code repo, if applicable
-- `tags`: comma-separated short tags categorizing the note
+- `tags`: YAML list of short tags categorizing the note. Prefer fewer — 1 tag is better than 2.
   - e.g. `tutorial`, `readme`, `doc`, `research`, `report`, `design`, `discuss`, `spec`
   - spaces allowed within a tag
+  - Example:
+    ```yaml
+    tags:
+      - spec
+      - architecture
+    ```
 
 When writing about a code project:
 
