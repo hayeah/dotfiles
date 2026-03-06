@@ -25,4 +25,8 @@ When writing about a code project:
 - Prefer cloning the repo over web search.
 - Use the `git-quick-clone` skill to clone to `~/<host>/<user>/<repo>`.
   - It's idempotent — you may run it without checking if the repo already exists.
-  - Clones to `$GITHUB_REPOS/github.com/user/repo` if `GITHUB_REPOS` is set, otherwise `github.com/user/repo` relative to CWD.
+
+```
+# clones to ~/github.com/user/repo
+git-quick-clone github.com/user/repo
+```

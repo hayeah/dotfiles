@@ -64,8 +64,12 @@ godotenv -f ~/.env.secret gosay "one sentence description of what was done"
 
 - Put GitHub repos in `~/github.com/<user>/<repo>`
 - Set `GITHUB_REPOS=~` so tools default to cloning under `~/`.
-  - `git-quick-clone` clones to `$GITHUB_REPOS/github.com/user/repo`.
-  - `gobin` installs Go binaries sourced from `$GITHUB_REPOS/github.com/user/repo`.
+  - `gobin` and `git-quick-clone` resolve repos relative to `$GITHUB_REPOS`.
+
+```
+# clones to ~/github.com/user/repo
+git-quick-clone github.com/user/repo
+```
 - Prefer `git-quick-clone` skill to create partial clones for open source projects.
 - On personal projects `(~/github.com/hayeah/*)`, you can use `push --force-with-lease` to update remote.
 - Use `gh` when you require authentication.
