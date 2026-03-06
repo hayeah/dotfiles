@@ -29,8 +29,12 @@ class RepoURLParser:
       - https://github.com/user/repo/blob/branch/path/to/file
     """
 
+    KNOWN_HOSTS = ("github.com", "gitlab.com")
+
     def parse(self, repo_url: str) -> RepoInfo:
-        if not any(prefix in repo_url for prefix in ["://", "@"]) and "/" in repo_url:
+        if any(repo_url.startswith(f"{host}/") for host in self.KNOWN_HOSTS):
+            info = self._parse_https(f"https://{repo_url}")
+        elif not any(prefix in repo_url for prefix in ["://", "@"]) and "/" in repo_url:
             info = self._parse_shorthand(repo_url)
         elif repo_url.startswith("https://"):
             info = self._parse_https(repo_url)
