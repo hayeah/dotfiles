@@ -11,6 +11,11 @@
 - Use chezmoi to manage dotfiles.
 - Make changes directly to the chezmoi repo at `~/github.com/hayeah/dotfiles`.
 - Run chezmoi apply when you make changes.
+- After pulling changes, run `pymake` in `~/github.com/hayeah/dotfiles` to fully refresh.
+  - It runs these tasks automatically — no need to invoke them manually:
+  - `chezmoi apply` — applies dotfile changes
+  - `mise install` — installs any new tools
+  - `godzkilla sync` — syncs agent skills
 
 # Personal Peeves
 
@@ -20,23 +25,6 @@ Petty, I Know. But IMPORTANT for my happiness.
   - OAuthAiModalFlow -> OAuthAIModalFlow
   - JsonApi -> JSONAPI
 - The default git branch SHOULD be `master`, not `main`.
-
-## Research Notes
-
-Notes are kept in iCloud Obsidian: `OB_PATH=~/Library/Mobile Documents/iCloud~md~obsidian/Documents`
-
-- Create a folder per research topic: `$OB_PATH/<topic>`
-- List `$OB_PATH` to find existing topics.
-
-When researching a code library:
-
-- Prefer cloning the repo over web search.
-- Use the git-quick-clone skill to clone to `~/<host>/<user>/<repo>`.
-
-When working in project repos (`~/<host>/<user>/<repo>`):
-
-- Put notes in `$OB_PATH/<host>/<user>/<repo>`.
-  - Symlink this directory as `.obnotes/` in the repo.
 
 ## Notification / Human Attention
 
@@ -75,6 +63,9 @@ godotenv -f ~/.env.secret gosay "one sentence description of what was done"
 ## Git Repos
 
 - Put GitHub repos in `~/github.com/<user>/<repo>`
+- Set `GITHUB_REPOS=~` so tools default to cloning under `~/`.
+  - `git-quick-clone` clones to `$GITHUB_REPOS/github.com/user/repo`.
+  - `gobin` installs Go binaries sourced from `$GITHUB_REPOS/github.com/user/repo`.
 - Prefer `git-quick-clone` skill to create partial clones for open source projects.
 - On personal projects `(~/github.com/hayeah/*)`, you can use `push --force-with-lease` to update remote.
 - Use `gh` when you require authentication.

@@ -1,4 +1,4 @@
-"""Makefile.py for dotfiles refresh: chezmoi apply + godzkilla skill sync."""
+"""Makefile.py for dotfiles refresh: chezmoi apply + mise install + skill sync."""
 
 from pathlib import Path
 
@@ -29,7 +29,13 @@ def chezmoi():
 
 
 @task()
-def sync_skills(dry: bool = False):
+def mise():
+    """Install tools via mise."""
+    sh("mise install")
+
+
+@task()
+def skills(dry: bool = False):
     """Sync skills from local repos into agent skill directories via godzkilla."""
     dests = " ".join(f"--destination {d}" for d in SKILL_DESTS)
     sources = " ".join(f"--source {s}" for s in SKILL_SOURCES)
@@ -42,10 +48,10 @@ def sync_skills(dry: bool = False):
     sh(f"godzkilla sync{dry_flag} {dests} {sources}")
 
 
-@task(inputs=[chezmoi, sync_skills])
-def refresh():
-    """Full refresh: chezmoi apply + sync skills."""
+@task(inputs=[chezmoi, mise, skills])
+def default():
+    """Full refresh: chezmoi apply + mise install + sync skills."""
     pass
 
 
-task.default(refresh)
+task.default(default)
