@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 from pathlib import Path
 
 import typer
@@ -42,7 +43,12 @@ def clone(
     repo_info = parse_repo_url(repo_url)
     repo_info.access_token = access_token(token)
 
-    dest = Path(dest_dir or repo_info.dest_dir)
+    if dest_dir:
+        dest = Path(dest_dir)
+    elif github_repos := os.environ.get("GITHUB_REPOS"):
+        dest = Path(github_repos) / repo_info.dest_dir
+    else:
+        dest = Path(repo_info.dest_dir)
     if (dest / ".git").is_dir():
         existing = get_remote_url(dest)
         expected = _normalize_clone_url(repo_info.url)
