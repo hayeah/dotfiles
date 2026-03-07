@@ -92,3 +92,17 @@ Before writing new code that needs API keys:
 
 - Use `dotenv-ls` to check whether the required secrets are available.
 - If not, propose the env var names and ask the user to fill them in before proceeding.
+
+## Output Artifacts
+
+When asked to produce output or artifacts, or when a human would likely want to see results:
+
+- Produce directly to the output dir, or
+- Copy interesting/relevant tmp files to the output dir
+
+Output root dir: `$DROPBOX_ROOT/output`
+
+- Write output to `$OUTPUT_ROOT/<date>/<taskName>` when asked
+- Date should be sortable alphanumeric (e.g. `2026-03-07`)
+- Create your own task name
+- Reuse that path for the session
