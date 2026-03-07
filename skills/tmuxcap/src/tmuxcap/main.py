@@ -5,17 +5,18 @@ from pathlib import Path
 import typer
 
 from tmuxcap.capture import capture_pane, pane_size
+from tmuxcap.clean import clean_lines
 from tmuxcap.render import ANSIRenderer
 
-app = typer.Typer(help="Capture tmux pane content and export as md, html, svg, png, or jpg.")
+app = typer.Typer(help="Capture tmux pane content and export as txt, html, svg, png, or jpg. Use .raw for unprocessed output.")
 
-SUPPORTED_EXTENSIONS = {".md", ".html", ".svg", ".png", ".jpg", ".jpeg"}
+SUPPORTED_EXTENSIONS = {".txt", ".raw", ".html", ".svg", ".png", ".jpg", ".jpeg"}
 
 
 @app.command()
 def main(
     target: str = typer.Option(..., "-t", "--target", help="Tmux target pane (e.g. %42, session:window.pane)"),
-    output: str = typer.Option(..., "-o", "--output", help="Output file path (.md, .html, .svg, .png, .jpg)"),
+    output: str = typer.Option(..., "-o", "--output", help="Output file path (.txt, .raw, .html, .svg, .png, .jpg)"),
 ) -> None:
     """Capture a tmux pane and save to the specified format."""
     out = Path(output)
@@ -27,10 +28,15 @@ def main(
 
     width, _ = pane_size(target)
     ansi_text = capture_pane(target)
+    raw = ext == ".raw"
+
+    if not raw:
+        ansi_text = clean_lines(ansi_text)
+
     renderer = ANSIRenderer(ansi_text=ansi_text, width=width)
 
-    if ext == ".md":
-        out.write_text(renderer.markdown())
+    if ext in (".txt", ".raw"):
+        out.write_text(renderer.plain())
     elif ext == ".html":
         out.write_text(renderer.html())
     elif ext == ".svg":

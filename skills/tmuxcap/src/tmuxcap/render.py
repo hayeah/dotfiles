@@ -23,9 +23,8 @@ class ANSIRenderer:
         c.print(self.parsed, end="")
         return c
 
-    def markdown(self) -> str:
-        plain = self.parsed.plain
-        return f"```\n{plain}```\n"
+    def plain(self) -> str:
+        return self.parsed.plain
 
     def html(self) -> str:
         return self._console().export_html()
