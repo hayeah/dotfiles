@@ -103,6 +103,19 @@ def _color_rgb(
     if color is None:
         return default
     try:
+        from rich.color import ColorType
+        from rich.terminal_theme import MONOKAI
+
+        # DEFAULT color type returns (0,0,0) from get_truecolor() — use our default instead
+        if color.type == ColorType.DEFAULT:
+            return default
+        # Remap standard ANSI colors (0-15) through MONOKAI theme palette.
+        # Rich's default get_truecolor() uses classic values (e.g. blue=#000080)
+        # that are unreadable on dark backgrounds.
+        if color.type == ColorType.STANDARD and color.number is not None:
+            palette = MONOKAI.ansi_colors._colors
+            if color.number < len(palette):
+                return palette[color.number]
         tc = color.get_truecolor()
         return (tc.red, tc.green, tc.blue)
     except Exception:
