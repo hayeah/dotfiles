@@ -1,10 +1,11 @@
-## Scripting
+## Scripting HOT TIPS
 
 - Prefer uv+python for ad-hoc scripting.
   - `uv run --with cloudflare python -c`
     - If you'd like to use a package.
   - `godotenv -f ~/.env.secret uv run --with cloudflare python -c`
     - If you need access tokens in the script.
+- If you keep getting confused about the behaviour of a tool, quick clone the repo to study the source code.
 
 ## Dotfiles
 

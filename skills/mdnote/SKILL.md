@@ -12,6 +12,7 @@ File naming: `<date>/<title>_<agentName>.md`
 - Use ISO date for the folder (e.g. `2026-03-06/`).
 - `<agentName>` is the name of the AI agent creating the note (e.g. `claude`, `codex`).
 - Do NOT read or list other files in the output directory unless the user explicitly asks to reference them.
+- When revising an existing note, **edit in place** for incremental changes. For a **complete rewrite** (new direction, different scope), create a **new file** instead — e.g. append `-v2` or use a more descriptive title. The old note may contain context worth preserving.
 
 Each note includes a YAML frontmatter header:
 
