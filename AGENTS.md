@@ -10,6 +10,8 @@
 - If you encounter a vexing problem with the general development environment, codebase, skill, or whatever, once you solve the problem or figure out a workaround, use /mdnote to produce a note describing the problem and your solution.
   - This helps the human review and make improvements to your tooling and workflow.
 
+- `~/.ctrlv` contains dumped pasteboard contents: text, files, and images. Read here if asked to check the clipboard or ctrlv.
+
 ## Dotfiles
 
 - Use chezmoi to manage dotfiles.
