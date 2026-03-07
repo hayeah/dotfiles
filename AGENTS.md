@@ -1,4 +1,4 @@
-## Scripting HOT TIPS
+## HOT TIPS
 
 - Prefer uv+python for ad-hoc scripting.
   - `uv run --with cloudflare python -c`
@@ -6,6 +6,9 @@
   - `godotenv -f ~/.env.secret uv run --with cloudflare python -c`
     - If you need access tokens in the script.
 - If you keep getting confused about the behaviour of a tool, quick clone the repo to study the source code.
+  - Use /mdnote to produce a note.
+- If you encounter a vexing problem with the general development environment, codebase, skill, or whatever, once you solve the problem or figure out a workaround, use /mdnote to produce a note describing the problem and your solution.
+  - This helps the human review and make improvements to your tooling and workflow.
 
 ## Dotfiles
 
@@ -26,17 +29,6 @@ Petty, I Know. But IMPORTANT for my happiness.
   - OAuthAiModalFlow -> OAuthAIModalFlow
   - JsonApi -> JSONAPI
 - The default git branch SHOULD be `master`, not `main`.
-
-## Notification / Human Attention
-
-Notify the user with voice when:
-
-- A long-running task completes.
-- You require user intervention or a response to carry on.
-
-```
-godotenv -f ~/.env.secret gosay "one sentence description of what was done"
-```
 
 ## Install Tools
 
