@@ -1,6 +1,6 @@
 ---
 name: tmuxcap
-description: Capture tmux pane content and export as markdown, HTML, SVG, PNG, or JPG. Use when you need a screenshot or text dump of a tmux pane for sharing, feeding to AI, or archiving terminal state.
+description: Capture tmux pane content and export as text, HTML, SVG, PNG, or JPG. Use when you need a screenshot or text dump of a tmux pane for sharing, feeding to AI, or archiving terminal state.
 ---
 
 # tmuxcap
@@ -25,7 +25,8 @@ tmuxcap -t <target> -o <output_file>
 
 ## Supported Formats
 
-- `.md` — plain text wrapped in a markdown code block (ANSI stripped)
+- `.txt` — plain text (ANSI stripped, TUI chars cleaned)
+- `.raw` — plain text (ANSI stripped, TUI chars preserved)
 - `.html` — rich HTML with inline color styles
 - `.svg` — vector SVG with embedded styles
 - `.png` — raster image rendered with a monospace font
@@ -46,8 +47,8 @@ The `-t` flag accepts any tmux target format:
 # Capture a pane as a PNG screenshot for sharing with AI
 tmuxcap -t %0 -o screenshot.png
 
-# Capture as markdown for pasting into a document or prompt
-tmuxcap -t %0 -o capture.md
+# Capture as plain text for pasting into a document or prompt
+tmuxcap -t %0 -o capture.txt
 
 # Capture a specific session's active pane as HTML
 tmuxcap -t mysession -o output.html
@@ -62,11 +63,20 @@ tmuxcap -t %6 -o capture.jpg
 tmux list-panes -a -F '#{pane_id} #{session_name}:#{window_index}.#{pane_index} #{pane_width}x#{pane_height} #{pane_current_command}'
 ```
 
+## Color Theme
+
+PNG/JPG image rendering remaps the base 16 ANSI colors through Rich's built-in MONOKAI terminal theme. This ensures colors are readable on the dark background — Rich's default ANSI-to-RGB mapping uses classic values (e.g. blue = `#000080`) that are invisible on dark backgrounds.
+
+Available themes from `rich.terminal_theme`:
+
+- `MONOKAI` — vibrant colors on near-black background (current default)
+- `DIMMED_MONOKAI` — muted/desaturated variant
+- `SVG_EXPORT_THEME` — used by Rich's SVG export
+
 ## Quirks and Notes
 
 - The pane width is auto-detected via `tmux display-message` so the image matches the actual terminal layout
 - PNG/JPG rendering uses Menlo (macOS), SFMono, DejaVu Sans Mono, or Liberation Mono — falls back to Pillow's default bitmap font if none are found
 - Bold text with default foreground color is brightened to white
-- The markdown format includes trailing blank lines from the pane (empty rows below content) — this matches the full pane capture
-- Image background is dark gray `(30, 30, 30)` with light gray `(204, 204, 204)` default text — mimics a dark terminal theme
+- `.txt` cleans TUI box-drawing characters by default; `.raw` preserves them
 - Only captures the visible pane buffer, not scrollback history
