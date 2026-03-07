@@ -1,0 +1,20 @@
+[project]
+name = "tmuxcap"
+version = "0.1.0"
+description = "Capture tmux pane content and export as markdown, HTML, SVG, PNG, or JPG"
+requires-python = ">=3.11"
+dependencies = [
+    "typer",
+    "rich",
+    "Pillow",
+]
+
+[project.scripts]
+tmuxcap = "tmuxcap.main:app"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/tmuxcap"]
