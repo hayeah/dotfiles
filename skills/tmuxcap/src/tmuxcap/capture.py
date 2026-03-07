@@ -4,10 +4,18 @@ import subprocess
 import sys
 
 
-def capture_pane(target: str) -> str:
-    """Capture tmux pane content with ANSI escape codes."""
+def capture_pane(target: str, start_line: str | None = None) -> str:
+    """Capture tmux pane content with ANSI escape codes.
+
+    Args:
+        target: Tmux target pane.
+        start_line: If set, passed to tmux -S flag (e.g. "-1000" or "-" for all history).
+    """
+    cmd = ["tmux", "capture-pane", "-ep", "-t", target]
+    if start_line is not None:
+        cmd += ["-S", start_line]
     result = subprocess.run(
-        ["tmux", "capture-pane", "-ep", "-t", target],
+        cmd,
         capture_output=True,
         text=True,
     )

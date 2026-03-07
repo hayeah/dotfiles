@@ -21,7 +21,8 @@ tmuxcap -t <target> -o <output_file>
 ```
 
 - `-t, --target` — tmux target pane (required)
-- `-o, --output` — output file path; format is inferred from extension (required)
+- `-o, --output` — output file path; format is inferred from extension. If omitted, prints plain text to stdout
+- `-l, --lines` — number of scrollback lines to capture (e.g. `--lines 1000`, or `--lines all` for entire buffer)
 
 ## Supported Formats
 
@@ -44,11 +45,23 @@ The `-t` flag accepts any tmux target format:
 ## Examples
 
 ```bash
+# Dump visible pane content to stdout as plain text
+tmuxcap -t %0
+
 # Capture a pane as a PNG screenshot for sharing with AI
 tmuxcap -t %0 -o screenshot.png
 
 # Capture as plain text for pasting into a document or prompt
 tmuxcap -t %0 -o capture.txt
+
+# Capture last 1000 lines of scrollback history to stdout
+tmuxcap -t %0 --lines 1000
+
+# Capture entire scrollback buffer to stdout
+tmuxcap -t %0 --lines all
+
+# Capture scrollback history to a file
+tmuxcap -t %0 --lines 500 -o history.txt
 
 # Capture a specific session's active pane as HTML
 tmuxcap -t mysession -o output.html
@@ -79,4 +92,4 @@ Available themes from `rich.terminal_theme`:
 - PNG/JPG rendering uses Menlo (macOS), SFMono, DejaVu Sans Mono, or Liberation Mono — falls back to Pillow's default bitmap font if none are found
 - Bold text with default foreground color is brightened to white
 - `.txt` cleans TUI box-drawing characters by default; `.raw` preserves them
-- Only captures the visible pane buffer, not scrollback history
+- By default captures only the visible pane buffer; use `--lines N` to include scrollback history, or `--lines all` for the entire buffer
