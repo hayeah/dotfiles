@@ -36,7 +36,7 @@ class TGReplyBridge:
                 params={
                     "offset": self.offset,
                     "timeout": 30,
-                    "allowed_updates": '["message"]',
+                    "allowed_updates": '["message","callback_query"]',
                 },
             )
             resp.raise_for_status()
@@ -51,6 +51,10 @@ class TGReplyBridge:
         return results
 
     def _handle(self, update: dict) -> None:
+        if "callback_query" in update:
+            self._handle_callback(update["callback_query"])
+            return
+
         msg = update.get("message", {})
         reply_to = msg.get("reply_to_message", {})
         reply_msg_id = reply_to.get("message_id")
@@ -65,7 +69,41 @@ class TGReplyBridge:
         if not text:
             return
 
-        log.info("delivering reply to tmux %s: %s", tmux_target, text[:60])
+        self._send_to_tmux(tmux_target, text)
+
+    def _handle_callback(self, cb: dict) -> None:
+        cb_id = cb.get("id", "")
+        data = cb.get("data", "")
+        msg = cb.get("message", {})
+        msg_id = msg.get("message_id")
+
+        if not msg_id:
+            self._answer_callback(cb_id, "no message")
+            return
+
+        tmux_target = self.db.tmux_target_for(msg_id)
+        if not tmux_target:
+            self._answer_callback(cb_id, "session not found")
+            return
+
+        if data == "commit":
+            self._send_to_tmux(tmux_target, "commit")
+            self._answer_callback(cb_id, f"sent /commit → {tmux_target}")
+        else:
+            self._answer_callback(cb_id, f"unknown action: {data}")
+
+    def _answer_callback(self, cb_id: str, text: str) -> None:
+        try:
+            with httpx.Client(timeout=10) as client:
+                client.post(
+                    f"https://api.telegram.org/bot{self.token}/answerCallbackQuery",
+                    data={"callback_query_id": cb_id, "text": text},
+                )
+        except Exception:
+            log.exception("answerCallbackQuery failed")
+
+    def _send_to_tmux(self, tmux_target: str, text: str) -> None:
+        log.info("delivering to tmux %s: %s", tmux_target, text[:60])
         try:
             subprocess.run(
                 ["tmux", "send-keys", "-t", tmux_target, text, "Enter"],

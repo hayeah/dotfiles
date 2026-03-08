@@ -40,15 +40,22 @@ def send_text(
     *,
     link_preview: bool = True,
     parse_mode: str | None = None,
+    reply_markup: dict | None = None,
 ) -> int | None:
     """Send a text message, chunking if necessary. Returns last message_id."""
+    import json as _json
+
     message_id: int | None = None
-    for chunk in _chunk_text(text):
+    chunks = _chunk_text(text)
+    for i, chunk in enumerate(chunks):
         payload: dict[str, object] = {"chat_id": chat_id, "text": chunk}
         if parse_mode:
             payload["parse_mode"] = parse_mode
         if not link_preview:
             payload["disable_web_page_preview"] = True
+        # Attach reply_markup only to the last chunk
+        if reply_markup and i == len(chunks) - 1:
+            payload["reply_markup"] = _json.dumps(reply_markup)
         resp = client.post(
             _api_url(token, "sendMessage"),
             data=payload,

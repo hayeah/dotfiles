@@ -363,17 +363,27 @@ class HookNotifier:
                 return
 
             tmux = _tmux_target()
-            msg = self._format(record, transcript, tmux)
+            diff_stat = _git_diff_stat(self.cwd)
+            msg = self._format(record, transcript, tmux, diff_stat)
+
+            reply_markup = None
+            if diff_stat and tmux:
+                reply_markup = {"inline_keyboard": [
+                    [{"text": "commit", "callback_data": "commit"}],
+                ]}
 
             with httpx.Client(timeout=30) as client:
-                tg_message_id = send_text(client, token, chat_id, msg, parse_mode="MarkdownV2")
+                tg_message_id = send_text(
+                    client, token, chat_id, msg,
+                    parse_mode="MarkdownV2", reply_markup=reply_markup,
+                )
 
             if tg_message_id is not None:
                 db.record_sent(tg_message_id, self.session_id, tmux, transcript_ts)
         finally:
             db.close()
 
-    def _format(self, record: NotifyRecord, transcript: TranscriptReader | None, tmux: str | None) -> str:
+    def _format(self, record: NotifyRecord, transcript: TranscriptReader | None, tmux: str | None, diff_stat: str | None = None) -> str:
         icon = _event_icon(self.event, self.notification_type)
 
         lines: list[str] = [icon]
@@ -392,7 +402,6 @@ class HookNotifier:
         if duration:
             lines.append(f"*turn:* `{_escape_md(duration)}`")
 
-        diff_stat = _git_diff_stat(self.cwd)
         if diff_stat:
             lines.append(f"*uncommitted:* `{_escape_md(diff_stat)}`")
 
