@@ -14,7 +14,7 @@ from pathlib import Path
 import httpx
 import typer
 
-from .telegram import send_text
+from .telegram import MAX_MESSAGE_LEN, send_text
 
 app = typer.Typer(help="Claude Code hook notifications.")
 
@@ -52,6 +52,16 @@ def _format_duration(seconds: float) -> str:
         return f"{m}m {s}s" if s else f"{m}m"
     h, m = divmod(m, 60)
     return f"{h}h {m}m" if m else f"{h}h"
+
+
+def _middle_truncate(text: str, max_len: int) -> str:
+    """Truncate middle of text, keeping start and end visible."""
+    if len(text) <= max_len:
+        return text
+    if max_len <= 1:
+        return "…"
+    half = (max_len - 1) // 2
+    return text[:half] + "…" + text[-(max_len - 1 - half):]
 
 
 def _escape_md(text: str) -> str:
@@ -206,7 +216,7 @@ class TurnMessage:
 
 
 class TranscriptReader:
-    def __init__(self, path: str, max_preview: int = 200):
+    def __init__(self, path: str, max_preview: int = 0):
         self.messages: list[TurnMessage] = []
         self.turn_duration_ms: int | None = None
         self._assistant_done_timestamps: list[float] = []
@@ -248,7 +258,7 @@ class TranscriptReader:
             msg = entry.get("message", {})
             text = msg.get("content", "").strip() if isinstance(msg, dict) else ""  # type: ignore[union-attr]
             if text:
-                if len(text) > max_preview:
+                if max_preview and len(text) > max_preview:
                     text = text[:max_preview] + "…"
                 self.messages.append(TurnMessage(role="human", text=text, timestamp=ts))
 
@@ -263,7 +273,7 @@ class TranscriptReader:
                     if isinstance(block, dict) and block.get("type") == "text":
                         text = block.get("text", "").strip()
                         if text:
-                            if len(text) > max_preview:
+                            if max_preview and len(text) > max_preview:
                                 text = text[:max_preview] + "…"
                             self.messages.append(TurnMessage(role="assistant", text=text, timestamp=ts))
             if msg.get("stop_reason") == "end_turn":
@@ -386,6 +396,8 @@ class HookNotifier:
         if diff_stat:
             lines.append(f"*uncommitted:* `{_escape_md(diff_stat)}`")
 
+        footer = "\n\n" + "⬆️" * 8
+
         if transcript:
             new_msgs = transcript.new_messages()
             if new_msgs:
@@ -393,12 +405,44 @@ class HookNotifier:
                 humans = [m for m in new_msgs if m.role == "human"]
                 last_asst = next((m for m in reversed(new_msgs) if m.role == "assistant"), None)
 
-                lines.append("")
+                header = "\n".join(lines) + "\n"
+                # Budget: single Telegram message, minus header/footer/margins
+                budget = MAX_MESSAGE_LEN - len(header) - len(footer) - 10
+
+                # Human messages get priority (usually short).
+                # Cap human portion to half the budget so assistant always gets space.
+                human_budget = budget // 2
+                human_lines: list[str] = []
+                used = 0
                 for i, m in enumerate(humans):
-                    marker = "▶" if i == len(humans) - 1 else "·"
-                    lines.append(f"{marker} {_escape_md(m.text)}")
+                    marker = "▶"
+                    raw_h = m.text
+                    remaining_h = human_budget - used - 2  # marker + space
+                    if remaining_h > 10:
+                        raw_h = _middle_truncate(raw_h, remaining_h)
+                    escaped = _escape_md(raw_h)
+                    line = f"{marker} {escaped}"
+                    used += len(line) + 1  # +1 for newline
+                    human_lines.append(line)
+
+                # Assistant gets remaining budget, middle-truncated
                 if last_asst:
-                    lines.append(f"◁ {_escape_md(last_asst.text)}")
+                    asst_budget = budget - used - 2  # "◁ " prefix
+                    # Estimate escape overhead: count special chars
+                    raw = last_asst.text
+                    if asst_budget > 10:
+                        truncated = _middle_truncate(raw, asst_budget)
+                        escaped = _escape_md(truncated)
+                        # If escaping blew past budget, re-truncate tighter
+                        if len(escaped) > asst_budget:
+                            truncated = _middle_truncate(raw, asst_budget * 2 // 3)
+                            escaped = _escape_md(truncated)
+                        human_lines.append(f"◁ {escaped}")
+                    else:
+                        human_lines.append(f"◁ {_escape_md(_middle_truncate(raw, 20))}")
+
+                lines.append("")
+                lines.extend(human_lines)
 
         lines.append("")
         lines.append("⬆️" * 8)
