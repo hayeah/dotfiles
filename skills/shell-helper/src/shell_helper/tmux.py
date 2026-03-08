@@ -54,6 +54,9 @@ def _tmux_attach(target: str) -> None:
         os.execvp("tmux", ["tmux", "attach-session", "-t", target])
 
 
+CLAUDE_CODE_CMD = "bunx @anthropic-ai/claude-code --dangerously-skip-permissions"
+
+
 def _sanitize_session_name(name: str) -> str:
     """Replace characters not allowed in tmux session names (. and :)."""
     return name.replace(".", "-").replace(":", "-")
@@ -116,21 +119,39 @@ def _renumber_sessions() -> None:
             _run(["tmux", "rename-session", "-t", old_name, str(new_index)])
 
 
-def _enter_path(path: Path | None) -> None:
-    """Attach/create project-named session for a resolved path."""
+def _ensure_session(path: Path | None) -> tuple[str, str]:
+    """Ensure a tmux session exists for a project path. Returns (name, root_dir)."""
     name = session_name(path)
     if not name:
         typer.echo("Not in a project directory", err=True)
         raise typer.Exit(1)
+    root_dir = str(project_root(path))
     if not _session_exists(name):
-        root_dir = str(project_root(path))
         _run(["tmux", "new-session", "-d", "-s", name, "-c", root_dir])
+    return name, root_dir
+
+
+def _enter_path(path: Path | None) -> None:
+    """Attach/create project-named session for a resolved path."""
+    name, _ = _ensure_session(path)
     _renumber_sessions()
-    _tmux_attach(f"={name}")
+    _tmux_attach(name)
 
 
-def _fzf_pick(projects: list[tuple[str, Path]], query: str | None = None) -> None:
-    """Interactive project picker — fzf over projects, then enter."""
+def _cc_path(path: Path | None) -> None:
+    """Create a new window running claude-code in the project session."""
+    name, root_dir = _ensure_session(path)
+    _run(f"tmux new-window -t {shlex.quote(name)} -c {shlex.quote(root_dir)} {shlex.quote(CLAUDE_CODE_CMD)}")
+    _renumber_sessions()
+    _tmux_attach(name)
+
+
+def _fzf_pick_project(
+    projects: list[tuple[str, Path]],
+    query: str | None,
+    action: callable,
+) -> None:
+    """Interactive project picker — fzf over projects, then run action on selected path."""
     base = str(Path.home() / "github.com")
     preview_cmd = f"ls {shlex.quote(base)}/{{}}"
     str_projects = [(label, str(path)) for label, path in projects]
@@ -143,24 +164,22 @@ def _fzf_pick(projects: list[tuple[str, Path]], query: str | None = None) -> Non
     )
     if result:
         _, path_str = result
-        _enter_path(Path(path_str))
+        action(Path(path_str))
 
 
-def _do_enter(query: str | None) -> None:
-    """Unified enter: path, fuzzy match, or interactive picker."""
+def _do_resolve(query: str | None, action: callable) -> None:
+    """Resolve a project query and run action on the result."""
     r = resolve(query)
 
     if r.kind == "error":
         typer.echo(r.error, err=True)
         raise typer.Exit(1)
-    elif r.kind == "path":
-        _enter_path(r.path)
-    elif r.kind == "match":
-        _enter_path(r.path)
+    elif r.kind in ("path", "match"):
+        action(r.path)
     elif r.kind == "picker":
-        _fzf_pick(r.matches)
+        _fzf_pick_project(r.matches, None, action)
     elif r.kind == "ambiguous":
-        _fzf_pick(r.matches, query)
+        _fzf_pick_project(r.matches, query, action)
 
 
 # ---------------------------------------------------------------------------
@@ -171,7 +190,7 @@ def _do_enter(query: str | None) -> None:
 @app.callback(invoke_without_command=True)
 def _default(ctx: typer.Context) -> None:
     if ctx.invoked_subcommand is None:
-        _do_enter(None)
+        _do_resolve(None, _enter_path)
 
 
 # ---------------------------------------------------------------------------
@@ -189,12 +208,24 @@ def enter(
     With a directory path, enters that project directly.
     With a search string, fuzzy-matches against ~/github.com repos.
     """
-    _do_enter(query)
+    _do_resolve(query, _enter_path)
 
 
 # ---------------------------------------------------------------------------
-# which — show what a query resolves to
+# cc — launch claude-code in a project session
 # ---------------------------------------------------------------------------
+
+
+@app.command()
+def cc(
+    query: str = typer.Argument(None, help="Path or project name to match (default: fzf picker)"),
+) -> None:
+    """Launch claude-code in a project session.
+
+    With no argument, opens an fzf picker over projects.
+    With a query, fuzzy-matches against ~/github.com repos.
+    """
+    _do_resolve(query, _cc_path)
 
 
 @app.command()
