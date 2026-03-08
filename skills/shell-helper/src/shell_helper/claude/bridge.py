@@ -32,6 +32,7 @@ class TGReplyBridge:
             allowed_user_id=self.allowed_user_id or "(any)",
         )
         with httpx.Client(timeout=60) as client:
+            self.client = client
             while True:
                 for update in self._poll(client):
                     self._handle(update)
@@ -97,7 +98,12 @@ class TGReplyBridge:
         if not text:
             return
 
-        self._send_to_tmux(tmux_target, text)
+        err = self._send_to_tmux(tmux_target, text)
+        if chat_id:
+            if err:
+                self._send_message(chat_id, err)
+            else:
+                self._send_typing(chat_id)
 
     def _handle_callback(self, cb: dict) -> None:
         cb_id = cb.get("id", "")
@@ -121,6 +127,15 @@ class TGReplyBridge:
         else:
             self._answer_callback(cb_id, f"unknown action: {data}")
 
+    def _send_typing(self, chat_id: int | str) -> None:
+        try:
+            self.client.post(
+                f"https://api.telegram.org/bot{self.token}/sendChatAction",
+                json={"chat_id": chat_id, "action": "typing"},
+            )
+        except Exception:
+            log.exception("sendChatAction failed")
+
     def _remove_buttons(self, msg: dict) -> None:
         """Remove inline keyboard from the message."""
         msg_id = msg.get("message_id")
@@ -129,38 +144,49 @@ class TGReplyBridge:
             return
 
         try:
-            with httpx.Client(timeout=10) as client:
-                client.post(
-                    f"https://api.telegram.org/bot{self.token}/editMessageReplyMarkup",
-                    data={
-                        "chat_id": chat_id,
-                        "message_id": msg_id,
-                        "reply_markup": "{}",
-                    },
-                )
+            self.client.post(
+                f"https://api.telegram.org/bot{self.token}/editMessageReplyMarkup",
+                data={
+                    "chat_id": chat_id,
+                    "message_id": msg_id,
+                    "reply_markup": "{}",
+                },
+            )
         except Exception:
             log.exception("editMessageReplyMarkup failed")
 
     def _answer_callback(self, cb_id: str, text: str) -> None:
         try:
-            with httpx.Client(timeout=10) as client:
-                client.post(
-                    f"https://api.telegram.org/bot{self.token}/answerCallbackQuery",
-                    data={"callback_query_id": cb_id, "text": text},
-                )
+            self.client.post(
+                f"https://api.telegram.org/bot{self.token}/answerCallbackQuery",
+                data={"callback_query_id": cb_id, "text": text},
+            )
         except Exception:
             log.exception("answerCallbackQuery failed")
 
-    def _send_to_tmux(self, tmux_target: str, text: str) -> None:
+    def _send_message(self, chat_id: int | str, text: str) -> None:
+        try:
+            self.client.post(
+                f"https://api.telegram.org/bot{self.token}/sendMessage",
+                json={"chat_id": chat_id, "text": text},
+            )
+        except Exception:
+            log.exception("sendMessage failed")
+
+    def _send_to_tmux(self, tmux_target: str, text: str) -> str | None:
+        """Send text to tmux. Returns error message on failure, None on success."""
         log.info("delivering to tmux", target=tmux_target, text=text[:60])
         try:
             subprocess.run(
                 ["tmux", "send-keys", "-t", tmux_target, text, "Enter"],
                 check=True, timeout=5,
             )
+            return None
         except subprocess.CalledProcessError:
             log.warning("tmux send-keys failed", target=tmux_target)
+            return f"tmux send-keys failed for {tmux_target}"
         except FileNotFoundError:
             log.error("tmux not found")
+            return "tmux not found"
 
 
