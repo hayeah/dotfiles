@@ -1,3 +1,11 @@
+## IMPORTANT: Recursive Improvements
+
+When using a skill or tool, if you run into problems, mistakes, or ergonomic issues:
+
+- Describe the problem and how you worked around it.
+- After you are done with your task, use /mdnote to note it.
+  - This helps the human review and improve your tooling and workflow.
+
 ## HOT TIPS
 
 - Prefer uv+python for ad-hoc scripting.
@@ -7,8 +15,6 @@
     - If you need access tokens in the script.
 - If you keep getting confused about the behaviour of a tool, quick clone the repo to study the source code.
   - Use /mdnote to produce a note.
-- If you encounter a vexing problem with the general development environment, codebase, skill, or whatever, once you solve the problem or figure out a workaround, use /mdnote to produce a note describing the problem and your solution.
-  - This helps the human review and make improvements to your tooling and workflow.
 
 - `~/.ctrlv` contains dumped pasteboard contents: text, files, and images. Read here if asked to check the clipboard or ctrlv.
 
