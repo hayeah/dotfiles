@@ -22,7 +22,7 @@ gitEmail = "you@example.com"
 
 ```sh
 cd ~/github.com/hayeah/dotfiles
-pymake dotfiles --force
+pymake dotfiles --vars dotfiles.force=true
 ```
 
 This symlinks all files from `dotfiles/` into `$HOME`, renders templates (e.g. `.gitconfig`), and creates symlink-file targets. The `--force` flag replaces any existing files on first run.
