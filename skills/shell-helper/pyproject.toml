@@ -5,11 +5,14 @@ description = "Project root detection, project name inference, and editor launch
 requires-python = ">=3.11"
 dependencies = [
     "typer",
+    "httpx",
 ]
 
 [project.scripts]
 shell-helper = "shell_helper.main:run"
-claude-notify = "shell_helper.claude_notify:app"
+claude-notify = "shell_helper.claude.notify:app"
+telegram = "shell_helper.claude.telegram:app"
+claude-tg-bridge = "shell_helper.claude.bridge:app"
 
 [build-system]
 requires = ["hatchling"]

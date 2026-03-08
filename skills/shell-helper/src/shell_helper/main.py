@@ -16,7 +16,7 @@ from .project import github_url as project_github_url
 from .project import name as project_name
 from .project import resolve
 from .project import root as project_root
-from .claude_notify import app as claude_notify_app
+from .claude.notify import app as claude_notify_app
 from .tmux import app as tmux_app
 
 app = typer.Typer(help="Shell utilities for project detection and editor launching.")
