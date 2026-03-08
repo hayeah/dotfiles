@@ -129,84 +129,44 @@ If you are working on a Jupyter notebook, you MUST read [./notebook.md](./notebo
 
 ## Logging
 
-Use stdlib logging for logs. Set it up using the following snippet:
+Use `hayeah.logger` for structured logging. It provides colored console output on stderr and JSONL file logging to `~/.local/log/<tool>.jsonl` with rotation.
 
 ```py
-import logging
-import os
-import sys
-from pathlib import Path
+import hayeah
 
+log = hayeah.logger("my-tool")
 
-def _parse_level(s: str | None) -> int:
-    if not s:
-        return logging.INFO
-    s = s.strip()
-    if s.isdigit():
-        return int(s)
-    return getattr(logging, s.upper(), logging.INFO)
-
-
-class NamePrefixAllowFilter(logging.Filter):
-    """
-    Allow only records whose logger name matches one of the prefixes.
-    A prefix "myapp" allows "myapp" and "myapp.*".
-    """
-    def __init__(self, prefixes: list[str]):
-        super().__init__()
-        self.prefixes = [p for p in (prefixes or []) if p]
-
-    def filter(self, record: logging.LogRecord) -> bool:
-        if not self.prefixes:
-            return True
-        name = record.name
-        for p in self.prefixes:
-            if name == p or name.startswith(p + "."):
-                return True
-        return False
-
-
-def setup_logging() -> None:
-    level = _parse_level(os.getenv("LOG_LEVEL", "INFO"))
-
-    raw_filter = (os.getenv("LOG_FILTER") or "").strip()
-    prefixes = [x.strip() for x in raw_filter.split(",") if x.strip()] if raw_filter else []
-
-    output = (os.getenv("LOG_OUTPUT") or "stderr").strip()
-
-    root = logging.getLogger()
-    root.setLevel(level)
-
-    # Avoid duplicate logs if setup_logging() is called multiple times
-    for h in list(root.handlers):
-        root.removeHandler(h)
-
-    if output.lower() in ("stdout", "out"):
-        handler: logging.Handler = logging.StreamHandler(sys.stdout)
-    elif output.lower() in ("stderr", "err", ""):
-        handler = logging.StreamHandler(sys.stderr)
-    else:
-        path = Path(output)
-        path.parent.mkdir(parents=True, exist_ok=True)
-        handler = logging.FileHandler(path, encoding="utf-8")
-
-    handler.setLevel(level)
-    handler.setFormatter(
-        logging.Formatter(
-            fmt="%(asctime)s %(levelname)s %(name)s: %(message)s",
-            datefmt="%Y-%m-%d %H:%M:%S",
-        )
-    )
-
-    if prefixes:
-        handler.addFilter(NamePrefixAllowFilter(prefixes))
-
-    root.addHandler(handler)
-
-
-if __name__ == "__main__":
-    setup_logging()
-    log = logging.getLogger(__name__)
-    log.info("hello")
+log.info("message_sent", channel="telegram", duration_ms=120)
+log.error("api_failed", status=429, retry_after=30)
 ```
+
+- `hayeah.logger(name)` returns a structlog `BoundLogger`. Same name returns the same logger (idempotent, safe to call from multiple modules).
+- `LOG_LEVEL` env var overrides log level (default: `INFO`).
+- Console output is colored and human-readable. File output is JSONL (5 MB rotation, 3 backups).
+- View logs with `lnav ~/.local/log/` or `tail -f ~/.local/log/*.jsonl | jq .`
+
+### Adding to a tool's dependencies
+
+Add `hayeah` as an editable dependency in the tool's `pyproject.toml`:
+
+```toml
+[project]
+dependencies = [
+    "hayeah",
+    # ... other deps
+]
+
+[tool.uv.sources]
+hayeah = { path = "../../hayeah", editable = true }
+```
+
+Adjust the relative path as needed for the tool's location relative to `hayeah/`.
+
+### Migrating from the old `log.py` pattern
+
+If the tool has a copy-pasted `log.py` with `setup_logging()`:
+
+- Delete `log.py`
+- Replace `from .log import setup_logging` + `setup_logging()` + `log = logging.getLogger(__name__)` with `import hayeah; log = hayeah.logger("<tool-name>")`
+- Do NOT use stdlib `logging` directly — `hayeah.logger` wraps it with structlog
 
