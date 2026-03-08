@@ -2,17 +2,17 @@
 
 from __future__ import annotations
 
-import logging
 from pathlib import Path
 from typing import Optional
 
 import typer
 from google import genai
 from google.genai import types
+from hayeah import logger
 
 from .attachments import load_attachment
 
-log = logging.getLogger(__name__)
+log = logger.new("imagegen")
 
 IMAGEN_PREFIXES = ("imagen-",)
 GEMINI_IMAGE_SUFFIXES = ("-image", "-image-preview")
@@ -104,10 +104,10 @@ class GeminiGenerator:
     def run(self) -> Path:
         client = genai.Client()
         log.info(
-            "Sending request to model=%s aspect_ratio=%s image_size=%s",
-            self.model,
-            self.aspect_ratio,
-            self.image_size,
+            "sending request",
+            model=self.model,
+            aspect_ratio=self.aspect_ratio,
+            image_size=self.image_size,
         )
 
         if _is_imagen_model(self.model):
@@ -117,7 +117,7 @@ class GeminiGenerator:
 
         self.output_path.parent.mkdir(parents=True, exist_ok=True)
         self.output_path.write_bytes(image_bytes)
-        log.info("Saved image to %s (%d bytes)", self.output_path, len(image_bytes))
+        log.info("saved image", path=str(self.output_path), bytes=len(image_bytes))
         return self.output_path
 
 

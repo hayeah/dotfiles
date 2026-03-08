@@ -9,7 +9,6 @@ from typing import Optional
 import typer
 
 from .clipboard import ClipboardReader, FileItem, ImageItem, TextItem
-from .log import setup_logging
 from .writer import ClipboardWriter
 
 app = typer.Typer(help="Paste clipboard contents to files.")
@@ -51,7 +50,6 @@ def paste(
     ssh: Optional[str] = typer.Option(None, "--ssh", help="Rsync .ctrlv/ to this SSH host at the same path"),
 ) -> None:
     """Paste clipboard contents to OUTPUT_PATH/.ctrlv/ as 1.ext, 2.ext, ..."""
-    setup_logging()
 
     reader = ClipboardReader()
     items = reader.items()

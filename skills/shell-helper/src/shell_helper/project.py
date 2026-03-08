@@ -8,6 +8,10 @@ import tomllib
 from dataclasses import dataclass, field
 from pathlib import Path
 
+from hayeah import logger
+
+log = logger.new("shell-helper")
+
 PROJECT_FILES = ("pyproject.toml", "package.json", "Cargo.toml", "go.mod")
 
 NAME_SOURCES: dict[str, tuple[str, list[str]]] = {
@@ -63,6 +67,7 @@ def _read_json(path: Path, keys: list[str]) -> str | None:
             data = data[k]
         return str(data)
     except Exception:
+        log.debug("read_json failed", path=str(path), exc_info=True)
         return None
 
 
@@ -74,6 +79,7 @@ def _read_toml(path: Path, keys: list[str]) -> str | None:
             data = data[k]
         return str(data)
     except Exception:
+        log.debug("read_toml failed", path=str(path), exc_info=True)
         return None
 
 
@@ -86,6 +92,7 @@ def _read_gomod(path: Path, _keys: list[str]) -> str | None:
                     module_path = line[len("module ") :].strip()
                     return module_path.split("/")[-1]
     except Exception:
+        log.debug("read_gomod failed", path=str(path), exc_info=True)
         return None
     return None
 

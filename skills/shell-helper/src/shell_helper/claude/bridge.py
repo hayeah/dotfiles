@@ -2,14 +2,14 @@
 
 from __future__ import annotations
 
-import logging
 import subprocess
 
 import httpx
+from hayeah import logger
 
 from .notify import NotifyDB
 
-log = logging.getLogger(__name__)
+log = logger.new("claude-tg-bridge")
 
 
 class TGReplyBridge:
@@ -120,14 +120,14 @@ class TGReplyBridge:
             log.exception("answerCallbackQuery failed")
 
     def _send_to_tmux(self, tmux_target: str, text: str) -> None:
-        log.info("delivering to tmux %s: %s", tmux_target, text[:60])
+        log.info("delivering to tmux", target=tmux_target, text=text[:60])
         try:
             subprocess.run(
                 ["tmux", "send-keys", "-t", tmux_target, text, "Enter"],
                 check=True, timeout=5,
             )
         except subprocess.CalledProcessError:
-            log.warning("tmux send-keys failed for target %s", tmux_target)
+            log.warning("tmux send-keys failed", target=tmux_target)
         except FileNotFoundError:
             log.error("tmux not found")
 

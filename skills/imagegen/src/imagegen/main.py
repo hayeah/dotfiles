@@ -8,7 +8,6 @@ import typer
 from dotenv import load_dotenv
 
 from .gemini_cmd import app as gemini_app
-from .log import setup_logging
 from .openai_cmd import app as openai_app
 
 ENV_SECRET = Path.home() / ".env.secret"
@@ -23,7 +22,6 @@ def main() -> None:
     """AI image generation CLI. Use a provider subcommand: openai or gemini."""
     if ENV_SECRET.exists():
         load_dotenv(ENV_SECRET)
-    setup_logging()
 
 
 def run() -> None:

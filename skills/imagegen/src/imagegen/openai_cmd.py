@@ -3,17 +3,17 @@
 from __future__ import annotations
 
 import base64
-import logging
 from pathlib import Path
 from typing import Optional
 
 import typer
+from hayeah import logger
 from openai import OpenAI
 from openai.types.responses import Response
 
 from .attachments import Attachment, load_attachment
 
-log = logging.getLogger(__name__)
+log = logger.new("imagegen")
 
 # Text models that support the image_generation tool in the Responses API.
 TEXT_MODELS = [
@@ -110,12 +110,12 @@ class OpenAIResponses:
 
         request = self._build_request()
         log.info(
-            "Streaming model=%s image_model=%s partial=%d size=%s quality=%s",
-            self.model,
-            self.image_model or "(auto)",
-            self.partial_images,
-            self.size,
-            self.quality,
+            "streaming",
+            model=self.model,
+            image_model=self.image_model or "(auto)",
+            partial=self.partial_images,
+            size=self.size,
+            quality=self.quality,
         )
 
         response: Response | None = None
@@ -125,8 +125,10 @@ class OpenAIResponses:
                     image_bytes = base64.b64decode(event.partial_image_b64)
                     self.output_path.write_bytes(image_bytes)
                     log.info(
-                        "Partial %d → %s (%d bytes)",
-                        event.partial_image_index, self.output_path, len(image_bytes),
+                        "partial image",
+                        index=event.partial_image_index,
+                        path=str(self.output_path),
+                        bytes=len(image_bytes),
                     )
                 elif event.type == "response.completed":
                     response = event.response
@@ -136,7 +138,7 @@ class OpenAIResponses:
 
         image_bytes = self._extract_image(response)
         self.output_path.write_bytes(image_bytes)
-        log.info("Saved image to %s (%d bytes)", self.output_path, len(image_bytes))
+        log.info("saved image", path=str(self.output_path), bytes=len(image_bytes))
 
         return self.output_path, response.id
 

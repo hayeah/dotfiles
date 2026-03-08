@@ -2,14 +2,11 @@
 
 from __future__ import annotations
 
-import logging
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Union
 
 import AppKit
-
-log = logging.getLogger(__name__)
 
 # UTI type constants
 TYPE_STRING = "public.utf8-plain-text"

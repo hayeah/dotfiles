@@ -9,7 +9,6 @@ import subprocess
 import typer
 
 from .config import TunnelConfig
-from .log import setup_logging
 from .tunnel import (
     TunnelManager,
     create_client,
@@ -27,7 +26,6 @@ app = typer.Typer()
 @app.callback()
 def main() -> None:
     """Manage Cloudflare Tunnel ingress rules and DNS records."""
-    setup_logging()
 
 
 @app.command()

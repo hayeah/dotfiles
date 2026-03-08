@@ -3,17 +3,17 @@
 from __future__ import annotations
 
 import json
-import logging
 import os
 import shutil
 import subprocess
 from pathlib import Path
 
 from cloudflare import Cloudflare
+from hayeah import logger
 
 from .config import TunnelConfig
 
-log = logging.getLogger(__name__)
+log = logger.new("cloudflare-tunnel")
 
 MISE_CLOUDFLARED = Path.home() / ".local/share/mise/installs/cloudflared/latest/cloudflared"
 
@@ -83,7 +83,7 @@ class TunnelManager:
             account_id=self.account_id,
             config={"ingress": ingress},  # type: ignore[arg-type]
         )
-        log.info("Updated ingress config with %d rule(s)", len(rules))
+        log.info("updated ingress config", rules=len(rules))
 
     # -- DNS --
 
@@ -104,7 +104,7 @@ class TunnelManager:
                     content=target,
                     proxied=True,
                 )
-                log.info("Updated CNAME %s -> %s", fqdn, target)
+                log.info("updated cname", fqdn=fqdn, target=target)
                 return
         self.cf.dns.records.create(
             zone_id=zone_id,
@@ -113,7 +113,7 @@ class TunnelManager:
             content=target,
             proxied=True,
         )
-        log.info("Created CNAME %s -> %s", fqdn, target)
+        log.info("created cname", fqdn=fqdn, target=target)
 
     def delete_cname(self, fqdn: str) -> None:
         """Delete the CNAME record for fqdn if it points to this tunnel."""
@@ -125,9 +125,9 @@ class TunnelManager:
         for rec in records:
             if rec.name == fqdn and rec.content == target:
                 self.cf.dns.records.delete(rec.id or "", zone_id=zone_id)
-                log.info("Deleted CNAME %s", fqdn)
+                log.info("deleted cname", fqdn=fqdn)
                 return
-        log.info("No matching CNAME found for %s", fqdn)
+        log.info("no matching cname found", fqdn=fqdn)
 
     # -- Tunnel token --
 
@@ -144,7 +144,7 @@ class TunnelManager:
         self.cf.zero_trust.tunnels.cloudflared.delete(
             self.tunnel_id, account_id=self.account_id
         )
-        log.info("Deleted tunnel %s", self.tunnel_id)
+        log.info("deleted tunnel", tunnel_id=self.tunnel_id)
 
 
 def cloudflared_path() -> str:
@@ -193,7 +193,7 @@ def devport_start_cloudflared(tunnel_token: str) -> None:
         cloudflared_path(),
         "tunnel", "--no-autoupdate", "run", "--token", tunnel_token,
     ]
-    log.info("Running: %s", " ".join(cmd))
+    log.info("running command", cmd=" ".join(cmd))
     subprocess.run(cmd, check=True)
 
 

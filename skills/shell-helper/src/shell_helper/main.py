@@ -11,7 +11,6 @@ import typer
 from .cli import fallback_group
 from .editor import _default_preview, _fzf_select, _print_which
 from .editor import app as editor_app
-from .log import setup_logging
 from .project import github_url as project_github_url
 from .project import name as project_name
 from .project import resolve
@@ -45,7 +44,7 @@ def _project_info_cmd(
 
 
 def _project_info(path: Path | None) -> None:
-    setup_logging()
+
     info: dict[str, str] = {"root": str(project_root(path)), "name": project_name(path)}
     gh_url = project_github_url(path)
     if gh_url:
@@ -64,7 +63,7 @@ def _project_find_cmd(
     With no argument, opens an interactive fzf picker.
     With a search string, fuzzy-matches against ~/github.com repos.
     """
-    setup_logging()
+
     r = resolve(query)
 
     if r.kind == "error":
@@ -86,7 +85,7 @@ def _project_which_cmd(
     query: Optional[str] = typer.Argument(None, help="Path or project name to resolve"),
 ) -> None:
     """Show what a query would resolve to without acting."""
-    setup_logging()
+
     _print_which(query)
 
 

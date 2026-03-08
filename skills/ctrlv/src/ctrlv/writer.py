@@ -2,14 +2,15 @@
 
 from __future__ import annotations
 
-import logging
 import shutil
 from dataclasses import dataclass, field
 from pathlib import Path
 
+from hayeah import logger
+
 from .clipboard import ClipboardItem, FileItem, ImageItem, TextItem
 
-log = logging.getLogger(__name__)
+log = logger.new("ctrlv")
 
 
 @dataclass
@@ -78,5 +79,5 @@ class ClipboardWriter:
             shutil.copy2(item.path, path)
         else:
             raise TypeError(f"Unknown item type: {type(item)}")
-        log.debug("Wrote item %d to %s", index, path)
+        log.debug("wrote item", index=index, path=str(path))
         return path

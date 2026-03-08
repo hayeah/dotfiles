@@ -8,7 +8,11 @@ dependencies = [
     "openai",
     "google-genai",
     "python-dotenv",
+    "hayeah",
 ]
+
+[tool.uv.sources]
+hayeah = { path = "../../hayeah", editable = true }
 
 [project.scripts]
 imagegen = "imagegen.main:run"

@@ -101,11 +101,7 @@ def notify() -> None:
 @app.command("tg-bridge")
 def tg_bridge() -> None:
     """Poll Telegram for replies to Claude notifications and deliver to tmux."""
-    import logging
-
     from .bridge import TGReplyBridge
-
-    logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
 
     token = os.environ.get("TELEGRAM_BOT_TOKEN", "")
     if not token:

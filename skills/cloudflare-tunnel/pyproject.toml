@@ -6,7 +6,11 @@ requires-python = ">=3.11"
 dependencies = [
     "typer",
     "cloudflare",
+    "hayeah",
 ]
+
+[tool.uv.sources]
+hayeah = { path = "../../hayeah", editable = true }
 
 [project.scripts]
 cloudflare-tunnel = "cloudflare_tunnel.main:run"

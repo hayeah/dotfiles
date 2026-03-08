@@ -12,7 +12,11 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 import httpx
+from hayeah import logger
+
 from .telegram import MAX_MESSAGE_LEN, send_text
+
+log = logger.new("claude-notify")
 
 
 # ---------------------------------------------------------------------------
@@ -88,6 +92,7 @@ def _git_diff_stat(cwd: str) -> str | None:
                 parts.append(f"{s.split()[0]} files")
         return ", ".join(parts) or None
     except Exception:
+        log.debug("git_diff_stat failed", cwd=cwd, exc_info=True)
         return None
 
 
@@ -102,6 +107,7 @@ def _tmux_target() -> str | None:
         )
         return result.stdout.strip() or None
     except Exception:
+        log.debug("tmux_target failed", exc_info=True)
         return None
 
 

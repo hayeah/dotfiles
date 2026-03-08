@@ -2,20 +2,21 @@
 
 from __future__ import annotations
 
-import logging
 import os
 import subprocess
 import sys
 from pathlib import Path
 from urllib.parse import urlparse, urlunparse
 
+from hayeah import logger
+
 from .parser import RepoInfo
 
-log = logging.getLogger(__name__)
+log = logger.new("git-quick-clone")
 
 
 def sh(cmd: str, cwd: Path | None = None) -> None:
-    log.info("$ %s", cmd)
+    log.info("shell", cmd=cmd)
     subprocess.run(cmd, shell=True, check=True, cwd=cwd, stdout=sys.stderr)
 
 

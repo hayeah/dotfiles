@@ -5,7 +5,11 @@ description = "Clone GitHub repos with smart defaults, sparse checkout, and shal
 requires-python = ">=3.11"
 dependencies = [
     "typer",
+    "hayeah",
 ]
+
+[tool.uv.sources]
+hayeah = { path = "../../hayeah", editable = true }
 
 [project.scripts]
 git-quick-clone = "git_quick_clone.main:run"

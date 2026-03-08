@@ -8,7 +8,6 @@ from pathlib import Path
 import typer
 
 from .clone import RepoCloner, _normalize_clone_url, access_token, get_remote_url
-from .log import setup_logging
 from .parser import parse_repo_url
 
 app = typer.Typer()
@@ -38,8 +37,6 @@ def clone(
       git-quick-clone user/repo --shallow 1
       git-quick-clone user/repo --full
     """
-    setup_logging()
-
     repo_info = parse_repo_url(repo_url)
     repo_info.access_token = access_token(token)
 
