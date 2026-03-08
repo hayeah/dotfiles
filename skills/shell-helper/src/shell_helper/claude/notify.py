@@ -97,12 +97,17 @@ def _git_diff_stat(cwd: str) -> str | None:
 
 
 def _tmux_target() -> str | None:
-    """Current tmux session:window, or None if not in tmux."""
+    """Tmux session:window where Claude Code is running, or None if not in tmux."""
     if not os.environ.get("TMUX"):
         return None
+    pane_id = os.environ.get("TMUX_PANE")
+    if not pane_id:
+        return None
     try:
+        # Use the pane ID from the launching shell to find the correct
+        # session:window, even if the user has since switched focus.
         result = subprocess.run(
-            ["tmux", "display-message", "-p", "#S:#I"],
+            ["tmux", "display-message", "-t", pane_id, "-p", "#S:#I"],
             capture_output=True, text=True, timeout=5,
         )
         return result.stdout.strip() or None
