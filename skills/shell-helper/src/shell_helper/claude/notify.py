@@ -60,6 +60,31 @@ def _escape_md(text: str) -> str:
     return "".join(f"\\{c}" if c in special else c for c in text)
 
 
+def _git_diff_stat(cwd: str) -> str | None:
+    """Summarize uncommitted changes: '+N -M, K files'."""
+    try:
+        result = subprocess.run(
+            ["git", "diff", "--shortstat", "HEAD"],
+            capture_output=True, text=True, timeout=5, cwd=cwd or None,
+        )
+        # e.g. " 3 files changed, 42 insertions(+), 15 deletions(-)"
+        line = result.stdout.strip()
+        if not line:
+            return None
+        parts = []
+        for segment in line.split(","):
+            s = segment.strip()
+            if "insertion" in s:
+                parts.append(f"+{s.split()[0]}")
+            elif "deletion" in s:
+                parts.append(f"-{s.split()[0]}")
+            elif "file" in s:
+                parts.append(f"{s.split()[0]} files")
+        return ", ".join(parts) or None
+    except Exception:
+        return None
+
+
 def _tmux_target() -> str | None:
     """Current tmux session:window, or None if not in tmux."""
     if not os.environ.get("TMUX"):
@@ -174,14 +199,15 @@ class NotifyDB:
 # ---------------------------------------------------------------------------
 
 @dataclass
-class HumanMessage:
+class TurnMessage:
+    role: str  # "human" or "assistant"
     text: str
     timestamp: float
 
 
 class TranscriptReader:
     def __init__(self, path: str, max_preview: int = 200):
-        self.human_messages: list[HumanMessage] = []
+        self.messages: list[TurnMessage] = []
         self.turn_duration_ms: int | None = None
         self._assistant_done_timestamps: list[float] = []
 
@@ -216,6 +242,7 @@ class TranscriptReader:
 
     def _process_entry(self, entry: dict[str, object], max_preview: int) -> None:
         typ = entry.get("type", "")
+        ts = _parse_ts(str(entry.get("timestamp", "")))
 
         if typ == "user" and self._is_human(entry):
             msg = entry.get("message", {})
@@ -223,13 +250,23 @@ class TranscriptReader:
             if text:
                 if len(text) > max_preview:
                     text = text[:max_preview] + "…"
-                self.human_messages.append(
-                    HumanMessage(text=text, timestamp=_parse_ts(str(entry.get("timestamp", ""))))
-                )
+                self.messages.append(TurnMessage(role="human", text=text, timestamp=ts))
 
         if typ == "assistant":
             msg = entry.get("message", {})
-            if isinstance(msg, dict) and msg.get("stop_reason") == "end_turn":
+            if not isinstance(msg, dict):
+                return
+            # Collect text content from assistant messages.
+            content = msg.get("content", [])
+            if isinstance(content, list):
+                for block in content:
+                    if isinstance(block, dict) and block.get("type") == "text":
+                        text = block.get("text", "").strip()
+                        if text:
+                            if len(text) > max_preview:
+                                text = text[:max_preview] + "…"
+                            self.messages.append(TurnMessage(role="assistant", text=text, timestamp=ts))
+            if msg.get("stop_reason") == "end_turn":
                 self._record_done(entry)
 
         if typ == "system" and entry.get("subtype") == "turn_duration":
@@ -251,20 +288,24 @@ class TranscriptReader:
             return False
         return bool(stripped)
 
-    def new_messages(self) -> list[HumanMessage]:
-        """Human messages from this turn: after prev assistant done, before current done."""
+    def new_messages(self) -> list[TurnMessage]:
+        """Messages from this turn: after prev assistant done, before current done."""
         lower = self.prev_assistant_done_ts
         upper = self.last_assistant_done_ts
         if lower is not None:
             return [
-                m for m in self.human_messages
+                m for m in self.messages
                 if m.timestamp > lower and (upper is None or m.timestamp <= upper)
             ]
-        # First turn — show messages before the current done.
+        # First turn — show last human message and any assistant text after it.
         eligible = [
-            m for m in self.human_messages
+            m for m in self.messages
             if upper is None or m.timestamp <= upper
         ]
+        # Find the last human message and include everything from it onward.
+        for i in range(len(eligible) - 1, -1, -1):
+            if eligible[i].role == "human":
+                return eligible[i:]
         return eligible[-1:] if eligible else []
 
     def duration(self, fallback_elapsed: float | None = None) -> str:
@@ -341,13 +382,23 @@ class HookNotifier:
         if duration:
             lines.append(f"*turn:* `{_escape_md(duration)}`")
 
+        diff_stat = _git_diff_stat(self.cwd)
+        if diff_stat:
+            lines.append(f"*uncommitted:* `{_escape_md(diff_stat)}`")
+
         if transcript:
             new_msgs = transcript.new_messages()
             if new_msgs:
+                # Collect human messages + only the last assistant message.
+                humans = [m for m in new_msgs if m.role == "human"]
+                last_asst = next((m for m in reversed(new_msgs) if m.role == "assistant"), None)
+
                 lines.append("")
-                for i, m in enumerate(new_msgs):
-                    arrow = "▶" if i == len(new_msgs) - 1 else "·"
-                    lines.append(f"{arrow} {_escape_md(m.text)}")
+                for i, m in enumerate(humans):
+                    marker = "▶" if i == len(humans) - 1 else "·"
+                    lines.append(f"{marker} {_escape_md(m.text)}")
+                if last_asst:
+                    lines.append(f"◁ {_escape_md(last_asst.text)}")
 
         lines.append("")
         lines.append("⬆️" * 8)
