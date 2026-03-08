@@ -88,9 +88,30 @@ class TGReplyBridge:
 
         if data == "commit":
             self._send_to_tmux(tmux_target, "commit")
+            self._remove_buttons(msg)
             self._answer_callback(cb_id, f"sent /commit → {tmux_target}")
         else:
             self._answer_callback(cb_id, f"unknown action: {data}")
+
+    def _remove_buttons(self, msg: dict) -> None:
+        """Remove inline keyboard from the message."""
+        msg_id = msg.get("message_id")
+        chat_id = msg.get("chat", {}).get("id")
+        if not msg_id or not chat_id:
+            return
+
+        try:
+            with httpx.Client(timeout=10) as client:
+                client.post(
+                    f"https://api.telegram.org/bot{self.token}/editMessageReplyMarkup",
+                    data={
+                        "chat_id": chat_id,
+                        "message_id": msg_id,
+                        "reply_markup": "{}",
+                    },
+                )
+        except Exception:
+            log.exception("editMessageReplyMarkup failed")
 
     def _answer_callback(self, cb_id: str, text: str) -> None:
         try:
