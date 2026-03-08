@@ -238,6 +238,47 @@ def rename() -> None:
 
 
 @app.command()
+def killall() -> None:
+    """Kill all sessions except protected ones.
+
+    Protected sessions are listed in $TMUX_KILL_PROTECT (comma-separated).
+    """
+    keep_raw = os.environ.get("TMUX_KILL_PROTECT", "")
+    keep = {s.strip() for s in keep_raw.split(",") if s.strip()}
+
+    try:
+        output = _run(["tmux", "list-sessions", "-F", "#{session_name}"])
+    except subprocess.CalledProcessError:
+        typer.echo("No tmux server running", err=True)
+        raise typer.Exit(1)
+
+    all_sessions = output.splitlines()
+
+    to_kill = []
+    kept = []
+    for s in all_sessions:
+        if s in keep:
+            kept.append(f"  {s} (TMUX_KILL_PROTECT)")
+        else:
+            to_kill.append(s)
+
+    if kept:
+        typer.echo("Keeping:")
+        for line in kept:
+            typer.echo(line)
+
+    if not to_kill:
+        typer.echo("Nothing to kill.")
+        return
+
+    for s in to_kill:
+        typer.echo(f"Killing {s}")
+        _run(["tmux", "kill-session", "-t", f"={s}"], check=False)
+
+    _renumber_sessions()
+
+
+@app.command()
 def select(
     preview_pane: bool = typer.Option(True, "--preview/--no-preview", help="Live preview"),
     fzf_window_position: str = typer.Option("center,95%,95%", help="fzf --tmux position"),

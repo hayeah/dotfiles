@@ -23,6 +23,14 @@ Resolution order:
 
 Dry-run of `enter` — shows what a query resolves to without attaching.
 
+### `tm killall`
+
+Kill all tmux sessions except protected ones.
+
+Sessions listed in `$TMUX_KILL_PROTECT` (comma-separated) are kept.
+
+Example: `TMUX_KILL_PROTECT=devport` in your env keeps the devport supervisor alive.
+
 ### `tm select`
 
 Interactive pane switcher. Uses fzf to list all tmux panes across sessions with a live preview of pane contents.

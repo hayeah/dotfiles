@@ -61,6 +61,9 @@ export GODZKILLA_PATH="$HOME"
 export GITHUB_REPOS="$HOME"
 path_add "$HOME/.gobin/shims"
 
+# Protected sessions for `tm killall` (comma-separated)
+export TMUX_KILL_PROTECT="devport"
+
 # Dropbox
 export DROPBOX_ROOT="$HOME/Library/CloudStorage/Dropbox"
 export MDNOTES_ROOT="$DROPBOX_ROOT/notes"
