@@ -210,6 +210,13 @@ class NotifyDB:
         ).fetchone()
         return row[0] if row else None
 
+    def latest_tmux_target(self) -> str | None:
+        """Return tmux target from the most recent notification."""
+        row = self._conn.execute(
+            "SELECT tmux_target FROM messages WHERE tmux_target IS NOT NULL ORDER BY ts DESC LIMIT 1",
+        ).fetchone()
+        return row[0] if row else None
+
 
 # ---------------------------------------------------------------------------
 # TranscriptReader — parses session transcript JSONL

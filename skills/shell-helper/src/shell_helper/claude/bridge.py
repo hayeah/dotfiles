@@ -84,10 +84,12 @@ class TGReplyBridge:
 
         reply_to = msg.get("reply_to_message", {})
         reply_msg_id = reply_to.get("message_id")
-        if not reply_msg_id:
-            return
 
-        tmux_target = self.db.tmux_target_for(reply_msg_id)
+        if reply_msg_id:
+            tmux_target = self.db.tmux_target_for(reply_msg_id)
+        else:
+            tmux_target = self.db.latest_tmux_target()
+
         if not tmux_target:
             return
 
