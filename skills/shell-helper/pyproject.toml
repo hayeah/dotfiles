@@ -10,9 +10,7 @@ dependencies = [
 
 [project.scripts]
 shell-helper = "shell_helper.main:run"
-claude-notify = "shell_helper.claude.notify:app"
 telegram = "shell_helper.claude.telegram:app"
-claude-tg-bridge = "shell_helper.claude.bridge:app"
 
 [build-system]
 requires = ["hatchling"]

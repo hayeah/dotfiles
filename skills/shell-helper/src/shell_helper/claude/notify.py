@@ -12,11 +12,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 import httpx
-import typer
-
 from .telegram import MAX_MESSAGE_LEN, send_text
-
-app = typer.Typer(help="Claude Code hook notifications.")
 
 
 # ---------------------------------------------------------------------------
@@ -499,16 +495,3 @@ class HookNotifier:
         return fmt.build()
 
 
-# ---------------------------------------------------------------------------
-# CLI entry point
-# ---------------------------------------------------------------------------
-
-@app.callback(invoke_without_command=True)
-def claude_notify() -> None:
-    """Read Claude Code hook JSON from stdin and send a Telegram notification."""
-    raw = sys.stdin.read().strip()
-    if not raw:
-        return
-
-    data = json.loads(raw)
-    HookNotifier(data).run()

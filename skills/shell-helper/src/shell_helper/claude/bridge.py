@@ -3,15 +3,11 @@
 from __future__ import annotations
 
 import logging
-import os
 import subprocess
 
 import httpx
-import typer
 
 from .notify import NotifyDB
-
-app = typer.Typer(help="Telegram reply → tmux bridge.")
 
 log = logging.getLogger(__name__)
 
@@ -136,14 +132,3 @@ class TGReplyBridge:
             log.error("tmux not found")
 
 
-@app.callback(invoke_without_command=True)
-def bridge() -> None:
-    """Poll Telegram for replies to Claude notifications and deliver to tmux."""
-    logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
-
-    token = os.environ.get("TELEGRAM_BOT_TOKEN", "")
-    if not token:
-        typer.echo("TELEGRAM_BOT_TOKEN not set", err=True)
-        raise typer.Exit(1)
-
-    TGReplyBridge(token).run()

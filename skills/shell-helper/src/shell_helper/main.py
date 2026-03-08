@@ -16,7 +16,7 @@ from .project import github_url as project_github_url
 from .project import name as project_name
 from .project import resolve
 from .project import root as project_root
-from .claude.notify import app as claude_notify_app
+from .claude import app as claude_app
 from .tmux import app as tmux_app
 
 app = typer.Typer(help="Shell utilities for project detection and editor launching.")
@@ -99,9 +99,9 @@ app.add_typer(editor_app, name="editor")
 
 app.add_typer(tmux_app, name="tm")
 
-# -- claude-notify subcommand ------------------------------------------------
+# -- claude subcommand group --------------------------------------------------
 
-app.add_typer(claude_notify_app, name="claude-notify")
+app.add_typer(claude_app, name="claude")
 
 
 def run() -> None:

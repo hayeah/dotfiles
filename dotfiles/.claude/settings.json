@@ -1,4 +1,8 @@
 {
+  "statusLine": {
+    "type": "command",
+    "command": "shell-helper claude statusline"
+  },
   "enabledPlugins": {
     "swift-lsp@claude-plugins-official": true
   },
@@ -10,7 +14,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "godotenv -f ~/.env.secret claude-notify",
+            "command": "godotenv -f ~/.env.secret shell-helper claude notify",
             "async": true
           }
         ]
@@ -21,7 +25,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "godotenv -f ~/.env.secret claude-notify",
+            "command": "godotenv -f ~/.env.secret shell-helper claude notify",
             "async": true
           }
         ]
