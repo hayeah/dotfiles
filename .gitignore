@@ -2,6 +2,7 @@ notes/
 .ctrlv
 skills/.system/
 __pycache__/
+node_modules/
 *.pyc
 .dmux/
 output/
