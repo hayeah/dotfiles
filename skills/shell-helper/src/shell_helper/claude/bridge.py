@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 import subprocess
 
 import httpx
@@ -17,9 +18,19 @@ class TGReplyBridge:
         self.token = token
         self.db = NotifyDB()
         self.offset = 0
+        self.allowed_chat_id = os.environ.get("TELEGRAM_CHATID", "")
+        self.allowed_user_id = os.environ.get("TELEGRAM_USERID", "")
 
     def run(self) -> None:
-        log.info("bridge started, polling for replies...")
+        if not self.allowed_chat_id:
+            log.warning("TELEGRAM_CHATID not set — bridge will accept messages from any chat")
+        if not self.allowed_user_id:
+            log.warning("TELEGRAM_USERID not set — bridge will accept messages from any user")
+        log.info(
+            "bridge started, polling for replies...",
+            allowed_chat_id=self.allowed_chat_id or "(any)",
+            allowed_user_id=self.allowed_user_id or "(any)",
+        )
         with httpx.Client(timeout=60) as client:
             while True:
                 for update in self._poll(client):
@@ -46,12 +57,31 @@ class TGReplyBridge:
             self.offset = results[-1]["update_id"] + 1
         return results
 
+    def _is_allowed(self, chat_id: int | str, user_id: int | str) -> bool:
+        if self.allowed_chat_id and str(chat_id) != self.allowed_chat_id:
+            return False
+        if self.allowed_user_id and str(user_id) != self.allowed_user_id:
+            return False
+        return True
+
     def _handle(self, update: dict) -> None:
         if "callback_query" in update:
-            self._handle_callback(update["callback_query"])
+            cb = update["callback_query"]
+            chat_id = cb.get("message", {}).get("chat", {}).get("id", "")
+            user_id = cb.get("from", {}).get("id", "")
+            if not self._is_allowed(chat_id, user_id):
+                log.warning("rejected callback", chat_id=chat_id, user_id=user_id)
+                return
+            self._handle_callback(cb)
             return
 
         msg = update.get("message", {})
+        chat_id = msg.get("chat", {}).get("id", "")
+        user_id = msg.get("from", {}).get("id", "")
+        if not self._is_allowed(chat_id, user_id):
+            log.warning("rejected message", chat_id=chat_id, user_id=user_id)
+            return
+
         reply_to = msg.get("reply_to_message", {})
         reply_msg_id = reply_to.get("message_id")
         if not reply_msg_id:
