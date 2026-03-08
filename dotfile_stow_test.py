@@ -52,7 +52,6 @@ def test_template_rendering(tmp_path):
     assert "Alice" in result
     assert "alice@example.com" in result
     assert not (target / ".gitconfig").is_symlink()
-    # .tmpl file should NOT appear in target
     assert not (target / ".gitconfig.tmpl").exists()
 
 
@@ -71,9 +70,8 @@ def test_template_skips_unchanged(tmp_path):
     (source / "file.tmpl").write_text("hello $name")
     (target / "file").write_text("hello Bob")
 
-    stow = DotfileStow(source, target, config)
-    actions = stow.plan()
-    assert any(a.kind == "skip" and a.target == target / "file" for a in actions)
+    actions = DotfileStow(source, target, config).plan()
+    assert any(a.status() == "ok" and a.target == target / "file" for a in actions)
 
 
 def test_missing_template_var_raises(tmp_path):
@@ -86,7 +84,6 @@ def test_missing_template_var_raises(tmp_path):
 
 def test_symlink_file(tmp_path):
     source, target, config = _setup(tmp_path)
-    # Create a file outside dotfiles/ but inside repo root (tmp_path)
     agents = tmp_path / "AGENTS.md"
     agents.write_text("# Agents")
     (source / ".claude").mkdir()
@@ -103,20 +100,17 @@ def test_symlink_file_rejects_outside_repo(tmp_path):
     source, target, config = _setup(tmp_path)
     (source / "bad.symlink").write_text("../../outside")
 
-    stow = DotfileStow(source, target, config)
-    actions = stow.plan()
-    assert any(a.kind == "conflict" and "outside repo root" in a.detail for a in actions)
+    actions = DotfileStow(source, target, config).plan()
+    assert any(a.status() == "conflict" and "outside repo root" in a.describe() for a in actions)
 
 
 def test_skip_existing_correct_symlink(tmp_path):
     source, target, config = _setup(tmp_path)
     (source / ".zshrc").write_text("# zshrc")
-    link = target / ".zshrc"
-    link.symlink_to(source / ".zshrc")
+    (target / ".zshrc").symlink_to(source / ".zshrc")
 
-    stow = DotfileStow(source, target, config)
-    actions = stow.plan()
-    assert all(a.kind == "skip" for a in actions)
+    actions = DotfileStow(source, target, config).plan()
+    assert all(a.status() == "ok" for a in actions)
 
 
 def test_conflict_warns_without_force(tmp_path):
@@ -124,9 +118,8 @@ def test_conflict_warns_without_force(tmp_path):
     (source / ".zshrc").write_text("# zshrc")
     (target / ".zshrc").write_text("# existing")
 
-    stow = DotfileStow(source, target, config)
-    actions = stow.plan()
-    assert any(a.kind == "conflict" for a in actions)
+    actions = DotfileStow(source, target, config).plan()
+    assert any(a.status() == "conflict" for a in actions)
 
 
 def test_force_overwrites_conflict(tmp_path):
@@ -154,11 +147,8 @@ def test_multiple_file_types(tmp_path):
     """Integration test: plain files, templates, and symlink files together."""
     source, target, config = _setup(tmp_path, '[vars]\nuser = "me"\n')
 
-    # Plain file
     (source / ".zshrc").write_text("# zshrc")
-    # Template
     (source / ".gitconfig.tmpl").write_text("user = $user")
-    # Symlink file
     readme = tmp_path / "README.md"
     readme.write_text("# readme")
     (source / ".doc").mkdir()

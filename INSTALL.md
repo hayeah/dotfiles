@@ -2,28 +2,30 @@
 
 Assumes [mise](https://mise.jdx.dev/) is already installed.
 
-## Configure chezmoi
+## Clone the repo
 
 ```sh
-curl -o ~/.config/chezmoi/chezmoi.toml https://raw.githubusercontent.com/hayeah/dotfiles/master/chezmoi.toml.example
+git clone https://github.com/hayeah/dotfiles ~/github.com/hayeah/dotfiles
 ```
 
-Fill in your git identity:
+## Configure template variables
+
+Edit `.dotfiles.toml` in the repo root with your git identity:
 
 ```toml
-[data]
-    gitName = "Your Name"
-    gitEmail = "you@example.com"
+[vars]
+gitName = "Your Name"
+gitEmail = "you@example.com"
 ```
 
-## Install chezmoi and apply
+## Apply dotfiles
 
 ```sh
-mise use -g chezmoi
-chezmoi init --apply --source ~/github.com/hayeah/dotfiles hayeah
+cd ~/github.com/hayeah/dotfiles
+pymake dotfiles --force
 ```
 
-This clones the repo to `~/github.com/hayeah/dotfiles`, applies all dotfiles, and fetches external dependencies (tmux plugins, etc.).
+This symlinks all files from `dotfiles/` into `$HOME`, renders templates (e.g. `.gitconfig`), and creates symlink-file targets. The `--force` flag replaces any existing files on first run.
 
 ## Install tools
 
@@ -32,3 +34,11 @@ mise install
 ```
 
 Installs the pinned toolchain versions from `~/.config/mise/config.toml`.
+
+## Full refresh
+
+```sh
+pymake
+```
+
+Runs all tasks: dotfiles + tmux plugins + mise install + skill sync.
