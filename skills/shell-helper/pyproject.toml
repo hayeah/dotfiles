@@ -9,6 +9,7 @@ dependencies = [
 
 [project.scripts]
 shell-helper = "shell_helper.main:run"
+claude-notify = "shell_helper.claude_notify:app"
 
 [build-system]
 requires = ["hatchling"]
