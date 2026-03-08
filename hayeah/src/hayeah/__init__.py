@@ -1,3 +1,3 @@
-from hayeah import logger
+from hayeah import config, logger
 
-__all__ = ["logger"]
+__all__ = ["config", "logger"]

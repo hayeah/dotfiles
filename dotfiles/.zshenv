@@ -64,6 +64,9 @@ path_add "$HOME/.gobin/shims"
 # Protected sessions for `tm killall` (comma-separated)
 export TMUX_KILL_PROTECT="devport"
 
+# hayeah lib config
+export HAYEAH_CONFIG="$HOME/.config/hayeah/config.toml"
+
 # Dropbox
 export DROPBOX_ROOT="$HOME/Library/CloudStorage/Dropbox"
 export MDNOTES_ROOT="$DROPBOX_ROOT/notes"
