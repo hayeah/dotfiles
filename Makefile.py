@@ -1,10 +1,13 @@
-"""Makefile.py for dotfiles refresh: chezmoi apply + mise install + skill sync."""
+"""Makefile.py for dotfiles refresh: stow dotfiles + mise install + skill sync."""
 
 from pathlib import Path
 
 from pymake import sh, task
 
+from dotfile_stow import DotfileStow
+
 HOME = Path.home()
+REPO = Path(__file__).resolve().parent
 
 # Skill sources: local directories containing SKILL.md files
 SKILL_SOURCES = [
@@ -23,9 +26,22 @@ SKILL_DESTS = [
 
 
 @task()
-def chezmoi():
-    """Apply chezmoi dotfiles."""
-    sh("chezmoi apply")
+def dotfiles(dry: bool = False, force: bool = False):
+    """Symlink dotfiles/ into $HOME."""
+    stow = DotfileStow(
+        source_dir=REPO / "dotfiles",
+        target_dir=HOME,
+        config_path=REPO / ".dotfiles.toml",
+    )
+    stow.apply(dry=dry, force=force)
+
+
+@task()
+def tmux_plugins():
+    """Fetch tmux plugins."""
+    dest = HOME / ".tmux/plugins/tmux-sensible"
+    if not dest.exists():
+        sh("git clone https://github.com/tmux-plugins/tmux-sensible " + str(dest))
 
 
 @task()
@@ -48,9 +64,9 @@ def skills(dry: bool = False):
     sh(f"godzkilla sync{dry_flag} {dests} {sources}")
 
 
-@task(inputs=[chezmoi, mise, skills])
+@task(inputs=[dotfiles, tmux_plugins, mise, skills])
 def default():
-    """Full refresh: chezmoi apply + mise install + sync skills."""
+    """Full refresh: dotfiles + tmux plugins + mise install + sync skills."""
     pass
 
 
