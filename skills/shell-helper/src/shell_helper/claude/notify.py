@@ -328,6 +328,108 @@ class TranscriptReader:
 
 
 # ---------------------------------------------------------------------------
+# MessageFormatter — assembles notification text with budget-aware truncation
+# ---------------------------------------------------------------------------
+
+FOOTER = "\n\n" + "⬆️" * 8
+
+
+class MessageFormatter:
+    def __init__(
+        self,
+        event: str,
+        notification_type: str,
+        cwd: str,
+        session_id: str,
+        record: NotifyRecord,
+        transcript: TranscriptReader | None,
+        tmux: str | None,
+        diff_stat: str | None,
+    ):
+        self.event = event
+        self.notification_type = notification_type
+        self.cwd = cwd
+        self.session_id = session_id
+        self.record = record
+        self.transcript = transcript
+        self.tmux = tmux
+        self.diff_stat = diff_stat
+
+    def build(self) -> str:
+        lines = self._header_lines()
+        lines.extend(self._conversation_lines())
+        lines.append("")
+        lines.append("⬆️" * 8)
+        return "\n".join(lines)
+
+    def _header_lines(self) -> list[str]:
+        icon = _event_icon(self.event, self.notification_type)
+        lines: list[str] = [icon]
+
+        if self.tmux:
+            lines.append(f"`tmux a -t '{_escape_md(self.tmux)}'`")
+
+        duration = self.transcript.duration(self.record.elapsed) if self.transcript else ""
+
+        lines.extend([
+            "",
+            f"*cwd:* `{_escape_md(self.cwd)}`",
+            f"*session:* `{_escape_md(self.session_id)}`",
+        ])
+
+        if duration:
+            lines.append(f"*turn:* `{_escape_md(duration)}`")
+
+        if self.diff_stat:
+            lines.append(f"*uncommitted:* `{_escape_md(self.diff_stat)}`")
+
+        return lines
+
+    def _conversation_lines(self) -> list[str]:
+        if not self.transcript:
+            return []
+        new_msgs = self.transcript.new_messages()
+        if not new_msgs:
+            return []
+
+        humans = [m for m in new_msgs if m.role == "human"]
+        last_asst = next((m for m in reversed(new_msgs) if m.role == "assistant"), None)
+
+        header_text = "\n".join(self._header_lines()) + "\n"
+        budget = MAX_MESSAGE_LEN - len(header_text) - len(FOOTER) - 10
+
+        result: list[str] = [""]
+        used = self._append_human_lines(result, humans, budget // 2)
+        self._append_assistant_line(result, last_asst, budget - used)
+        return result
+
+    def _append_human_lines(self, out: list[str], humans: list[TurnMessage], budget: int) -> int:
+        used = 0
+        for m in humans:
+            remaining = budget - used - 2  # "▶ " prefix
+            raw = _middle_truncate(m.text, remaining) if remaining > 10 else m.text
+            line = f"▶ {_escape_md(raw)}"
+            used += len(line) + 1
+            out.append(line)
+        return used
+
+    def _append_assistant_line(self, out: list[str], msg: TurnMessage | None, budget: int) -> None:
+        if not msg:
+            return
+        budget -= 2  # "◁ " prefix
+        if budget <= 10:
+            out.append(f"◁ {_escape_md(_middle_truncate(msg.text, 20))}")
+            return
+        truncated = _middle_truncate(msg.text, budget)
+        escaped = _escape_md(truncated)
+        # If escaping blew past budget, re-truncate tighter
+        if len(escaped) > budget:
+            truncated = _middle_truncate(msg.text, budget * 2 // 3)
+            escaped = _escape_md(truncated)
+        out.append(f"◁ {escaped}")
+
+
+# ---------------------------------------------------------------------------
 # HookNotifier — builds and sends the notification
 # ---------------------------------------------------------------------------
 
@@ -384,79 +486,17 @@ class HookNotifier:
             db.close()
 
     def _format(self, record: NotifyRecord, transcript: TranscriptReader | None, tmux: str | None, diff_stat: str | None = None) -> str:
-        icon = _event_icon(self.event, self.notification_type)
-
-        lines: list[str] = [icon]
-
-        if tmux:
-            lines.append(f"`tmux a -t '{_escape_md(tmux)}'`")
-
-        duration = transcript.duration(record.elapsed) if transcript else ""
-
-        lines.extend([
-            "",
-            f"*cwd:* `{_escape_md(self.cwd)}`",
-            f"*session:* `{_escape_md(self.session_id)}`",
-        ])
-
-        if duration:
-            lines.append(f"*turn:* `{_escape_md(duration)}`")
-
-        if diff_stat:
-            lines.append(f"*uncommitted:* `{_escape_md(diff_stat)}`")
-
-        footer = "\n\n" + "⬆️" * 8
-
-        if transcript:
-            new_msgs = transcript.new_messages()
-            if new_msgs:
-                # Collect human messages + only the last assistant message.
-                humans = [m for m in new_msgs if m.role == "human"]
-                last_asst = next((m for m in reversed(new_msgs) if m.role == "assistant"), None)
-
-                header = "\n".join(lines) + "\n"
-                # Budget: single Telegram message, minus header/footer/margins
-                budget = MAX_MESSAGE_LEN - len(header) - len(footer) - 10
-
-                # Human messages get priority (usually short).
-                # Cap human portion to half the budget so assistant always gets space.
-                human_budget = budget // 2
-                human_lines: list[str] = []
-                used = 0
-                for i, m in enumerate(humans):
-                    marker = "▶"
-                    raw_h = m.text
-                    remaining_h = human_budget - used - 2  # marker + space
-                    if remaining_h > 10:
-                        raw_h = _middle_truncate(raw_h, remaining_h)
-                    escaped = _escape_md(raw_h)
-                    line = f"{marker} {escaped}"
-                    used += len(line) + 1  # +1 for newline
-                    human_lines.append(line)
-
-                # Assistant gets remaining budget, middle-truncated
-                if last_asst:
-                    asst_budget = budget - used - 2  # "◁ " prefix
-                    # Estimate escape overhead: count special chars
-                    raw = last_asst.text
-                    if asst_budget > 10:
-                        truncated = _middle_truncate(raw, asst_budget)
-                        escaped = _escape_md(truncated)
-                        # If escaping blew past budget, re-truncate tighter
-                        if len(escaped) > asst_budget:
-                            truncated = _middle_truncate(raw, asst_budget * 2 // 3)
-                            escaped = _escape_md(truncated)
-                        human_lines.append(f"◁ {escaped}")
-                    else:
-                        human_lines.append(f"◁ {_escape_md(_middle_truncate(raw, 20))}")
-
-                lines.append("")
-                lines.extend(human_lines)
-
-        lines.append("")
-        lines.append("⬆️" * 8)
-
-        return "\n".join(lines)
+        fmt = MessageFormatter(
+            event=self.event,
+            notification_type=self.notification_type,
+            cwd=self.cwd,
+            session_id=self.session_id,
+            record=record,
+            transcript=transcript,
+            tmux=tmux,
+            diff_stat=diff_stat,
+        )
+        return fmt.build()
 
 
 # ---------------------------------------------------------------------------
