@@ -16,6 +16,7 @@ from .project import name as project_name
 from .project import resolve
 from .project import root as project_root
 from .claude import app as claude_app
+from .claude.telegram import app as telegram_app
 from .tmux import app as tmux_app
 
 app = typer.Typer(help="Shell utilities for project detection and editor launching.")
@@ -101,6 +102,10 @@ app.add_typer(tmux_app, name="tm")
 # -- claude subcommand group --------------------------------------------------
 
 app.add_typer(claude_app, name="claude")
+
+# -- telegram subcommand group ------------------------------------------------
+
+app.add_typer(telegram_app, name="tg")
 
 
 def run() -> None:

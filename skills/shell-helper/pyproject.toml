@@ -14,7 +14,6 @@ hayeah = { path = "../../hayeah", editable = true }
 
 [project.scripts]
 shell-helper = "shell_helper.main:run"
-telegram = "shell_helper.claude.telegram:app"
 
 [build-system]
 requires = ["hatchling"]
