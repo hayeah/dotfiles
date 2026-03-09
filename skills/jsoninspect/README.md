@@ -1,6 +1,6 @@
 ---
 name: jsoninspect
-description: Pretty-print and colorize JSON/JSONL with string truncation. Use when inspecting large JSON files or API responses with long string fields.
+description: Pretty-print JSON/JSONL, truncating long string values while preserving structure. Use when inspecting large JSON files or API responses with long string fields.
 ---
 
 # jsoninspect
