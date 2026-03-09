@@ -1,3 +1,8 @@
+---
+name: dotfiles
+description: Dotfiles Management
+---
+
 # Dotfiles Management
 
 Manage dotfiles via `DotfileStow` — a custom symlink manager replacing chezmoi.
@@ -39,7 +44,7 @@ Used in `.tmpl` files as `$gitName` or `${gitEmail}`.
 
 ```bash
 pymake dotfiles              # apply (skips existing correct symlinks)
-pymake dotfiles force=true   # overwrite conflicts
+pymake dotfiles --vars dotfiles.force=true   # overwrite conflicts
 pymake                       # full refresh: dotfiles + tmux plugins + mise + skills
 ```
 

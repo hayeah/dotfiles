@@ -1,14 +1,21 @@
 model = "gpt-5.4"
 model_reasoning_effort = "high"
 notify = [
-  "zsh",
-  "-lc",
-  "godotenv -f ~/.env.secret shell-helper agent codex notify \"$1\"",
-  "--",
+  "godotenv",
+  "-f",
+  "/Users/me/.env.secret",
+  "shell-helper",
+  "agent",
+  "codex",
+  "notify",
 ]
 
 [notice.model_migrations]
 "gpt-5.2-codex" = "gpt-5.3-codex"
+"gpt-5.3-codex" = "gpt-5.4"
 
 [projects."/Users/me/codex"]
+trust_level = "trusted"
+
+[projects."/Users/me/github.com/hayeah/dotfiles"]
 trust_level = "trusted"
