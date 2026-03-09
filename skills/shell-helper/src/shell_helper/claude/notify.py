@@ -1,22 +1,21 @@
-"""claude-notify — format Claude Code hook events and send via telegram CLI."""
+"""Claude notify hook formatter and Telegram sender."""
 
 from __future__ import annotations
 
 import json
 import os
-import sqlite3
 import subprocess
-import sys
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
 
 import httpx
 from hayeah import logger
 
-from .telegram import MAX_MESSAGE_LEN, send_text
+from ..agent.state import AgentStateDB, NotifyRecord
+from ..agent.telegram import MAX_MESSAGE_LEN, send_text
 
-log = logger.new("claude-notify")
+log = logger.new("agent-claude-notify")
 
 
 # ---------------------------------------------------------------------------
@@ -145,99 +144,6 @@ def _parse_ts(raw: str) -> float:
 
 
 # ---------------------------------------------------------------------------
-# NotifyDB — tracks sent notifications per session for debounce + history
-# ---------------------------------------------------------------------------
-
-_DB_PATH = Path(
-    os.environ.get("XDG_STATE_HOME", Path.home() / ".local" / "state")
-) / "claude-notify" / "notify.db"
-
-_DEBOUNCE_SECS = 5
-_PRUNE_DAYS = 7
-
-
-@dataclass
-class NotifyRecord:
-    should_send: bool
-    elapsed: float | None = None
-
-
-class NotifyDB:
-    """Tracks sent notifications. One table for debounce, elapsed, and TG→tmux mapping."""
-
-    def __init__(self, path: Path = _DB_PATH):
-        path.parent.mkdir(parents=True, exist_ok=True)
-        self._conn = sqlite3.connect(str(path), timeout=5)
-        self._conn.execute(
-            "CREATE TABLE IF NOT EXISTS messages ("
-            "  tg_message_id INTEGER PRIMARY KEY,"
-            "  session_id TEXT NOT NULL,"
-            "  tmux_target TEXT,"
-            "  ts REAL NOT NULL"
-            ")"
-        )
-        self._conn.execute(
-            "CREATE INDEX IF NOT EXISTS idx_messages_session ON messages(session_id, ts)"
-        )
-        self._conn.commit()
-
-    def close(self) -> None:
-        self._conn.close()
-
-    def check_debounce(self, session_id: str, transcript_ts: float) -> NotifyRecord:
-        """Check if we should send, and compute elapsed since last notification.
-
-        Uses transcript_ts (from the transcript's last assistant done) for
-        consistent timing with transcript entries.
-        """
-        now = datetime.now(timezone.utc).timestamp()
-        self._conn.execute(
-            "DELETE FROM messages WHERE ts < ?", (now - _PRUNE_DAYS * 86400,)
-        )
-
-        row = self._conn.execute(
-            "SELECT ts FROM messages WHERE session_id = ? AND ts > ? LIMIT 1",
-            (session_id, transcript_ts - _DEBOUNCE_SECS),
-        ).fetchone()
-        if row is not None:
-            return NotifyRecord(should_send=False)
-
-        prev = self._conn.execute(
-            "SELECT MAX(ts) FROM messages WHERE session_id = ?", (session_id,)
-        ).fetchone()
-        last_ts = prev[0] if prev and prev[0] else None
-        elapsed = (transcript_ts - last_ts) if last_ts else None
-
-        return NotifyRecord(should_send=True, elapsed=elapsed)
-
-    def record_sent(
-        self, tg_message_id: int, session_id: str, tmux_target: str | None, ts: float,
-    ) -> None:
-        """Record a sent notification. ts should be a transcript timestamp."""
-        self._conn.execute(
-            "INSERT OR REPLACE INTO messages (tg_message_id, session_id, tmux_target, ts)"
-            " VALUES (?, ?, ?, ?)",
-            (tg_message_id, session_id, tmux_target, ts),
-        )
-        self._conn.commit()
-
-    def tmux_target_for(self, tg_message_id: int) -> str | None:
-        """Look up tmux target for a Telegram message (for reply routing)."""
-        row = self._conn.execute(
-            "SELECT tmux_target FROM messages WHERE tg_message_id = ?",
-            (tg_message_id,),
-        ).fetchone()
-        return row[0] if row else None
-
-    def latest_tmux_target(self) -> str | None:
-        """Return tmux target from the most recent notification."""
-        row = self._conn.execute(
-            "SELECT tmux_target FROM messages WHERE tmux_target IS NOT NULL ORDER BY ts DESC LIMIT 1",
-        ).fetchone()
-        return row[0] if row else None
-
-
-# ---------------------------------------------------------------------------
 # TranscriptReader — parses session transcript JSONL
 # ---------------------------------------------------------------------------
 
@@ -270,7 +176,9 @@ class TranscriptReader:
     @property
     def prev_assistant_done_ts(self) -> float | None:
         """Second-to-last assistant done timestamp — the end of the previous turn."""
-        return self._assistant_done_timestamps[-2] if len(self._assistant_done_timestamps) >= 2 else None
+        if len(self._assistant_done_timestamps) < 2:
+            return None
+        return self._assistant_done_timestamps[-2]
 
     def _record_done(self, entry: dict[str, object]) -> None:
         ts = _parse_ts(str(entry.get("timestamp", "")))
@@ -308,7 +216,9 @@ class TranscriptReader:
                         if text:
                             if max_preview and len(text) > max_preview:
                                 text = text[:max_preview] + "…"
-                            self.messages.append(TurnMessage(role="assistant", text=text, timestamp=ts))
+                            self.messages.append(
+                                TurnMessage(role="assistant", text=text, timestamp=ts)
+                            )
             if msg.get("stop_reason") == "end_turn":
                 self._record_done(entry)
 
@@ -491,9 +401,13 @@ class HookNotifier:
         if not transcript_ts:
             transcript_ts = datetime.now(timezone.utc).timestamp()
 
-        db = NotifyDB()
+        db = AgentStateDB()
         try:
-            record = db.check_debounce(self.session_id, transcript_ts) if self.session_id else NotifyRecord(should_send=True)
+            record = (
+                db.check_claude_debounce(self.session_id, transcript_ts)
+                if self.session_id
+                else NotifyRecord(should_send=True)
+            )
             if not record.should_send:
                 return
 
@@ -513,15 +427,21 @@ class HookNotifier:
                     parse_mode="MarkdownV2", reply_markup=reply_markup,
                 )
 
-            if tg_message_id is not None:
-                db.record_sent(tg_message_id, self.session_id, tmux, transcript_ts)
+            if tg_message_id is not None and self.session_id:
+                db.record_claude_sent(tg_message_id, self.session_id, tmux, transcript_ts)
 
             # Send bell to tmux pane so the window is flagged in the status line.
             _tmux_bell()
         finally:
             db.close()
 
-    def _format(self, record: NotifyRecord, transcript: TranscriptReader | None, tmux: str | None, diff_stat: str | None = None) -> str:
+    def _format(
+        self,
+        record: NotifyRecord,
+        transcript: TranscriptReader | None,
+        tmux: str | None,
+        diff_stat: str | None = None,
+    ) -> str:
         fmt = MessageFormatter(
             event=self.event,
             notification_type=self.notification_type,
@@ -533,5 +453,3 @@ class HookNotifier:
             diff_stat=diff_stat,
         )
         return fmt.build()
-
-

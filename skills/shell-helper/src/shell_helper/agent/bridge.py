@@ -1,4 +1,4 @@
-"""tg-reply-bridge — poll Telegram for replies to Claude notifications, deliver to tmux."""
+"""tg-reply-bridge — poll Telegram for replies to agent notifications, deliver to tmux."""
 
 from __future__ import annotations
 
@@ -8,9 +8,9 @@ import subprocess
 import httpx
 from hayeah import logger
 
-from ..agent.state import AgentStateDB
+from .state import AgentStateDB
 
-log = logger.new("claude-tg-bridge")
+log = logger.new("agent-tg-bridge")
 
 
 class TGReplyBridge:
@@ -137,7 +137,6 @@ class TGReplyBridge:
             log.exception("sendChatAction failed")
 
     def _remove_buttons(self, msg: dict) -> None:
-        """Remove inline keyboard from the message."""
         msg_id = msg.get("message_id")
         chat_id = msg.get("chat", {}).get("id")
         if not msg_id or not chat_id:
@@ -174,7 +173,6 @@ class TGReplyBridge:
             log.exception("sendMessage failed")
 
     def _send_to_tmux(self, tmux_target: str, text: str) -> str | None:
-        """Send text to tmux. Returns error message on failure, None on success."""
         log.info("delivering to tmux", target=tmux_target, text=text[:60])
         try:
             subprocess.run(
@@ -188,4 +186,3 @@ class TGReplyBridge:
         except FileNotFoundError:
             log.error("tmux not found")
             return "tmux not found"
-
