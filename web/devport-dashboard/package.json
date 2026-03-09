@@ -1,0 +1,7 @@
+{
+  "name": "devport-dashboard",
+  "private": true,
+  "scripts": {
+    "dev": "vite"
+  }
+}

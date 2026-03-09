@@ -1,0 +1,7 @@
+{
+  "name": "template",
+  "private": true,
+  "scripts": {
+    "dev": "vite"
+  }
+}
