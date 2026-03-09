@@ -109,21 +109,28 @@ export class Browser {
 		process.exit(1);
 	}
 
+	async rawNewPage(): Promise<Page> {
+		if (!this.browser) throw new Error("Not connected");
+		return this.browser.newPage();
+	}
+
+	async pageInfo(page: Page): Promise<PageInfo> {
+		if (!this.browser) throw new Error("Not connected");
+		const pages = await this.browser.pages();
+		return {
+			index: pages.indexOf(page),
+			targetId: getTargetId(page),
+			url: page.url(),
+			title: await page.title(),
+		};
+	}
+
 	async newPage(url: string): Promise<{ page: Page; info: PageInfo }> {
 		if (!this.browser) throw new Error("Not connected");
 		const page = await this.browser.newPage();
 		await page.goto(url, { waitUntil: "domcontentloaded" });
-		const pages = await this.browser.pages();
-		const index = pages.indexOf(page);
-		return {
-			page,
-			info: {
-				index,
-				targetId: getTargetId(page),
-				url: page.url(),
-				title: await page.title(),
-			},
-		};
+		const info = await this.pageInfo(page);
+		return { page, info };
 	}
 
 	async disconnect(): Promise<void> {

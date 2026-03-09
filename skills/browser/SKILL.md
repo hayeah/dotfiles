@@ -54,9 +54,11 @@ The `*` marks the default (latest) session.
 
 ```bash
 browser new https://example.com
+browser new https://example.com --device "iPhone 15 Pro"
+browser new https://example.com --viewport 390x844@2 --mobile
 ```
 
-Open a new tab and navigate to the URL. The new session becomes the default.
+Open a new tab and navigate to the URL. The new session becomes the default. Use `--device` or `--viewport` to open with device emulation (sets viewport, DPR, and user agent before navigation).
 
 ### Reload Session
 
@@ -118,9 +120,21 @@ Status and content-type are printed to stderr; response body goes to stdout (or 
 ```bash
 browser screenshot
 browser screenshot -s 0
+browser screenshot --device "iPhone 15 Pro"
+browser screenshot --viewport 1920x1080 -o desktop.png
+browser screenshot --full
 ```
 
 Capture current viewport and return temporary file path. Use this to visually verify UI state.
+
+Options:
+- `-d, --device <name>`: Emulate a device before capturing (reloads page at new viewport)
+- `-v, --viewport <WxH[@DPR]>`: Custom viewport dimensions (e.g. `390x844@3`)
+- `--mobile`: Enable mobile emulation (with `--viewport`)
+- `-o, --output <path>`: Save to specific path instead of temp file
+- `--full`: Capture full scrollable page, not just the viewport
+- `-w, --wait <expr>`: JS expression to poll until truthy before capturing (e.g. `'document.querySelectorAll("h3").length > 0'`)
+- `--timeout <ms>`: Max wait time for `--wait` (default: 10000)
 
 ## Pick Elements
 
@@ -204,6 +218,7 @@ Navigate to a URL and extract readable content as markdown. Uses Mozilla Readabi
 - Debugging authentication or session issues
 - Scraping dynamic content that requires JS execution
 - Discovering API endpoints via network capture
+- Taking screenshots at specific device sizes (mobile, tablet, desktop)
 
 ---
 
