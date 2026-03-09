@@ -116,6 +116,25 @@ def _tmux_target() -> str | None:
         return None
 
 
+def _tmux_bell() -> None:
+    """Send a bell to the current tmux pane to flag it in the status line."""
+    pane_id = os.environ.get("TMUX_PANE")
+    if not pane_id:
+        return
+    try:
+        # Get the pane's tty and write BEL directly to it.
+        result = subprocess.run(
+            ["tmux", "display-message", "-t", pane_id, "-p", "#{pane_tty}"],
+            capture_output=True, text=True, timeout=5,
+        )
+        tty = result.stdout.strip()
+        if tty:
+            with open(tty, "w") as f:
+                f.write("\a")
+    except Exception:
+        log.debug("tmux_bell failed", exc_info=True)
+
+
 def _parse_ts(raw: str) -> float:
     if raw:
         try:
@@ -496,6 +515,9 @@ class HookNotifier:
 
             if tg_message_id is not None:
                 db.record_sent(tg_message_id, self.session_id, tmux, transcript_ts)
+
+            # Send bell to tmux pane so the window is flagged in the status line.
+            _tmux_bell()
         finally:
             db.close()
 
