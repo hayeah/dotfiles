@@ -188,9 +188,13 @@ Prefer this over DOM inspection when you need to understand page structure, find
 
 ```bash
 browser content https://example.com
+browser content https://chatgpt.com/share/<share-id>
 ```
 
 Navigate to a URL and extract readable content as markdown. Uses Mozilla Readability for article extraction and Turndown for HTML-to-markdown conversion. Works on JavaScript-rendered pages.
+
+`browser content` also auto-detects some site-specific extractors before falling back to Readability. Currently supported:
+- `chatgpt.com/share/...`: exports the full visible conversation as markdown by reading the page's hydrated share data instead of trying to infer turns from article text.
 
 ## When to Use
 
