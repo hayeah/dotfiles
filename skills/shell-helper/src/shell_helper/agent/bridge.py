@@ -176,7 +176,11 @@ class TGReplyBridge:
         log.info("delivering to tmux", target=tmux_target, text=text[:60])
         try:
             subprocess.run(
-                ["tmux", "send-keys", "-t", tmux_target, text, "Enter"],
+                ["tmux", "send-keys", "-t", tmux_target, "-l", text],
+                check=True, timeout=5,
+            )
+            subprocess.run(
+                ["tmux", "send-keys", "-t", tmux_target, "C-m"],
                 check=True, timeout=5,
             )
             return None
