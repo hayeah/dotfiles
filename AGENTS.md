@@ -20,12 +20,10 @@ When using a skill or tool, if you run into problems, mistakes, or ergonomic iss
 
 ## Dotfiles
 
-- Use chezmoi to manage dotfiles.
-- Make changes directly to the chezmoi repo at `~/github.com/hayeah/dotfiles`.
-- Run chezmoi apply when you make changes.
-- After pulling changes, run `pymake` in `~/github.com/hayeah/dotfiles` to fully refresh.
+- Make changes directly to the dotfiles repo at `~/github.com/hayeah/dotfiles`.
+- Run `pymake` in `~/github.com/hayeah/dotfiles` to fully refresh.
   - It runs these tasks automatically — no need to invoke them manually:
-  - `chezmoi apply` — applies dotfile changes
+  - `dotfiles` — symlinks `dotfiles/` into `$HOME` via `dotfile_stow.py`
   - `mise install` — installs any new tools
   - `godzkilla sync` — syncs agent skills
 

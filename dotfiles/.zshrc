@@ -13,7 +13,7 @@ _init bun
 _init orbstack
 
 # shell-helper
-[ -f ~/.local/share/chezmoi/skills/shell-helper/helpers.sh ] && source ~/.local/share/chezmoi/skills/shell-helper/helpers.sh
+[ -f ~/github.com/hayeah/dotfiles/skills/shell-helper/helpers.sh ] && source ~/github.com/hayeah/dotfiles/skills/shell-helper/helpers.sh
 
 # Antigravity
 path_add "$HOME/.antigravity/antigravity/bin"
