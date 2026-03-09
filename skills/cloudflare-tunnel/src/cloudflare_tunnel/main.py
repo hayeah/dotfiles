@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import json
 import platform
-import subprocess
 
 import typer
 
@@ -12,11 +11,6 @@ from .config import TunnelConfig
 from .tunnel import (
     TunnelManager,
     create_client,
-    devport_resolve_port,
-    devport_restart_cloudflared,
-    devport_rm_cloudflared,
-    devport_start_cloudflared,
-    devport_start_service,
     resolve_account_id,
 )
 
@@ -30,7 +24,7 @@ def main() -> None:
 
 @app.command()
 def setup() -> None:
-    """Ensure tunnel exists and cloudflared is running (idempotent)."""
+    """Create tunnel, fetch token, and save config (idempotent)."""
     cfg = TunnelConfig.load()
     client = create_client()
 
@@ -61,69 +55,23 @@ def setup() -> None:
         typer.echo(f"Tunnel created: {tunnel_name} ({tunnel_id})")
 
     mgr = TunnelManager(client, cfg)
-    token = mgr.token()
-    devport_start_cloudflared(token)
-    typer.echo("cloudflared is running via devport.")
-
-
-@app.command("start", context_settings={"allow_extra_args": True, "allow_interspersed_args": False})
-def start_service(
-    ctx: typer.Context,
-    fqdn: str = typer.Argument(help="FQDN to map (also used as devport key)"),
-) -> None:
-    """Start a service via devport and map FQDN to it.
-
-    Usage: cloudflare-tunnel start <fqdn> -- <cmd> [args...]
-    """
-    if not ctx.args:
-        typer.echo("Missing command after '--'. Usage: cloudflare-tunnel start <fqdn> -- <cmd>")
-        raise typer.Exit(1)
-
-    cfg = TunnelConfig.load_or_die()
-    client = create_client()
-    mgr = TunnelManager(client, cfg)
-
-    # Start the service via devport (uses fqdn as key)
-    port = devport_start_service(fqdn, ctx.args)
-    typer.echo(f"Service started on port {port}")
-
-    # Set up ingress + DNS
-    service = f"http://localhost:{port}"
-    rules = mgr.ingress_rules()
-    updated = False
-    for r in rules:
-        if r["hostname"] == fqdn:
-            r["service"] = service
-            updated = True
-            break
-    if not updated:
-        rules.append({"hostname": fqdn, "service": service})
-    mgr.update_ingress(rules)
-    mgr.ensure_cname(fqdn)
-    devport_restart_cloudflared()
-    typer.echo(f"Done. {fqdn} -> {service}")
+    tok = mgr.token()
+    typer.echo(f"Token: {tok}")
 
 
 @app.command("set")
 def set_route(
     fqdn: str = typer.Argument(help="Fully qualified domain name"),
-    target: str = typer.Argument(help="Port number or devport hashid"),
+    port: int = typer.Argument(help="Port number"),
 ) -> None:
     """Add or update a tunnel mapping: FQDN -> port."""
     cfg = TunnelConfig.load_or_die()
     client = create_client()
     mgr = TunnelManager(client, cfg)
 
-    # Resolve target to a port
-    if target.isdigit():
-        port = int(target)
-    else:
-        port = devport_resolve_port(target)
-
     service = f"http://localhost:{port}"
     typer.echo(f"Setting {fqdn} -> {service}")
 
-    # Update ingress
     rules = mgr.ingress_rules()
     updated = False
     for r in rules:
@@ -135,11 +83,7 @@ def set_route(
         rules.append({"hostname": fqdn, "service": service})
     mgr.update_ingress(rules)
 
-    # Ensure DNS
     mgr.ensure_cname(fqdn)
-
-    # Restart cloudflared
-    devport_restart_cloudflared()
     typer.echo(f"Done. {fqdn} -> {service}")
 
 
@@ -160,7 +104,6 @@ def unset_route(
 
     mgr.update_ingress(new_rules)
     mgr.delete_cname(fqdn)
-    devport_restart_cloudflared()
     typer.echo(f"Removed {fqdn}")
 
 
@@ -180,7 +123,7 @@ def ls() -> None:
 
 @app.command()
 def teardown() -> None:
-    """Remove tunnel, DNS records, cloudflared process, and local config."""
+    """Remove tunnel, DNS records, and local config."""
     cfg = TunnelConfig.load()
     if cfg is None:
         typer.echo("No tunnel configured. Nothing to do.")
@@ -194,29 +137,14 @@ def teardown() -> None:
     client = create_client()
     mgr = TunnelManager(client, cfg)
 
-    # Clean up DNS records for all ingress hostnames
     rules = mgr.ingress_rules()
     for r in rules:
         mgr.delete_cname(r["hostname"])
 
-    # Stop cloudflared
-    devport_rm_cloudflared()
-
-    # Delete tunnel
     mgr.delete_tunnel()
 
-    # Remove local config
     TunnelConfig.remove()
     typer.echo("Teardown complete.")
-
-
-@app.command()
-def token() -> None:
-    """Print the tunnel connector token."""
-    cfg = TunnelConfig.load_or_die()
-    client = create_client()
-    mgr = TunnelManager(client, cfg)
-    typer.echo(mgr.token())
 
 
 def run() -> None:

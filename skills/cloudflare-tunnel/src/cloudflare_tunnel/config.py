@@ -14,19 +14,17 @@ class TunnelConfig:
     tunnel_id: str
     tunnel_name: str
     account_id: str
+    tunnel_token: str = ""
 
     def save(self) -> None:
-        CONFIG_PATH.write_text(
-            json.dumps(
-                {
-                    "tunnel_id": self.tunnel_id,
-                    "tunnel_name": self.tunnel_name,
-                    "account_id": self.account_id,
-                },
-                indent=2,
-            )
-            + "\n"
-        )
+        data = {
+            "tunnel_id": self.tunnel_id,
+            "tunnel_name": self.tunnel_name,
+            "account_id": self.account_id,
+        }
+        if self.tunnel_token:
+            data["tunnel_token"] = self.tunnel_token
+        CONFIG_PATH.write_text(json.dumps(data, indent=2) + "\n")
 
     @staticmethod
     def load() -> TunnelConfig | None:
@@ -37,6 +35,7 @@ class TunnelConfig:
             tunnel_id=data["tunnel_id"],
             tunnel_name=data["tunnel_name"],
             account_id=data["account_id"],
+            tunnel_token=data.get("tunnel_token", ""),
         )
 
     @staticmethod

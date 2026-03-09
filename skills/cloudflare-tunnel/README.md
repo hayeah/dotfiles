@@ -5,22 +5,22 @@ description: Manage Cloudflare Tunnel ingress rules and DNS records via CLI. Use
 
 # cloudflare-tunnel
 
-CLI for managing Cloudflare Tunnel ingress rules and DNS records. One tunnel per machine, multiple FQDNs as ingress rules. Uses `devport` for process supervision of `cloudflared`.
+CLI for managing Cloudflare Tunnel ingress rules and DNS records. One tunnel per machine, multiple FQDNs as ingress rules. Independent from devport — cloudflared is run separately via devport.yaml.
 
 ## Model
 
 - One remotely-managed tunnel per machine, named after `$(hostname)`
-- A single `cloudflared` connector runs via devport (key: `cloudflared`)
+- `cloudflared` connector is run via devport (configured in `devport.yaml`, not by this tool)
 - Multiple FQDNs share the tunnel as ingress rules
 - Each FQDN gets a proxied CNAME record pointing to `<tunnel_id>.cfargotunnel.com`
 - Cloudflare's ingress config is the source of truth
+- cloudflared polls for config changes from Cloudflare's edge — no restart needed after `set`/`unset`
 
 ## Prerequisites
 
 - `CLOUDFLARE_API_TOKEN` in `~/.env.secret`
   - Required permissions: **Account: Cloudflare Tunnel (Edit)**, **Zone: DNS (Edit)**
 - `cloudflared` installed via mise
-- `devport` on PATH or at `~/go/bin/devport`
 - Domain already on Cloudflare
 
 ## Install
@@ -35,17 +35,11 @@ uv tool install -e .
 All commands require `CLOUDFLARE_API_TOKEN`. Use `godotenv` to load it:
 
 ```bash
-# First time: create tunnel and start cloudflared
+# First time: create tunnel and save config (prints token)
 godotenv -f ~/.env.secret cloudflare-tunnel setup
 
-# Start a service and map it to a public FQDN in one step
-godotenv -f ~/.env.secret cloudflare-tunnel start app.example.com -- python3 server.py
-
-# Or map an existing local port
+# Map a local port to a public FQDN
 godotenv -f ~/.env.secret cloudflare-tunnel set app.example.com 8080
-
-# Or map by devport hashid (resolves to its port)
-godotenv -f ~/.env.secret cloudflare-tunnel set app.example.com b7d
 
 # List current tunnel mappings (JSON output)
 godotenv -f ~/.env.secret cloudflare-tunnel ls
@@ -53,30 +47,36 @@ godotenv -f ~/.env.secret cloudflare-tunnel ls
 # Remove a mapping (deletes ingress rule and CNAME)
 godotenv -f ~/.env.secret cloudflare-tunnel unset app.example.com
 
-# Print the tunnel connector token
-godotenv -f ~/.env.secret cloudflare-tunnel token
-
-# Tear down everything: tunnel, DNS records, cloudflared, local config
+# Tear down everything: tunnel, DNS records, and local config
 godotenv -f ~/.env.secret cloudflare-tunnel teardown
 ```
+
+## Running cloudflared
+
+cloudflared is run independently via devport. Add to `devport.yaml`:
+
+```yaml
+- key: cloudflared
+  exec: cloudflared tunnel --no-autoupdate run --token $CLOUDFLARE_TUNNEL_TOKEN
+  no-port: true
+  env: ~/.env.secret
+```
+
+The token is saved in `~/.cloudflare-tunnel.json` after `setup`. Add `CLOUDFLARE_TUNNEL_TOKEN` to `~/.env.secret`.
 
 ## Commands
 
 ### `setup`
 
-Idempotent. Creates a remotely-managed tunnel named after the hostname, initializes empty ingress, saves config to `~/.cloudflare-tunnel.json`, and starts `cloudflared` via `devport start`. Safe to re-run.
+Idempotent. Creates a remotely-managed tunnel named after the hostname, initializes empty ingress, fetches and caches the connector token in `~/.cloudflare-tunnel.json`. Safe to re-run.
 
-### `start <fqdn> -- <cmd> [args...]`
+### `set <fqdn> <port>`
 
-Start a service via devport (using the FQDN as the devport key) and map it to a public FQDN in one step. Equivalent to `devport start --key <fqdn> -- <cmd>` followed by `set <fqdn> <port>`.
-
-### `set <fqdn> <port|hashid>`
-
-Add or update a tunnel mapping. If the second argument is not a number, it's treated as a devport hashid and resolved to a port via `devport ls`. Creates/updates the CNAME DNS record and restarts cloudflared.
+Add or update a tunnel mapping. Creates/updates the CNAME DNS record. cloudflared picks up the config change automatically.
 
 ### `unset <fqdn>`
 
-Remove the ingress rule and CNAME record for the given FQDN. Restarts cloudflared.
+Remove the ingress rule and CNAME record for the given FQDN.
 
 ### `ls`
 
@@ -84,34 +84,26 @@ Fetch and display current ingress rules from Cloudflare (excludes the catch-all)
 
 ### `teardown`
 
-Deletes all DNS records for ingress hostnames, stops cloudflared via devport, deletes the tunnel, and removes `~/.cloudflare-tunnel.json`. Prompts for confirmation. Idempotent.
-
-### `token`
-
-Print the tunnel connector token (fetched from API, not stored locally).
+Deletes all DNS records for ingress hostnames, deletes the tunnel, and removes `~/.cloudflare-tunnel.json`. Prompts for confirmation.
 
 ## Local State
 
-`~/.cloudflare-tunnel.json` stores tunnel identity:
+`~/.cloudflare-tunnel.json` stores tunnel identity and token:
 
 ```json
 {
   "tunnel_id": "<uuid>",
   "tunnel_name": "<hostname>",
-  "account_id": "<account-id>"
+  "account_id": "<account-id>",
+  "tunnel_token": "<base64-token>"
 }
 ```
 
-Created by `setup`. No tunnel token is persisted — it's fetched from the API each time.
-
 ## Quirks and Gotchas
 
-- **devport restart takes hash prefix, not key**: internally, the CLI looks up the cloudflared service's hashid from `devport ls` before calling `devport restart <hashid>`
-- **cloudflared path**: resolved at runtime from `~/.local/share/mise/installs/cloudflared/latest/cloudflared`, falling back to `which cloudflared`. Mise installs the binary directly in the version directory (no `bin/` subdirectory)
 - **Ingress updates are full PUT**: every `set`/`unset` fetches the full config, modifies in memory, and PUTs it back. Safe for single-operator use but not concurrent
-- **Account ID fallback**: if the API token lacks Account:Read, account ID is derived from a zone (`cf.zones.get().account.id`)
 - **Zone matching**: zone ID is resolved by matching the longest suffix of the FQDN against `cf.zones.list()`
-- **cloudflared polls config**: remotely-managed tunnels pick up config changes eventually, but `devport restart` ensures immediate effect
+- **cloudflared polls config**: remotely-managed tunnels pick up ingress changes from Cloudflare's edge automatically
 
 ## Project Structure
 
@@ -126,5 +118,4 @@ skills/cloudflare-tunnel/
     main.py          # typer CLI entrypoint
     config.py        # load/save ~/.cloudflare-tunnel.json
     tunnel.py        # Cloudflare API operations (tunnel CRUD, ingress, DNS)
-    log.py           # logging setup
 ```

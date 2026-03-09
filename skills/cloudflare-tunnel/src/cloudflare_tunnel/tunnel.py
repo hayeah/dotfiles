@@ -2,11 +2,7 @@
 
 from __future__ import annotations
 
-import json
 import os
-import shutil
-import subprocess
-from pathlib import Path
 
 from cloudflare import Cloudflare
 from hayeah import logger
@@ -14,8 +10,6 @@ from hayeah import logger
 from .config import TunnelConfig
 
 log = logger.new("cloudflare-tunnel")
-
-MISE_CLOUDFLARED = Path.home() / ".local/share/mise/installs/cloudflared/latest/cloudflared"
 
 
 class TunnelManager:
@@ -132,118 +126,32 @@ class TunnelManager:
     # -- Tunnel token --
 
     def token(self) -> str:
-        return self.cf.zero_trust.tunnels.cloudflared.token.get(
+        """Get tunnel token. Uses cached value from config, falls back to API."""
+        if self.config.tunnel_token:
+            return self.config.tunnel_token
+        tok = self.cf.zero_trust.tunnels.cloudflared.token.get(
             self.tunnel_id, account_id=self.account_id
         )
+        self.config.tunnel_token = tok
+        self.config.save()
+        log.info("cached tunnel token in config")
+        return tok
 
     # -- Tunnel deletion --
 
     def delete_tunnel(self) -> None:
-        # The SDK delete doesn't support cascade query param directly,
-        # so we use the raw HTTP client.
         self.cf.zero_trust.tunnels.cloudflared.delete(
             self.tunnel_id, account_id=self.account_id
         )
         log.info("deleted tunnel", tunnel_id=self.tunnel_id)
 
 
-def cloudflared_path() -> str:
-    """Resolve cloudflared binary path."""
-    if MISE_CLOUDFLARED.exists():
-        return str(MISE_CLOUDFLARED)
-    which = shutil.which("cloudflared")
-    if which:
-        return which
-    raise SystemExit("cloudflared not found. Install via: mise install cloudflared")
-
-
-def devport_path() -> str:
-    """Resolve devport binary path."""
-    which = shutil.which("devport")
-    if which:
-        return which
-    candidate = Path.home() / "go/bin/devport"
-    if candidate.exists():
-        return str(candidate)
-    raise SystemExit("devport not found. Build from ~/.claude/skills/github.com_hayeah_devport")
-
-
-def _devport_ls() -> list[dict]:
-    """List all devport services."""
-    result = subprocess.run(
-        [devport_path(), "ls"],
-        capture_output=True, text=True, check=True,
-    )
-    return json.loads(result.stdout)
-
-
-def _devport_hashid_for_key(key: str) -> str:
-    """Look up a devport service's hashid by key."""
-    for svc in _devport_ls():
-        if svc.get("key") == key:
-            return svc["hashid"]
-    raise SystemExit(f"No devport service found with key '{key}'")
-
-
-def devport_start_cloudflared(tunnel_token: str) -> None:
-    """Start cloudflared via devport in background (idempotent)."""
-    cmd = [
-        devport_path(),
-        "start", "--no-port", "--key", "cloudflared", "--",
-        cloudflared_path(),
-        "tunnel", "--no-autoupdate", "run", "--token", tunnel_token,
-    ]
-    log.info("running command", cmd=" ".join(cmd))
-    subprocess.run(cmd, check=True)
-
-
-def devport_start_service(key: str, cmd: list[str]) -> int:
-    """Start a service via devport and return the assigned port."""
-    result = subprocess.run(
-        [devport_path(), "start", "--key", key, "--"] + cmd,
-        capture_output=True, text=True, check=True,
-    )
-    info = json.loads(result.stdout)
-    return int(info["port"])
-
-
-def devport_restart_cloudflared() -> None:
-    """Restart cloudflared via devport."""
-    hashid = _devport_hashid_for_key("cloudflared")
-    subprocess.run([devport_path(), "restart", hashid], check=True)
-
-
-def devport_rm_cloudflared() -> None:
-    """Remove cloudflared from devport (no-op if not running)."""
-    try:
-        hashid = _devport_hashid_for_key("cloudflared")
-    except SystemExit:
-        return  # not registered, nothing to do
-    subprocess.run([devport_path(), "rm", hashid], check=False)
-
-
-def devport_resolve_port(hashid: str) -> int:
-    """Resolve a devport hashid to a port number."""
-    for svc in _devport_ls():
-        svc_hashid = svc.get("hashid", "")
-        if svc_hashid.startswith(hashid):
-            return int(svc["port"])
-    raise SystemExit(f"No devport service found matching hashid '{hashid}'")
-
-
 def resolve_account_id(client: Cloudflare) -> str:
-    """Look up account ID. Try accounts.list first, fall back to zones."""
+    """Look up account ID from the API."""
     accounts = list(client.accounts.list())
-    if accounts:
-        return accounts[0].id
-    # Fall back: get account ID from a zone
-    zones = list(client.zones.list())
-    if not zones:
-        raise SystemExit("No zones found. Cannot determine account ID.")
-    zone = client.zones.get(zone_id=zones[0].id or "")
-    if zone and zone.account:
-        return zone.account.id
-    raise SystemExit("Could not determine account ID from zones.")
+    if not accounts:
+        raise SystemExit("No accounts found. Check your CLOUDFLARE_API_TOKEN permissions.")
+    return accounts[0].id
 
 
 def create_client() -> Cloudflare:

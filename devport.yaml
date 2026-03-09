@@ -1,0 +1,14 @@
+- key: cloudflared
+  exec: cloudflared tunnel --no-autoupdate run --token $CLOUDFLARE_TUNNEL_TOKEN
+  no-port: true
+  env: ~/.env.secret
+
+- key: web/devport-dashboard
+  cwd: web
+  exec: pnpm --filter devport-dashboard dev --port $VITE_PORT
+  port-env: VITE_PORT
+
+- key: agent-tg-bridge
+  exec: shell-helper agent tg-bridge
+  no-port: true
+  env: ~/.env.secret
