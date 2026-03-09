@@ -8,6 +8,7 @@ import subprocess
 import sys
 from dataclasses import dataclass
 from datetime import datetime, timezone
+from pathlib import Path
 
 import httpx
 import typer
@@ -143,16 +144,131 @@ def _optional_string(value: object) -> str | None:
     return text or None
 
 
+@dataclass
+class SessionLogCursor:
+    timestamp: str | None = None
+    line_no: int | None = None
+
+
+@dataclass
+class SessionLogReadResult:
+    found: bool
+    messages: list[str]
+    cursor: SessionLogCursor
+
+
+class CodexSessionTranscript:
+    _IGNORED_PREFIXES = (
+        "# AGENTS.md instructions for ",
+        "<skill>",
+        "<turn_aborted>",
+    )
+
+    def __init__(self, session_id: str, root: Path | None = None):
+        self.session_id = session_id
+        self.root = root or (Path.home() / ".codex" / "sessions")
+
+    def read_user_messages_since(self, cursor: SessionLogCursor) -> SessionLogReadResult:
+        path = self.path()
+        if path is None:
+            return SessionLogReadResult(found=False, messages=[], cursor=cursor)
+
+        latest = SessionLogCursor(cursor.timestamp, cursor.line_no)
+        messages: list[str] = []
+        try:
+            with path.open() as f:
+                for line_no, line in enumerate(f, 1):
+                    event = self._parse_user_message(line, line_no)
+                    if event is None:
+                        continue
+
+                    latest = SessionLogCursor(event.timestamp, event.line_no)
+                    if self._is_newer(event.timestamp, event.line_no, cursor):
+                        messages.append(event.text)
+        except OSError:
+            log.debug("session transcript read failed", path=str(path), exc_info=True)
+            return SessionLogReadResult(found=False, messages=[], cursor=cursor)
+
+        return SessionLogReadResult(found=True, messages=messages, cursor=latest)
+
+    def path(self) -> Path | None:
+        if not self.session_id:
+            return None
+
+        matches = sorted(self.root.rglob(f"*{self.session_id}.jsonl"))
+        if not matches:
+            return None
+        return matches[-1]
+
+    def _parse_user_message(self, raw: str, line_no: int) -> SessionLogCursor | None:
+        try:
+            data = json.loads(raw)
+        except json.JSONDecodeError:
+            return None
+
+        if data.get("type") != "response_item":
+            return None
+
+        payload = data.get("payload", {})
+        if not isinstance(payload, dict):
+            return None
+        if payload.get("type") != "message" or payload.get("role") != "user":
+            return None
+
+        parts: list[str] = []
+        for item in payload.get("content", []):
+            if not isinstance(item, dict):
+                continue
+            text = item.get("text")
+            if text:
+                stripped = str(text).strip()
+                if stripped:
+                    parts.append(stripped)
+        if not parts:
+            return None
+
+        text = "\n".join(parts)
+        if text.startswith(self._IGNORED_PREFIXES):
+            return None
+        timestamp = data.get("timestamp")
+        if not timestamp:
+            return None
+
+        return SessionLogMessage(
+            timestamp=str(timestamp),
+            line_no=line_no,
+            text=text,
+        )
+
+    def _is_newer(self, timestamp: str, line_no: int, cursor: SessionLogCursor) -> bool:
+        if not cursor.timestamp:
+            return True
+        if timestamp > cursor.timestamp:
+            return True
+        if timestamp < cursor.timestamp:
+            return False
+        if cursor.line_no is None:
+            return True
+        return line_no > cursor.line_no
+
+
+@dataclass
+class SessionLogMessage:
+    timestamp: str
+    line_no: int
+    text: str
+
+
 class CodexMessageFormatter:
     def __init__(
         self,
         payload: CodexNotifyPayload,
-        record: NotifyRecord,
+        input_messages: list[str],
         tmux: str | None,
         diff_stat: str | None,
     ):
         self.payload = payload
-        self.record = record
+        self.input_messages = input_messages
         self.tmux = tmux
         self.diff_stat = diff_stat
 
@@ -179,7 +295,7 @@ class CodexMessageFormatter:
         return lines
 
     def _conversation_lines(self) -> list[str]:
-        if not self.payload.input_messages and not self.payload.last_assistant_message:
+        if not self.input_messages and not self.payload.last_assistant_message:
             return []
 
         header_text = "\n".join(self._header_lines()) + "\n"
@@ -187,7 +303,7 @@ class CodexMessageFormatter:
 
         result: list[str] = [""]
         used = 0
-        for text in self.payload.input_messages:
+        for text in self.input_messages:
             remaining = budget // 2 - used - 2
             raw = _middle_truncate(text, remaining) if remaining > 10 else text
             line = f"▶ {_escape_md(raw)}"
@@ -213,6 +329,18 @@ class CodexNotifier:
     def __init__(self, payload: CodexNotifyPayload):
         self.payload = payload
 
+    def input_messages(self, record: NotifyRecord) -> tuple[list[str], SessionLogCursor]:
+        cursor = SessionLogCursor(
+            timestamp=record.last_user_message_timestamp,
+            line_no=record.last_user_message_line,
+        )
+        transcript = CodexSessionTranscript(self.payload.session_id)
+        result = transcript.read_user_messages_since(cursor)
+        if result.found:
+            return result.messages, result.cursor
+
+        return self.payload.input_messages, cursor
+
     def run(self) -> None:
         token = os.environ.get("TELEGRAM_BOT_TOKEN", "")
         chat_id = os.environ.get("TELEGRAM_CHATID", "")
@@ -229,9 +357,10 @@ class CodexNotifier:
             if not record.should_send:
                 return
 
+            input_messages, cursor = self.input_messages(record)
             tmux = _tmux_target()
             diff_stat = _git_diff_stat(self.payload.cwd)
-            msg = CodexMessageFormatter(self.payload, record, tmux, diff_stat).build()
+            msg = CodexMessageFormatter(self.payload, input_messages, tmux, diff_stat).build()
 
             reply_markup = None
             if diff_stat and tmux:
@@ -250,6 +379,9 @@ class CodexNotifier:
                     tg_message_id,
                     self.payload.session_id,
                     self.payload.turn_id,
+                    input_messages,
+                    cursor.timestamp,
+                    cursor.line_no,
                     tmux,
                     ts,
                 )

@@ -1,6 +1,11 @@
 from __future__ import annotations
 
+import json
+
+from .agent.codex import CodexSessionTranscript
 from .agent.codex import CodexNotifyPayload
+from .agent.codex import CodexMessageFormatter
+from .agent.codex import SessionLogCursor
 
 
 class TestCodexNotifyPayload:
@@ -53,4 +58,86 @@ class TestCodexNotifyPayload:
 
         assert payload.input_messages == ["keep me"]
         assert payload.last_assistant_message is None
+
+
+class TestCodexMessageFormatter:
+    def test_only_formats_fresh_input_messages_for_session(self) -> None:
+        payload = CodexNotifyPayload(
+            session_id="thread-1",
+            turn_id="turn-3",
+            cwd="/tmp/project",
+            input_messages=["ok?", "configure codex", "send a test notify"],
+            last_assistant_message="done",
+            client="codex-tui",
+        )
+
+        text = CodexMessageFormatter(
+            payload,
+            ["send a test notify"],
+            tmux=None,
+            diff_stat=None,
+        ).build()
+
+        assert "▶ send a test notify" in text
+        assert "▶ ok?" not in text
+        assert "▶ configure codex" not in text
+        assert "◁ done" in text
+
+
+class TestCodexSessionTranscript:
+    def test_reads_only_new_user_messages_since_cursor(self, tmp_path) -> None:
+        path = tmp_path / "rollout-2026-03-09T16-29-18-thread-1.jsonl"
+        rows = [
+            {
+                "timestamp": "2026-03-09T09:00:00.000Z",
+                "type": "response_item",
+                "payload": {
+                    "type": "message",
+                    "role": "user",
+                    "content": [{"type": "input_text", "text": "# AGENTS.md instructions for /tmp/project"}],
+                },
+            },
+            {
+                "timestamp": "2026-03-09T09:00:00.000Z",
+                "type": "response_item",
+                "payload": {
+                    "type": "message",
+                    "role": "user",
+                    "content": [{"type": "input_text", "text": "ok?"}],
+                },
+            },
+            {
+                "timestamp": "2026-03-09T09:00:01.000Z",
+                "type": "response_item",
+                "payload": {
+                    "type": "message",
+                    "role": "user",
+                    "content": [{"type": "input_text", "text": "<skill>\nignored"}],
+                },
+            },
+            {
+                "timestamp": "2026-03-09T09:00:02.000Z",
+                "type": "response_item",
+                "payload": {
+                    "type": "message",
+                    "role": "user",
+                    "content": [{"type": "input_text", "text": "double check that it works"}],
+                },
+            },
+        ]
+        path.write_text("".join(json.dumps(row) + "\n" for row in rows))
+
+        transcript = CodexSessionTranscript("thread-1", root=tmp_path)
+
+        fresh = transcript.read_user_messages_since(
+            SessionLogCursor(
+                timestamp="2026-03-09T09:00:00.000Z",
+                line_no=2,
+            )
+        )
+
+        assert fresh.found is True
+        assert fresh.messages == ["double check that it works"]
+        assert fresh.cursor.timestamp == "2026-03-09T09:00:02.000Z"
+        assert fresh.cursor.line_no == 4
 
