@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import platform
+import sys
 
 import typer
 
@@ -59,52 +60,50 @@ def setup() -> None:
     typer.echo(f"Token: {tok}")
 
 
-@app.command("set")
-def set_route(
-    fqdn: str = typer.Argument(help="Fully qualified domain name"),
-    port: int = typer.Argument(help="Port number"),
-) -> None:
-    """Add or update a tunnel mapping: FQDN -> port."""
-    cfg = TunnelConfig.load_or_die()
-    client = create_client()
-    mgr = TunnelManager(client, cfg)
+@app.command()
+def sync() -> None:
+    """Sync tunnel ingress from devport config (reads JSON from stdin).
 
-    service = f"http://localhost:{port}"
-    typer.echo(f"Setting {fqdn} -> {service}")
+    Pipe the output of `devport ingress` into this command:
 
-    rules = mgr.ingress_rules()
-    updated = False
-    for r in rules:
-        if r["hostname"] == fqdn:
-            r["service"] = service
-            updated = True
-            break
-    if not updated:
-        rules.append({"hostname": fqdn, "service": service})
-    mgr.update_ingress(rules)
-
-    mgr.ensure_cname(fqdn)
-    typer.echo(f"Done. {fqdn} -> {service}")
-
-
-@app.command("unset")
-def unset_route(
-    fqdn: str = typer.Argument(help="FQDN to remove"),
-) -> None:
-    """Remove a tunnel mapping."""
-    cfg = TunnelConfig.load_or_die()
-    client = create_client()
-    mgr = TunnelManager(client, cfg)
-
-    rules = mgr.ingress_rules()
-    new_rules = [r for r in rules if r["hostname"] != fqdn]
-    if len(new_rules) == len(rules):
-        typer.echo(f"No ingress rule found for {fqdn}")
+        devport ingress | godotenv -f ~/.env.secret cloudflare-tunnel sync
+    """
+    raw = sys.stdin.read().strip()
+    if not raw:
+        typer.echo("No input on stdin. Pipe devport ingress output.", err=True)
         raise typer.Exit(1)
 
-    mgr.update_ingress(new_rules)
-    mgr.delete_cname(fqdn)
-    typer.echo(f"Removed {fqdn}")
+    doc = json.loads(raw)
+    desired_rules: list[dict[str, str]] = []
+    for r in doc.get("ingress", []):
+        hostname = r.get("hostname", "")
+        service = r.get("service", "")
+        if hostname:
+            desired_rules.append({"hostname": hostname, "service": service})
+
+    cfg = TunnelConfig.load_or_die()
+    client = create_client()
+    mgr = TunnelManager(client, cfg)
+
+    current_rules = mgr.ingress_rules()
+    current_hostnames = {r["hostname"] for r in current_rules}
+    desired_hostnames = {r["hostname"] for r in desired_rules}
+
+    # Update ingress rules
+    mgr.update_ingress(desired_rules)
+
+    # Ensure CNAME for each desired hostname
+    for r in desired_rules:
+        mgr.ensure_cname(r["hostname"])
+        typer.echo(f"  {r['hostname']} -> {r['service']}")
+
+    # Remove CNAME for hostnames no longer in the config
+    removed = current_hostnames - desired_hostnames
+    for fqdn in sorted(removed):
+        mgr.delete_cname(fqdn)
+        typer.echo(f"  removed {fqdn}")
+
+    typer.echo(f"Synced {len(desired_rules)} ingress rules.")
 
 
 @app.command("ls")

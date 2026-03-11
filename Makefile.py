@@ -12,7 +12,7 @@ REPO = Path(__file__).resolve().parent
 # Skill sources: local directories containing SKILL.md files
 SKILL_SOURCES = [
     "github.com/hayeah/dotfiles/skills",
-    "github.com/hayeah/devport",
+    "github.com/hayeah/devportv2",
     "github.com/hayeah/godzkilla",
     "github.com/hayeah/pymake",
 ]
