@@ -13,6 +13,7 @@ from .agent.telegram import app as telegram_app
 from .cli import fallback_group
 from .editor import _default_preview, _fzf_select, _print_which
 from .editor import app as editor_app
+from .mdnote import app as mdnote_app
 from .project import github_url as project_github_url
 from .project import name as project_name
 from .project import resolve
@@ -106,6 +107,10 @@ app.add_typer(agent_app, name="agent")
 # -- telegram subcommand group ------------------------------------------------
 
 app.add_typer(telegram_app, name="tg")
+
+# -- mdnote subcommand group --------------------------------------------------
+
+app.add_typer(mdnote_app, name="mdnote")
 
 
 def run() -> None:

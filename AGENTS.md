@@ -5,6 +5,7 @@ When using a skill or tool, if you run into problems, mistakes, or ergonomic iss
 - Describe the problem and how you worked around it.
 - After you are done with your task, use /mdnote to note it.
   - This helps the human review and improve your tooling and workflow.
+- `$MDNOTES_ROOT` is a memory bank of research notes, design docs, and learnings from previous work sessions. Use `qmd` to search it when asked to refer to collected notes.
 
 ## HOT TIPS
 
