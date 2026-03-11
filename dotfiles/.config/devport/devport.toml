@@ -33,7 +33,7 @@ restart = "never"
 
 [service."web/devport-dashboard".health]
 type = "http"
-url = "http://127.0.0.1:${VITE_PORT}/"
+url = "/"
 expect_status = [200]
 startup_timeout = "30s"
 

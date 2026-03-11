@@ -24,7 +24,6 @@ function devportAPI() {
 export default mergeConfig(baseConfig, {
   plugins: [devportAPI()],
   server: {
-    host: "127.0.0.1",
     port: process.env.VITE_PORT ? Number(process.env.VITE_PORT) : undefined,
     allowedHosts: ["devport.yohoward.com"],
   },
