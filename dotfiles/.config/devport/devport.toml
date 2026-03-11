@@ -4,7 +4,7 @@ tmux_session = "devport"
 
 [service."cloudflared"]
 cwd = "~"
-command = ["cloudflared", "tunnel", "--no-autoupdate", "run", "--token", "${env:CLOUDFLARE_TUNNEL_TOKEN}"]
+command = ["cloudflared", "tunnel", "--no-autoupdate", "run", "--token", "${CLOUDFLARE_TUNNEL_TOKEN}"]
 no_port = true
 env_files = ["~/.env.secret"]
 restart = "never"
@@ -23,6 +23,23 @@ restart = "never"
 [service."agent-tg-bridge".health]
 type = "process"
 startup_timeout = "5s"
+
+[service."agentproxy"]
+cwd = "~/github.com/hayeah/agentproxy"
+command = ["agentproxy", "serve"]
+port = 19000
+port_env = "AGENTPROXY_PORT"
+env_files = ["~/github.com/hayeah/agentproxy/.env"]
+restart = "never"
+
+[service."agentproxy".health]
+type = "http"
+url = "/healthz"
+expect_status = [200]
+startup_timeout = "10s"
+
+[service."agentproxy".public]
+hostname = "proxy.fork2.com"
 
 [service."web/devport-dashboard"]
 cwd = "~/github.com/hayeah/dotfiles/web"
