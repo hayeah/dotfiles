@@ -7,7 +7,7 @@ function devportAPI() {
     name: "devport-api",
     configureServer(server: any) {
       server.middlewares.use("/api/services", (_req: any, res: any) => {
-        execFile("devport", ["ls"], (err: any, stdout: string) => {
+        execFile("devport", ["status", "--json"], (err: any, stdout: string) => {
           res.setHeader("Content-Type", "application/json")
           if (err) {
             res.statusCode = 500
@@ -24,6 +24,7 @@ function devportAPI() {
 export default mergeConfig(baseConfig, {
   plugins: [devportAPI()],
   server: {
+    host: "127.0.0.1",
     allowedHosts: ["devport.yohoward.com"],
   },
 })

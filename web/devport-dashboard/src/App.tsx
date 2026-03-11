@@ -1,99 +1,106 @@
 import { useState, useEffect, useMemo } from "react"
 
 interface Service {
-  hash: string
-  hashid: string
-  key?: string
+  key: string
   status: string
-  port?: number
-  no_port?: boolean
-  tailnet: boolean
-  url?: string
-  cwd: string
-  cmd: string[]
-  last_up: string
-  error?: string
+  health: string
+  pid: number
+  supervisor_pid: number
+  port: number
+  no_port: boolean
+  restart_count: number
+  public_hostname?: string
+  drift: string[]
+  last_error?: string
+  last_exit_code?: number
+  last_reason?: string
 }
 
-function StatusBadge({ status, error }: { status: string; error?: string }) {
+function StatusBadge({ status }: { status: string }) {
   const colors: Record<string, string> = {
     running: "bg-success/20 text-success",
     stopped: "bg-muted text-muted-foreground",
-    unknown: "bg-warning/20 text-warning",
+    starting: "bg-warning/20 text-warning",
+    failed: "bg-destructive/20 text-destructive",
+  }
+  const dotColors: Record<string, string> = {
+    running: "bg-success",
+    stopped: "bg-muted-foreground",
+    starting: "bg-warning",
+    failed: "bg-destructive",
   }
   return (
-    <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium ${colors[status] ?? colors.unknown}`}>
-      <span className={`h-1.5 w-1.5 rounded-full ${status === "running" ? "bg-success" : status === "stopped" ? "bg-muted-foreground" : "bg-warning"}`} />
+    <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium ${colors[status] ?? colors.stopped}`}>
+      <span className={`h-1.5 w-1.5 rounded-full ${dotColors[status] ?? dotColors.stopped}`} />
       {status}
-      {error && <span className="text-destructive ml-1" title={error}>!</span>}
     </span>
   )
 }
 
+function HealthBadge({ health }: { health: string }) {
+  if (health === "healthy") return null
+  const color = health === "unhealthy" ? "text-destructive" : "text-muted-foreground"
+  return <span className={`text-xs ${color}`}>{health}</span>
+}
+
 function ServiceCard({ svc }: { svc: Service }) {
-  const name = svc.key || svc.hashid
-  const cmdStr = svc.cmd.join(" ")
-  const ago = timeAgo(svc.last_up)
+  const url = svc.public_hostname ? `https://${svc.public_hostname}` : undefined
 
   return (
     <div className="rounded-lg border border-border bg-background p-4 shadow-sm hover:shadow-md transition-shadow">
       <div className="flex items-start justify-between gap-2 mb-3">
         <div className="min-w-0">
-          <h3 className="font-semibold text-sm truncate">{name}</h3>
-          <span className="text-xs text-muted-foreground font-mono">{svc.hashid}</span>
+          <h3 className="font-semibold text-sm truncate">{svc.key}</h3>
+          <HealthBadge health={svc.health} />
         </div>
-        <StatusBadge status={svc.status} error={svc.error} />
+        <StatusBadge status={svc.status} />
       </div>
 
       <div className="space-y-2 text-xs">
-        {svc.port && (
+        {!svc.no_port && svc.port > 0 && (
           <div className="flex items-center gap-2">
             <span className="text-muted-foreground w-12 shrink-0">port</span>
             <span className="font-mono font-medium">{svc.port}</span>
           </div>
         )}
-        <div className="flex items-center gap-2">
-          <span className="text-muted-foreground w-12 shrink-0">cwd</span>
-          <span className="font-mono truncate" title={svc.cwd}>{shortenPath(svc.cwd)}</span>
-        </div>
-        <div className="flex items-center gap-2">
-          <span className="text-muted-foreground w-12 shrink-0">cmd</span>
-          <span className="font-mono truncate" title={cmdStr}>{cmdStr}</span>
-        </div>
-        <div className="flex items-center gap-2">
-          <span className="text-muted-foreground w-12 shrink-0">last up</span>
-          <span title={svc.last_up}>{ago}</span>
-        </div>
-        {svc.url && (
+        {svc.pid > 0 && (
           <div className="flex items-center gap-2">
-            <span className="text-muted-foreground w-12 shrink-0">url</span>
-            <a href={svc.url} className="text-primary underline truncate" target="_blank" rel="noreferrer">{svc.url}</a>
+            <span className="text-muted-foreground w-12 shrink-0">pid</span>
+            <span className="font-mono">{svc.pid}</span>
           </div>
         )}
-        {svc.tailnet && (
-          <span className="inline-block rounded bg-accent px-1.5 py-0.5 text-accent-foreground text-[10px] font-medium">tailnet</span>
+        {svc.restart_count > 0 && (
+          <div className="flex items-center gap-2">
+            <span className="text-muted-foreground w-12 shrink-0">restarts</span>
+            <span className="font-mono">{svc.restart_count}</span>
+          </div>
+        )}
+        {url && (
+          <div className="flex items-center gap-2">
+            <span className="text-muted-foreground w-12 shrink-0">url</span>
+            <a href={url} className="text-primary underline truncate" target="_blank" rel="noreferrer">{svc.public_hostname}</a>
+          </div>
+        )}
+        {svc.drift.length > 0 && (
+          <div className="flex items-start gap-2">
+            <span className="text-warning w-12 shrink-0">drift</span>
+            <ul className="text-warning">
+              {svc.drift.map((d) => <li key={d}>{d}</li>)}
+            </ul>
+          </div>
+        )}
+        {svc.last_error && (
+          <div className="flex items-start gap-2">
+            <span className="text-destructive w-12 shrink-0">error</span>
+            <span className="text-destructive truncate" title={svc.last_error}>{svc.last_error}</span>
+          </div>
         )}
       </div>
     </div>
   )
 }
 
-function shortenPath(p: string): string {
-  return p.replace(/^\/Users\/[^/]+/, "~")
-}
-
-function timeAgo(iso: string): string {
-  const diff = Date.now() - new Date(iso).getTime()
-  const mins = Math.floor(diff / 60000)
-  if (mins < 1) return "just now"
-  if (mins < 60) return `${mins}m ago`
-  const hrs = Math.floor(mins / 60)
-  if (hrs < 24) return `${hrs}h ago`
-  const days = Math.floor(hrs / 24)
-  return `${days}d ago`
-}
-
-type StatusFilter = "all" | "running" | "stopped"
+type StatusFilter = "all" | "running" | "stopped" | "failed"
 
 export function App() {
   const [services, setServices] = useState<Service[]>([])
@@ -118,18 +125,18 @@ export function App() {
       if (statusFilter !== "all" && svc.status !== statusFilter) return false
       if (search) {
         const q = search.toLowerCase()
-        const haystack = [svc.key, svc.hashid, svc.cwd, ...svc.cmd].join(" ").toLowerCase()
-        if (!haystack.includes(q)) return false
+        if (!svc.key.toLowerCase().includes(q)) return false
       }
       return true
     })
   }, [services, search, statusFilter])
 
   const counts = useMemo(() => {
-    const c = { all: services.length, running: 0, stopped: 0 }
+    const c = { all: services.length, running: 0, stopped: 0, failed: 0 }
     for (const s of services) {
       if (s.status === "running") c.running++
       else if (s.status === "stopped") c.stopped++
+      else if (s.status === "failed") c.failed++
     }
     return c
   }, [services])
@@ -151,7 +158,7 @@ export function App() {
             className="flex-1 rounded-md border border-border bg-background px-3 py-1.5 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/20"
           />
           <div className="flex gap-1">
-            {(["all", "running", "stopped"] as StatusFilter[]).map((f) => (
+            {(["all", "running", "stopped", "failed"] as StatusFilter[]).map((f) => (
               <button
                 key={f}
                 onClick={() => setStatusFilter(f)}
@@ -176,7 +183,7 @@ export function App() {
 
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {filtered.map((svc) => (
-            <ServiceCard key={svc.hash} svc={svc} />
+            <ServiceCard key={svc.key} svc={svc} />
           ))}
         </div>
       </main>

@@ -1,0 +1,41 @@
+version = 2
+port_range = { start = 19000, end = 19999 }
+tmux_session = "devport"
+
+[service."cloudflared"]
+cwd = "~"
+command = ["cloudflared", "tunnel", "--no-autoupdate", "run", "--token", "${env:CLOUDFLARE_TUNNEL_TOKEN}"]
+no_port = true
+env_files = ["~/.env.secret"]
+restart = "never"
+
+[service."cloudflared".health]
+type = "process"
+startup_timeout = "10s"
+
+[service."agent-tg-bridge"]
+cwd = "~"
+command = ["shell-helper", "agent", "tg-bridge"]
+no_port = true
+env_files = ["~/.env.secret"]
+restart = "never"
+
+[service."agent-tg-bridge".health]
+type = "process"
+startup_timeout = "5s"
+
+[service."web/devport-dashboard"]
+cwd = "~/github.com/hayeah/dotfiles/web"
+command = ["pnpm", "--filter", "devport-dashboard", "dev", "--port", "${PORT}"]
+port = 19005
+port_env = "VITE_PORT"
+restart = "never"
+
+[service."web/devport-dashboard".health]
+type = "http"
+url = "http://127.0.0.1:${PORT}/"
+expect_status = [200]
+startup_timeout = "30s"
+
+[service."web/devport-dashboard".public]
+hostname = "devport.yohoward.com"
