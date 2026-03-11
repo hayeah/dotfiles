@@ -26,14 +26,14 @@ startup_timeout = "5s"
 
 [service."web/devport-dashboard"]
 cwd = "~/github.com/hayeah/dotfiles/web"
-command = ["pnpm", "--filter", "devport-dashboard", "dev", "--port", "${PORT}"]
+command = ["pnpm", "--filter", "devport-dashboard", "dev"]
 port = 19005
 port_env = "VITE_PORT"
 restart = "never"
 
 [service."web/devport-dashboard".health]
 type = "http"
-url = "http://127.0.0.1:${PORT}/"
+url = "http://127.0.0.1:${VITE_PORT}/"
 expect_status = [200]
 startup_timeout = "30s"
 
