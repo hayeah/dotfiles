@@ -19,3 +19,6 @@ trust_level = "trusted"
 
 [projects."/Users/me/github.com/hayeah/dotfiles"]
 trust_level = "trusted"
+
+[projects."/Users/me/github.com/hayeah/devportv2"]
+trust_level = "trusted"

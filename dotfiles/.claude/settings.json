@@ -1,12 +1,4 @@
 {
-  "statusLine": {
-    "type": "command",
-    "command": "shell-helper agent claude statusline"
-  },
-  "enabledPlugins": {
-    "swift-lsp@claude-plugins-official": true
-  },
-  "skipDangerousModePermissionPrompt": true,
   "hooks": {
     "Notification": [
       {
@@ -31,5 +23,13 @@
         ]
       }
     ]
-  }
+  },
+  "statusLine": {
+    "type": "command",
+    "command": "shell-helper agent claude statusline"
+  },
+  "enabledPlugins": {
+    "swift-lsp@claude-plugins-official": true
+  },
+  "skipDangerousModePermissionPrompt": true
 }

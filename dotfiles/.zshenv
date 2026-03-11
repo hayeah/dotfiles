@@ -61,6 +61,9 @@ export GODZKILLA_PATH="$HOME"
 export GITHUB_REPOS="$HOME"
 path_add "$HOME/.gobin/shims"
 
+# bun global binaries
+path_add "$HOME/.bun/bin"
+
 # Protected sessions for `tm killall` (comma-separated)
 export TMUX_KILL_PROTECT="devport"
 
