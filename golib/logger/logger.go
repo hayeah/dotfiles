@@ -29,11 +29,16 @@ func New(name string) *slog.Logger {
 
 	level := parseLevel(os.Getenv("LOG_LEVEL"))
 
-	// Console handler (tint) on stderr
-	consoleHandler := tint.NewHandler(os.Stderr, &tint.Options{
-		Level:   level,
-		NoColor: !isTTY(),
-	})
+	var handlers []slog.Handler
+
+	// Console handler (tint) on stderr, unless LOG_CONSOLE=0
+	if os.Getenv("LOG_CONSOLE") != "0" {
+		consoleHandler := tint.NewHandler(os.Stderr, &tint.Options{
+			Level:   level,
+			NoColor: !isTTY(),
+		})
+		handlers = append(handlers, consoleHandler)
+	}
 
 	// File handler (JSON) with rotation
 	logDir := filepath.Join(os.Getenv("HOME"), ".local", "log")
@@ -48,9 +53,10 @@ func New(name string) *slog.Logger {
 	fileHandler := slog.NewJSONHandler(fileWriter, &slog.HandlerOptions{
 		Level: level,
 	})
+	handlers = append(handlers, fileHandler)
 
-	// Combine both handlers
-	multi := &multiHandler{handlers: []slog.Handler{consoleHandler, fileHandler}}
+	// Combine handlers
+	multi := &multiHandler{handlers: handlers}
 	l := slog.New(multi).With("logger", name)
 
 	actual, _ := loggers.LoadOrStore(name, l)
