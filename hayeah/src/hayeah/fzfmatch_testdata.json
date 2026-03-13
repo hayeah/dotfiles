@@ -1,0 +1,202 @@
+{
+  "sample_paths": [
+    "cmd/vibe/select.go",
+    "cmd/vibe/ask.go",
+    "cmd/vibe/directory_tree.go",
+    "cmd/vibe/directory_tree_test.go",
+    "internal/assert/assert.go",
+    "pkg/utils/helper_test.go",
+    "render/contentloader.go",
+    "render/contentloader_test.go",
+    "render/frontmatter.go",
+    "render/render.go",
+    "render/render_test.go",
+    "docs/intro.txt",
+    "README.md",
+    "main.go"
+  ],
+
+  "term_match_tests": [
+    {
+      "name": "empty pattern matches all",
+      "pattern": "",
+      "expected": [
+        "cmd/vibe/select.go", "cmd/vibe/ask.go", "cmd/vibe/directory_tree.go",
+        "cmd/vibe/directory_tree_test.go", "internal/assert/assert.go",
+        "pkg/utils/helper_test.go", "render/contentloader.go",
+        "render/contentloader_test.go", "render/frontmatter.go",
+        "render/render.go", "render/render_test.go",
+        "docs/intro.txt", "README.md", "main.go"
+      ]
+    },
+    {
+      "name": "simple substring",
+      "pattern": "cmd",
+      "expected": [
+        "cmd/vibe/select.go", "cmd/vibe/ask.go",
+        "cmd/vibe/directory_tree.go", "cmd/vibe/directory_tree_test.go"
+      ]
+    },
+    {
+      "name": "multiple terms implicit AND",
+      "pattern": "cmd .go",
+      "expected": [
+        "cmd/vibe/select.go", "cmd/vibe/ask.go",
+        "cmd/vibe/directory_tree.go", "cmd/vibe/directory_tree_test.go"
+      ]
+    },
+    {
+      "name": "head anchor",
+      "pattern": "^cmd",
+      "expected": [
+        "cmd/vibe/select.go", "cmd/vibe/ask.go",
+        "cmd/vibe/directory_tree.go", "cmd/vibe/directory_tree_test.go"
+      ]
+    },
+    {
+      "name": "tail anchor",
+      "pattern": ".go$",
+      "expected": [
+        "cmd/vibe/select.go", "cmd/vibe/ask.go",
+        "cmd/vibe/directory_tree.go", "cmd/vibe/directory_tree_test.go",
+        "internal/assert/assert.go", "pkg/utils/helper_test.go",
+        "render/contentloader.go", "render/contentloader_test.go",
+        "render/frontmatter.go", "render/render.go", "render/render_test.go",
+        "main.go"
+      ]
+    },
+    {
+      "name": "exact head+tail",
+      "pattern": "^README.md$",
+      "expected": ["README.md"]
+    },
+    {
+      "name": "word prefix boundary",
+      "pattern": "'select",
+      "expected": ["cmd/vibe/select.go"]
+    },
+    {
+      "name": "word exact boundary",
+      "pattern": "'select'",
+      "expected": ["cmd/vibe/select.go"]
+    },
+    {
+      "name": "case insensitive",
+      "pattern": "readme",
+      "expected": ["README.md"]
+    },
+    {
+      "name": "negation exclude",
+      "pattern": "!select",
+      "expected": [
+        "cmd/vibe/ask.go", "cmd/vibe/directory_tree.go",
+        "cmd/vibe/directory_tree_test.go", "internal/assert/assert.go",
+        "pkg/utils/helper_test.go", "render/contentloader.go",
+        "render/contentloader_test.go", "render/frontmatter.go",
+        "render/render.go", "render/render_test.go",
+        "docs/intro.txt", "README.md", "main.go"
+      ]
+    },
+    {
+      "name": "negation with other terms",
+      "pattern": "cmd !_test.go",
+      "expected": [
+        "cmd/vibe/select.go", "cmd/vibe/ask.go", "cmd/vibe/directory_tree.go"
+      ]
+    },
+    {
+      "name": "negation with word boundary",
+      "pattern": "!'test'",
+      "expected": [
+        "cmd/vibe/select.go", "cmd/vibe/ask.go",
+        "cmd/vibe/directory_tree.go",
+        "internal/assert/assert.go",
+        "render/contentloader.go",
+        "render/frontmatter.go", "render/render.go",
+        "docs/intro.txt", "README.md", "main.go"
+      ]
+    },
+    {
+      "name": "dot-slash as head anchor",
+      "pattern": "./render",
+      "expected": [
+        "render/contentloader.go", "render/contentloader_test.go",
+        "render/frontmatter.go", "render/render.go", "render/render_test.go"
+      ]
+    },
+    {
+      "name": "dot-slash does not match nested",
+      "pattern": "./assert",
+      "expected": []
+    }
+  ],
+
+  "parse_error_tests": [
+    {"name": "lonely quote", "pattern": "'"},
+    {"name": "empty quotes", "pattern": "''"},
+    {"name": "anchor only caret", "pattern": "^"},
+    {"name": "anchor only dollar", "pattern": "$"},
+    {"name": "empty negation", "pattern": "!"},
+    {"name": "negation with empty quote", "pattern": "!'"}
+  ],
+
+  "expression_tests": [
+    {
+      "name": "union with semicolon",
+      "pattern": "foo;bar",
+      "paths": ["src/foo.go", "src/foo_test.go", "docs/bar.md", "internal/baz.go", "README.md"],
+      "expected_sorted": ["docs/bar.md", "src/foo.go", "src/foo_test.go"]
+    },
+    {
+      "name": "compound with pipe excludes test",
+      "pattern": "cmd/vibe .go | !test",
+      "paths": [
+        "cmd/vibe/clipboard.go", "cmd/vibe/content_loader.go",
+        "cmd/vibe/directory_tree.go", "cmd/vibe/directory_tree_test.go",
+        "cmd/vibe/filemap.go", "cmd/vibe/filemap_test.go",
+        "cmd/vibe/main.go", "cmd/vibe/out_test.go"
+      ],
+      "expected_sorted": [
+        "cmd/vibe/clipboard.go", "cmd/vibe/content_loader.go",
+        "cmd/vibe/directory_tree.go", "cmd/vibe/filemap.go",
+        "cmd/vibe/main.go"
+      ]
+    },
+    {
+      "name": "union inside compound",
+      "pattern": "cmd/vibe .go;render .go | !test",
+      "paths": [
+        "cmd/vibe/clipboard.go", "cmd/vibe/directory_tree.go",
+        "cmd/vibe/directory_tree_test.go", "cmd/vibe/filemap_test.go",
+        "cmd/vibe/main.go",
+        "render/contentloader.go", "render/contentloader_test.go",
+        "render/frontmatter.go", "render/render.go", "render/render_test.go"
+      ],
+      "expected_sorted": [
+        "cmd/vibe/clipboard.go", "cmd/vibe/directory_tree.go",
+        "cmd/vibe/main.go",
+        "render/contentloader.go", "render/frontmatter.go", "render/render.go"
+      ]
+    },
+    {
+      "name": "empty union part ignored",
+      "pattern": "foo;",
+      "paths": ["src/foo.go", "src/foo_test.go", "docs/bar.md"],
+      "expected_sorted": ["src/foo.go", "src/foo_test.go"]
+    }
+  ],
+
+  "word_boundary_tests": [
+    {"name": "underscore is boundary", "s": "pre_test", "needle": "test", "word_exact": true, "word_prefix": true},
+    {"name": "digit is word char", "s": "pre2test", "needle": "test", "word_exact": false, "word_prefix": false},
+    {"name": "no boundaries", "s": "unselected", "needle": "select", "word_exact": false, "word_prefix": false},
+    {"name": "hyphen is boundary", "s": "test-string", "needle": "string", "word_exact": true, "word_prefix": true},
+    {"name": "at start", "s": "test string", "needle": "test", "word_exact": true, "word_prefix": true},
+    {"name": "at end", "s": "a test", "needle": "test", "word_exact": true, "word_prefix": true},
+    {"name": "left boundary only", "s": "test-string", "needle": "test", "word_exact": true, "word_prefix": true},
+    {"name": "slash is boundary", "s": "cmd/select.go", "needle": "select", "word_exact": true, "word_prefix": true},
+    {"name": "dot is boundary", "s": "select.go", "needle": "select", "word_exact": true, "word_prefix": true},
+    {"name": "prefix but not exact", "s": "selected", "needle": "select", "word_exact": false, "word_prefix": true},
+    {"name": "empty needle", "s": "test", "needle": "", "word_exact": false, "word_prefix": false}
+  ]
+}
