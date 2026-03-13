@@ -1,5 +1,6 @@
 import type { CommandModule } from "yargs";
 import { Browser, sessionOption } from "../browser.js";
+import { openOption, withOneShot } from "../oneshot.js";
 
 interface AXNode {
 	nodeId: string;
@@ -16,6 +17,7 @@ interface AXNode {
 interface Args {
 	depth?: number;
 	"include-ignored"?: boolean;
+	open?: string;
 	session?: string;
 }
 
@@ -100,8 +102,9 @@ export const accessibilityCommand: CommandModule<{}, Args> = {
 			default: false,
 		},
 		...sessionOption,
+		...openOption,
 	},
-	handler: async (argv) => {
+	handler: withOneShot(async (argv) => {
 		const browser = await new Browser().connect();
 		try {
 			const page = await browser.resolvePage(argv.session);
@@ -116,5 +119,5 @@ export const accessibilityCommand: CommandModule<{}, Args> = {
 		} finally {
 			await browser.disconnect();
 		}
-	},
+	}),
 };

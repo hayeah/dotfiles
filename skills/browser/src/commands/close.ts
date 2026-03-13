@@ -1,5 +1,6 @@
 import type { CommandModule } from "yargs";
 import { Browser, sessionOption } from "../browser.js";
+import { readSession, deleteSession } from "../session.js";
 
 interface Args {
 	session?: string;
@@ -18,6 +19,19 @@ export const closeCommand: CommandModule<{}, Args> = {
 		},
 	},
 	handler: async (argv) => {
+		// If closing a persistent session by key, kill the holding process
+		if (argv.session) {
+			const sess = readSession(argv.session);
+			if (sess) {
+				try { process.kill(sess.pid, "SIGTERM"); } catch {}
+				// Give the open process time to clean up its window
+				await new Promise((r) => setTimeout(r, 500));
+				deleteSession(sess.key);
+				console.log(`✓ Closed session ${sess.key}`);
+				return;
+			}
+		}
+
 		const browser = await new Browser().connect();
 		try {
 			if (argv.all) {

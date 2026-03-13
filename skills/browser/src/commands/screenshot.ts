@@ -4,8 +4,10 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { Browser, sessionOption, callerResolve } from "../browser.js";
 import { applyEmulation, emulationOptions } from "../emulation.js";
+import { openOption, withOneShot } from "../oneshot.js";
 
 interface Args {
+	open?: string;
 	session?: string;
 	device?: string;
 	viewport?: string;
@@ -48,6 +50,7 @@ export const screenshotCommand: CommandModule<{}, Args> = {
 	describe: "Capture current viewport to a temporary file",
 	builder: {
 		...sessionOption,
+		...openOption,
 		...emulationOptions,
 		output: {
 			type: "string",
@@ -80,7 +83,7 @@ export const screenshotCommand: CommandModule<{}, Args> = {
 			default: 85,
 		},
 	},
-	handler: async (argv) => {
+	handler: withOneShot(async (argv) => {
 		const browser = await new Browser().connect();
 		try {
 			const page = await browser.resolvePage(argv.session);
@@ -128,5 +131,5 @@ export const screenshotCommand: CommandModule<{}, Args> = {
 		} finally {
 			await browser.disconnect();
 		}
-	},
+	}),
 };

@@ -14,10 +14,12 @@ import { reloadCommand } from "./commands/reload.js";
 import { closeCommand } from "./commands/close.js";
 import { networkCommand } from "./commands/network.js";
 import { fetchCommand } from "./commands/fetch.js";
+import { openCommand } from "./commands/open.js";
 
 yargs(hideBin(process.argv))
 	.scriptName("browser")
 	.command(startCommand)
+	.command(openCommand)
 	.command(listCommand)
 	.command(newCommand)
 	.command(navCommand)

@@ -2,8 +2,10 @@ import type { CommandModule } from "yargs";
 import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { Browser, callerResolve, sessionOption } from "../browser.js";
+import { openOption, withOneShot } from "../oneshot.js";
 
 interface Args {
+	open?: string;
 	session?: string;
 	duration?: number;
 	filter?: string;
@@ -11,6 +13,10 @@ interface Args {
 	reload?: boolean;
 	dump?: string;
 }
+
+// Shared state for one-shot pre-navigation CDP setup
+let oneshotCDPClient: any = null;
+let oneshotRequests: Map<string, RequestEntry> | null = null;
 
 interface RequestEntry {
 	requestId: string;
@@ -78,6 +84,7 @@ export const networkCommand: CommandModule<{}, Args> = {
 	describe: "Capture network requests on a session",
 	builder: {
 		...sessionOption,
+		...openOption,
 		duration: {
 			type: "number",
 			alias: "d",
@@ -107,44 +114,53 @@ export const networkCommand: CommandModule<{}, Args> = {
 			describe: "Directory to dump response bodies into",
 		},
 	},
-	handler: async (argv) => {
+	handler: withOneShot(async (argv) => {
 		const browser = await new Browser().connect();
 		try {
 			const page = await browser.resolvePage(argv.session);
-			const client = await page.createCDPSession();
-			await client.send("Network.enable" as any);
 
-			const requests = new Map<string, RequestEntry>();
+			// In one-shot mode, CDP listeners were installed via beforeNavigate
+			const client = oneshotCDPClient ?? await page.createCDPSession();
+			const requests = oneshotRequests ?? new Map<string, RequestEntry>();
+
+			if (!oneshotCDPClient) {
+				// Normal mode — set up fresh
+				await client.send("Network.enable" as any);
+
+				client.on("Network.requestWillBeSent", (params: any) => {
+					requests.set(params.requestId, {
+						requestId: params.requestId,
+						method: params.request.method,
+						url: params.request.url,
+						resourceType: params.type,
+						timestamp: params.timestamp,
+					});
+				});
+
+				client.on("Network.responseReceived", (params: any) => {
+					const entry = requests.get(params.requestId);
+					if (entry) {
+						entry.status = params.response.status;
+						entry.mimeType = params.response.mimeType;
+						entry.contentLength = params.response.headers?.["content-length"]
+							? parseInt(params.response.headers["content-length"])
+							: undefined;
+					}
+				});
+
+				if (argv.reload) {
+					console.error("Reloading…");
+					page.reload({ waitUntil: "networkidle2" }).catch(() => {});
+				}
+			}
+
+			// Clean up shared state
+			oneshotCDPClient = null;
+			oneshotRequests = null;
+
 			const duration = (argv.duration ?? 10) * 1000;
-
 			const typeFilter = (argv.type ?? "all").toLowerCase();
 			const allowedTypes = resolveTypeFilter(typeFilter);
-
-			client.on("Network.requestWillBeSent", (params: any) => {
-				requests.set(params.requestId, {
-					requestId: params.requestId,
-					method: params.request.method,
-					url: params.request.url,
-					resourceType: params.type,
-					timestamp: params.timestamp,
-				});
-			});
-
-			client.on("Network.responseReceived", (params: any) => {
-				const entry = requests.get(params.requestId);
-				if (entry) {
-					entry.status = params.response.status;
-					entry.mimeType = params.response.mimeType;
-					entry.contentLength = params.response.headers?.["content-length"]
-						? parseInt(params.response.headers["content-length"])
-						: undefined;
-				}
-			});
-
-			if (argv.reload) {
-				console.error("Reloading…");
-				page.reload({ waitUntil: "networkidle2" }).catch(() => {});
-			}
 
 			console.error(`Listening for ${argv.duration}s… (Ctrl+C to stop early)`);
 
@@ -206,7 +222,38 @@ export const networkCommand: CommandModule<{}, Args> = {
 		} finally {
 			await browser.disconnect();
 		}
-	},
+	}, {
+		beforeNavigate: async (page) => {
+			const client = await page.createCDPSession();
+			await client.send("Network.enable" as any);
+
+			const requests = new Map<string, RequestEntry>();
+
+			client.on("Network.requestWillBeSent", (params: any) => {
+				requests.set(params.requestId, {
+					requestId: params.requestId,
+					method: params.request.method,
+					url: params.request.url,
+					resourceType: params.type,
+					timestamp: params.timestamp,
+				});
+			});
+
+			client.on("Network.responseReceived", (params: any) => {
+				const entry = requests.get(params.requestId);
+				if (entry) {
+					entry.status = params.response.status;
+					entry.mimeType = params.response.mimeType;
+					entry.contentLength = params.response.headers?.["content-length"]
+						? parseInt(params.response.headers["content-length"])
+						: undefined;
+				}
+			});
+
+			oneshotCDPClient = client;
+			oneshotRequests = requests;
+		},
+	}),
 };
 
 function fzfMatcher(pattern: string): (s: string) => boolean {

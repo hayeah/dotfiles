@@ -1,9 +1,11 @@
 import type { CommandModule } from "yargs";
 import { readFileSync } from "node:fs";
 import { Browser, sessionOption } from "../browser.js";
+import { openOption, withOneShot } from "../oneshot.js";
 
 interface Args {
 	code: string;
+	open?: string;
 	session?: string;
 }
 
@@ -34,8 +36,9 @@ export const evalCommand: CommandModule<{}, Args> = {
 			demandOption: true,
 		},
 		...sessionOption,
+		...openOption,
 	},
-	handler: async (argv) => {
+	handler: withOneShot(async (argv) => {
 		const code = /\.(m?js|ts)$/.test(argv.code)
 			? readFileSync(argv.code, "utf-8")
 			: argv.code;
@@ -51,5 +54,5 @@ export const evalCommand: CommandModule<{}, Args> = {
 		} finally {
 			await browser.disconnect();
 		}
-	},
+	}),
 };

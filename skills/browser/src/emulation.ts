@@ -137,6 +137,56 @@ export async function applyEmulation(
 	return { description, width, restore };
 }
 
+/**
+ * Apply emulation from a resolved context spec.
+ * Returns the CDP session (caller must keep it alive to preserve emulation).
+ */
+export async function applySpecEmulation(
+	page: Page,
+	spec: { width?: number; height?: number; dpr: number; mobile: boolean; ua?: string; description: string },
+): Promise<{ cdpSession: CDPSession; description: string; width: number; restore: () => Promise<void> }> {
+	if (!spec.width || !spec.height) {
+		throw new Error("Spec must have width and height for emulation");
+	}
+
+	const cdp = await page.createCDPSession();
+
+	const { windowId } = await cdp.send("Browser.getWindowForTarget");
+	const { bounds: originalBounds } = await cdp.send("Browser.getWindowBounds", { windowId });
+
+	const chromeHeight = 85;
+	await cdp.send("Browser.setWindowBounds", {
+		windowId,
+		bounds: { width: spec.width, height: spec.height + chromeHeight, windowState: "normal" },
+	});
+
+	await cdp.send("Emulation.setDeviceMetricsOverride", {
+		width: spec.width,
+		height: 0,
+		deviceScaleFactor: spec.dpr,
+		mobile: spec.mobile,
+	});
+
+	if (spec.mobile) {
+		await cdp.send("Emulation.setTouchEmulationEnabled", { enabled: true });
+	}
+
+	if (spec.ua) {
+		await cdp.send("Network.setUserAgentOverride", { userAgent: spec.ua });
+	}
+
+	await new Promise((r) => setTimeout(r, 200));
+
+	const restore = async () => {
+		await cdp.send("Emulation.clearDeviceMetricsOverride");
+		await cdp.send("Emulation.setTouchEmulationEnabled", { enabled: false });
+		await cdp.send("Network.setUserAgentOverride", { userAgent: "" });
+		await cdp.send("Browser.setWindowBounds", { windowId, bounds: originalBounds });
+	};
+
+	return { cdpSession: cdp, description: spec.description, width: spec.width, restore };
+}
+
 /** Clear emulation overrides via CDP. */
 export async function clearEmulation(page: Page): Promise<void> {
 	const cdp = await page.createCDPSession();

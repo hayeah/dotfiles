@@ -1,7 +1,9 @@
 import type { CommandModule } from "yargs";
 import { Browser, sessionOption } from "../browser.js";
+import { openOption, withOneShot } from "../oneshot.js";
 
 interface Args {
+	open?: string;
 	session?: string;
 }
 
@@ -10,8 +12,9 @@ export const cookiesCommand: CommandModule<{}, Args> = {
 	describe: "Display all cookies for a session",
 	builder: {
 		...sessionOption,
+		...openOption,
 	},
-	handler: async (argv) => {
+	handler: withOneShot(async (argv) => {
 		const browser = await new Browser().connect();
 		try {
 			const page = await browser.resolvePage(argv.session);
@@ -27,5 +30,5 @@ export const cookiesCommand: CommandModule<{}, Args> = {
 		} finally {
 			await browser.disconnect();
 		}
-	},
+	}),
 };

@@ -1,24 +1,26 @@
 import type { CommandModule } from "yargs";
 import { Browser, sessionOption } from "../browser.js";
 import { extractContent } from "../content/index.js";
+import { openOption, withOneShot } from "../oneshot.js";
 
 interface Args {
-	url: string;
+	url?: string;
+	open?: string;
 	session?: string;
 }
 
 export const contentCommand: CommandModule<{}, Args> = {
-	command: "content <url>",
+	command: "content [url]",
 	describe: "Extract readable page content as markdown",
 	builder: {
 		url: {
 			type: "string",
-			describe: "URL to extract content from",
-			demandOption: true,
+			describe: "URL to extract content from (optional with --open)",
 		},
 		...sessionOption,
+		...openOption,
 	},
-	handler: async (argv) => {
+	handler: withOneShot(async (argv) => {
 		const TIMEOUT = 30_000;
 		const timeoutId = setTimeout(() => {
 			console.error("✗ Timeout after 30s");
@@ -29,10 +31,12 @@ export const contentCommand: CommandModule<{}, Args> = {
 		try {
 			const page = await browser.resolvePage(argv.session);
 
-			await Promise.race([
-				page.goto(argv.url, { waitUntil: "networkidle2" }),
-				new Promise((r) => setTimeout(r, 10_000)),
-			]).catch(() => {});
+			if (argv.url) {
+				await Promise.race([
+					page.goto(argv.url, { waitUntil: "networkidle2" }),
+					new Promise((r) => setTimeout(r, 10_000)),
+				]).catch(() => {});
+			}
 
 			const finalURL = page.url();
 			const extracted = await extractContent(page, finalURL);
@@ -48,5 +52,5 @@ export const contentCommand: CommandModule<{}, Args> = {
 		} finally {
 			await browser.disconnect();
 		}
-	},
+	}),
 };

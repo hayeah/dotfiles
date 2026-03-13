@@ -2,6 +2,7 @@ import puppeteer, { type Browser as PuppeteerBrowser, type Page } from "puppetee
 import { execSync, spawn } from "node:child_process";
 import { homedir } from "node:os";
 import { resolve } from "node:path";
+import { readSession } from "./session.js";
 
 const DEFAULT_PORT = 9222;
 const CONNECT_TIMEOUT = 5000;
@@ -12,7 +13,7 @@ function cdpURL(): string {
 	return `http://localhost:${port}`;
 }
 
-function getTargetId(page: Page): string {
+export function getTargetId(page: Page): string {
 	return (page.target() as any)._targetId as string;
 }
 
@@ -88,6 +89,18 @@ export class Browser {
 			return page;
 		}
 
+		// Session key lookup (from persistent sessions)
+		const sessionFile = readSession(session);
+		if (sessionFile) {
+			for (const page of pages) {
+				if (getTargetId(page) === sessionFile.targetId) {
+					return page;
+				}
+			}
+			console.error(`✗ Session "${session}" target not found (process may have died)`);
+			process.exit(1);
+		}
+
 		if (/^\d+$/.test(session)) {
 			const idx = parseInt(session);
 			if (idx < 0 || idx >= pages.length) {
@@ -131,6 +144,40 @@ export class Browser {
 		await page.goto(url, { waitUntil: "domcontentloaded" });
 		const info = await this.pageInfo(page);
 		return { page, info };
+	}
+
+	async newWindow(url?: string): Promise<{ page: Page; windowId: number }> {
+		if (!this.browser) throw new Error("Not connected");
+		const cdp = await this.browser.target().createCDPSession();
+		const { targetId } = (await cdp.send("Target.createTarget" as any, {
+			url: url || "about:blank",
+			newWindow: true,
+		})) as { targetId: string };
+		await cdp.detach();
+
+		let page: Page | undefined;
+		for (let i = 0; i < 50; i++) {
+			const pages = await this.browser.pages();
+			page = pages.find((p) => getTargetId(p) === targetId);
+			if (page) break;
+			await new Promise((r) => setTimeout(r, 100));
+		}
+		if (!page) throw new Error("Failed to find new window page");
+
+		const pageCDP = await page.createCDPSession();
+		const { windowId } = (await pageCDP.send("Browser.getWindowForTarget" as any)) as {
+			windowId: number;
+		};
+		await pageCDP.detach();
+
+		return { page, windowId };
+	}
+
+	async closeTarget(targetId: string): Promise<void> {
+		if (!this.browser) throw new Error("Not connected");
+		const cdp = await this.browser.target().createCDPSession();
+		await cdp.send("Target.closeTarget" as any, { targetId });
+		await cdp.detach();
 	}
 
 	async disconnect(): Promise<void> {

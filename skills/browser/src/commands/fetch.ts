@@ -1,6 +1,7 @@
 import type { CommandModule } from "yargs";
 import { createWriteStream, type WriteStream } from "node:fs";
 import { Browser, callerResolve, sessionOption } from "../browser.js";
+import { openOption, withOneShot } from "../oneshot.js";
 
 interface Args {
 	url: string;
@@ -9,6 +10,7 @@ interface Args {
 	body?: string;
 	output?: string;
 	timeout?: number;
+	open?: string;
 	session?: string;
 }
 
@@ -63,8 +65,9 @@ export const fetchCommand: CommandModule<{}, Args> = {
 			describe: "Request timeout in seconds (default: no timeout)",
 		},
 		...sessionOption,
+		...openOption,
 	},
-	handler: async (argv) => {
+	handler: withOneShot(async (argv) => {
 		const headers: Record<string, string> = {};
 		for (const h of argv.header ?? []) {
 			const idx = h.indexOf(":");
@@ -160,5 +163,5 @@ export const fetchCommand: CommandModule<{}, Args> = {
 		} finally {
 			await browser.disconnect();
 		}
-	},
+	}),
 };
