@@ -10,7 +10,8 @@ interface Service {
   no_port: boolean
   restart_count: number
   public_hostname?: string
-  drift: string[]
+  issues?: string[]
+  drift?: string[]
   last_error?: string
   last_exit_code?: number
   last_reason?: string
@@ -45,15 +46,18 @@ function HealthBadge({ health }: { health: string }) {
 
 function ServiceCard({ svc }: { svc: Service }) {
   const url = svc.public_hostname ? `https://${svc.public_hostname}` : undefined
+  const issues = svc.issues ?? svc.drift ?? []
 
   return (
-    <div className="rounded-lg border border-border bg-background p-4 shadow-sm hover:shadow-md transition-shadow">
-      <div className="flex items-start justify-between gap-2 mb-3">
+    <div className="rounded-lg border border-border bg-background p-3 shadow-sm transition-shadow sm:p-4 sm:hover:shadow-md">
+      <div className="mb-3 flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
         <div className="min-w-0">
           <h3 className="font-semibold text-sm truncate">{svc.key}</h3>
           <HealthBadge health={svc.health} />
         </div>
-        <StatusBadge status={svc.status} />
+        <div className="shrink-0 self-start">
+          <StatusBadge status={svc.status} />
+        </div>
       </div>
 
       <div className="space-y-2 text-xs">
@@ -76,16 +80,16 @@ function ServiceCard({ svc }: { svc: Service }) {
           </div>
         )}
         {url && (
-          <div className="flex items-center gap-2">
+          <div className="flex items-start gap-2">
             <span className="text-muted-foreground w-12 shrink-0">url</span>
-            <a href={url} className="text-primary underline truncate" target="_blank" rel="noreferrer">{svc.public_hostname}</a>
+            <a href={url} className="min-w-0 break-all text-primary underline" target="_blank" rel="noreferrer">{svc.public_hostname}</a>
           </div>
         )}
-        {svc.drift.length > 0 && (
+        {issues.length > 0 && (
           <div className="flex items-start gap-2">
-            <span className="text-warning w-12 shrink-0">drift</span>
+            <span className="text-warning w-12 shrink-0">issues</span>
             <ul className="text-warning">
-              {svc.drift.map((d) => <li key={d}>{d}</li>)}
+              {issues.map((issue) => <li key={issue}>{issue}</li>)}
             </ul>
           </div>
         )}
@@ -143,12 +147,12 @@ export function App() {
 
   return (
     <div className="min-h-screen bg-background">
-      <header className="border-b border-border px-6 py-4">
+      <header className="border-b border-border px-4 py-4 sm:px-6">
         <h1 className="text-lg font-semibold">devport</h1>
         <p className="text-sm text-muted-foreground">Service dashboard</p>
       </header>
 
-      <main className="max-w-5xl mx-auto px-6 py-6 space-y-4">
+      <main className="mx-auto max-w-5xl space-y-4 px-4 py-6 sm:px-6">
         <div className="flex flex-col sm:flex-row gap-3">
           <input
             type="text"
@@ -157,12 +161,12 @@ export function App() {
             onChange={(e) => setSearch(e.target.value)}
             className="flex-1 rounded-md border border-border bg-background px-3 py-1.5 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/20"
           />
-          <div className="flex gap-1">
+          <div className="flex flex-wrap gap-1">
             {(["all", "running", "stopped", "failed"] as StatusFilter[]).map((f) => (
               <button
                 key={f}
                 onClick={() => setStatusFilter(f)}
-                className={`rounded-md px-3 py-1.5 text-xs font-medium transition-colors ${
+                className={`min-h-9 rounded-md px-3 py-1.5 text-xs font-medium transition-colors ${
                   statusFilter === f
                     ? "bg-primary text-primary-foreground"
                     : "bg-muted text-muted-foreground hover:text-foreground"
