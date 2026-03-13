@@ -6,6 +6,7 @@ import { applySpecEmulation } from "./emulation.js";
 export const openOption = {
 	open: {
 		type: "string" as const,
+		alias: "O" as const,
 		describe: "One-shot mode: context spec (TOML file, JSON, or URL)",
 	},
 } as const;
