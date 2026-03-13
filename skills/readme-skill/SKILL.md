@@ -21,3 +21,17 @@ Write a SKILL.md (or README.md) that is optimized for AI coding agents.
 - Provide extensive use cases and examples
   - One comment per use case explaining the scenario
 - Document quirks, surprising behavior, and conventions
+
+## Updating an Existing README
+
+When the user asks to update a README, follow this workflow to update it incrementally based on recent changes:
+
+- Find the commit where the README was last modified:
+  - `git log -1 --format=%H -- README.md`
+- Review changes since that commit:
+  - `git log <last-readme-commit>..HEAD -- <subpath>`
+  - `git diff <last-readme-commit>..HEAD -- <subpath>`
+- Use the subpath to scope commits to only the relevant directory
+  - e.g. for `skills/foo/README.md`, use `skills/foo/` as the subpath
+  - If the README is at repo root, use all commits (no subpath filter)
+- Review the diff, then update the README to reflect the changes
