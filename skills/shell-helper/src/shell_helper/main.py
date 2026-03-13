@@ -80,6 +80,23 @@ def _project_find_cmd(
             typer.echo(path_str)
 
 
+@project_app.command("match")
+def _project_match_cmd(
+    query: str = typer.Argument(help="Substring to match against user/repo"),
+) -> None:
+    """Print matching project paths, one per line. No interactive picker."""
+    r = resolve(query)
+
+    if r.kind == "error":
+        typer.echo(r.error, err=True)
+        raise typer.Exit(1)
+    elif r.kind in ("path", "match"):
+        typer.echo(str(r.path))
+    elif r.kind in ("picker", "ambiguous"):
+        for _, path in r.matches:
+            typer.echo(str(path))
+
+
 @project_app.command("which")
 def _project_which_cmd(
     query: Optional[str] = typer.Argument(None, help="Path or project name to resolve"),
