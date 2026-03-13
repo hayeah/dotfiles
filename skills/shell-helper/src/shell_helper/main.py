@@ -8,8 +8,6 @@ from typing import Optional
 
 import typer
 
-from .agent import app as agent_app
-from .agent.telegram import app as telegram_app
 from .cli import fallback_group
 from .editor import _default_preview, _fzf_select, _print_which
 from .editor import app as editor_app
@@ -99,14 +97,6 @@ app.add_typer(editor_app, name="editor")
 # -- tm subcommand group -------------------------------------------------------
 
 app.add_typer(tmux_app, name="tm")
-
-# -- agent subcommand group ---------------------------------------------------
-
-app.add_typer(agent_app, name="agent")
-
-# -- telegram subcommand group ------------------------------------------------
-
-app.add_typer(telegram_app, name="tg")
 
 # -- mdnote subcommand group --------------------------------------------------
 

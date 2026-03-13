@@ -4,7 +4,6 @@ notify = [
   "godotenv",
   "-f",
   "/Users/me/.env.secret",
-  "shell-helper",
   "agent",
   "codex",
   "notify",
@@ -21,4 +20,7 @@ trust_level = "trusted"
 trust_level = "trusted"
 
 [projects."/Users/me/github.com/hayeah/devportv2"]
+trust_level = "trusted"
+
+[projects."/Users/me/github.com/hayeah/agentproxy"]
 trust_level = "trusted"
