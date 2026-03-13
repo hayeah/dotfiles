@@ -15,7 +15,7 @@ startup_timeout = "10s"
 
 [service."agent-tg-bridge"]
 cwd = "~"
-command = ["shell-helper", "agent", "tg-bridge"]
+command = ["agent", "tg-bridge"]
 no_port = true
 env_files = ["~/.env.secret"]
 restart = "never"
