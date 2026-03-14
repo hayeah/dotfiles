@@ -71,6 +71,6 @@ export TMUX_KILL_PROTECT="devport"
 export HAYEAH_CONFIG="$HOME/.config/hayeah/config.toml"
 
 # Dropbox
-export DROPBOX_ROOT="$HOME/Library/CloudStorage/Dropbox"
+export DROPBOX_ROOT="$HOME/Dropbox"
 export MDNOTES_ROOT="$DROPBOX_ROOT/notes"
 export OUTPUT_ROOT="$DROPBOX_ROOT/output"
