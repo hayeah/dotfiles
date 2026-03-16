@@ -43,6 +43,7 @@ class GeminiGenerator:
         aspect_ratio: str = "1:1",
         image_size: str = "1K",
         image_attachments: list[bytes] | None = None,
+        count: int = 1,
     ):
         self.prompt = prompt
         self.output_path = output_path
@@ -50,8 +51,9 @@ class GeminiGenerator:
         self.aspect_ratio = aspect_ratio
         self.image_size = image_size
         self.image_attachments = image_attachments or []
+        self.count = count
 
-    def _run_gemini_native(self, client: genai.Client) -> bytes:
+    def _run_gemini_native_once(self, client: genai.Client) -> bytes:
         contents: list = []  # type: ignore[type-arg]
         for img_bytes in self.image_attachments:
             contents.append(types.Part.from_bytes(data=img_bytes, mime_type="image/png"))
@@ -82,12 +84,17 @@ class GeminiGenerator:
 
         raise RuntimeError("No image data found in Gemini response")
 
-    def _run_imagen(self, client: genai.Client) -> bytes:
+    def _run_gemini_native(self, client: genai.Client) -> list[bytes]:
+        # Native Gemini models don't support numberOfImages,
+        # so we call the API multiple times.
+        return [self._run_gemini_native_once(client) for _ in range(self.count)]
+
+    def _run_imagen(self, client: genai.Client) -> list[bytes]:
         response = client.models.generate_images(
             model=self.model,
             prompt=self.prompt,
             config=types.GenerateImagesConfig(
-                number_of_images=1,
+                number_of_images=self.count,
                 aspect_ratio=self.aspect_ratio,
             ),
         )
@@ -95,30 +102,54 @@ class GeminiGenerator:
         if not response.generated_images:
             raise RuntimeError("No images in Imagen response")
 
-        img = response.generated_images[0].image
-        if img and img.image_bytes:
-            return img.image_bytes
+        images: list[bytes] = []
+        for generated in response.generated_images:
+            if generated.image and generated.image.image_bytes:
+                images.append(generated.image.image_bytes)
 
-        raise RuntimeError("No image bytes in Imagen response")
+        if not images:
+            raise RuntimeError("No image bytes in Imagen response")
 
-    def run(self) -> Path:
+        return images
+
+    def _output_paths(self, image_count: int) -> list[Path]:
+        """Return output paths for the generated images.
+
+        When count == 1, use the original output path as-is.
+        When count > 1, use <stem>-1.png, <stem>-2.png, etc.
+        """
+        if image_count == 1:
+            return [self.output_path]
+
+        stem = self.output_path.stem
+        suffix = self.output_path.suffix or ".png"
+        parent = self.output_path.parent
+        return [parent / f"{stem}-{i}{suffix}" for i in range(1, image_count + 1)]
+
+    def run(self) -> list[Path]:
         client = genai.Client()
         log.info(
             "sending request",
             model=self.model,
             aspect_ratio=self.aspect_ratio,
             image_size=self.image_size,
+            count=self.count,
         )
 
         if _is_imagen_model(self.model):
-            image_bytes = self._run_imagen(client)
+            all_image_bytes = self._run_imagen(client)
         else:
-            image_bytes = self._run_gemini_native(client)
+            all_image_bytes = self._run_gemini_native(client)
 
         self.output_path.parent.mkdir(parents=True, exist_ok=True)
-        self.output_path.write_bytes(image_bytes)
-        log.info("saved image", path=str(self.output_path), bytes=len(image_bytes))
-        return self.output_path
+        paths = self._output_paths(len(all_image_bytes))
+        saved: list[Path] = []
+        for path, image_bytes in zip(paths, all_image_bytes):
+            path.write_bytes(image_bytes)
+            log.info("saved image", path=str(path), bytes=len(image_bytes))
+            saved.append(path)
+
+        return saved
 
 
 @app.command()
@@ -142,6 +173,7 @@ def create(
     model: str = typer.Option("gemini-2.5-flash-image", "--model", help="Model to use"),
     aspect_ratio: str = typer.Option("1:1", "--aspect-ratio", help="Aspect ratio"),
     image_size: str = typer.Option("1K", "--image-size", help="Image size: 1K / 2K"),
+    count: int = typer.Option(1, "--count", "-n", help="Number of images to generate (max 4)", min=1, max=4),
 ) -> None:
     """Generate an image using the Gemini API."""
     text_parts = list(prompt)
@@ -161,6 +193,8 @@ def create(
         aspect_ratio=aspect_ratio,
         image_size=image_size,
         image_attachments=image_attachments_bytes,
+        count=count,
     )
-    result = gen.run()
-    typer.echo(result)
+    results = gen.run()
+    for result in results:
+        typer.echo(result)
