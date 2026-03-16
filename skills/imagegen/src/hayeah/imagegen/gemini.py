@@ -1,10 +1,22 @@
-"""Google Gemini/Imagen image generation provider."""
+"""Google Gemini/Imagen image generation.
+
+Auto-detects model family:
+- Gemini native models (e.g. "gemini-2.5-flash-image") use generate_content.
+- Imagen models (e.g. "imagen-4.0-generate-001") use generate_images.
+
+Quick start:
+    from hayeah.imagegen.gemini import GeminiProvider
+    p = GeminiProvider()
+    p.generate("a cat wearing a top hat")[0].save("cat.png")
+"""
 
 from __future__ import annotations
 
 from google import genai
 from google.genai import types
 from hayeah.core import logger
+
+from . import ImageResult
 
 log = logger.new("imagegen")
 
@@ -25,6 +37,11 @@ def is_image_model(model_id: str) -> bool:
 def is_imagen_model(model: str) -> bool:
     """Check if a model is an Imagen model (vs native Gemini)."""
     return any(model.startswith(p) for p in IMAGEN_PREFIXES)
+
+
+# ---------------------------------------------------------------------------
+# Provider class
+# ---------------------------------------------------------------------------
 
 
 class GeminiProvider:
@@ -72,8 +89,6 @@ class GeminiProvider:
             aspect_ratio: "1:1", "16:9", "9:16", etc.
             image_size: "1K" or "2K".
         """
-        from . import ImageResult
-
         log.info(
             "sending request",
             model=self.model,
@@ -151,8 +166,6 @@ class GeminiProvider:
         aspect_ratio: str,
         image_size: str,
     ) -> list[bytes]:
-        # Native Gemini models don't support numberOfImages,
-        # so we call the API multiple times.
         return [
             self._run_gemini_native_once(prompt, images, aspect_ratio, image_size)
             for _ in range(n)

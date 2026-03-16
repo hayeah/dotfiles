@@ -9,7 +9,7 @@ from typing import Optional
 import typer
 from dotenv import load_dotenv
 
-from . import ImageResult, _output_format_from_path
+from . import ImageResult, output_format_from_path
 from .attachments import Attachment, load_attachment
 
 ENV_SECRET = Path.home() / ".env.secret"
@@ -102,7 +102,7 @@ def openai_create(
             text_parts.append(att.data)
 
     full_prompt = "\n".join(text_parts)
-    fmt = _output_format_from_path(output)
+    fmt = output_format_from_path(output)
 
     if model.lower() == "none" and edit:
         if not image_attachments:

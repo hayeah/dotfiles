@@ -1,13 +1,23 @@
-"""OpenAI image generation provider.
+"""OpenAI image generation.
 
-Supports two APIs:
-- Responses API (streaming, multi-turn, attachments) — when model is set
-- Images API (direct generation/edit, no text model) — when model is None
+Two APIs available, auto-selected by whether model is set:
+- Responses API (streaming, multi-turn, attachments) — model="gpt-5"
+- Images API (direct, no text model) — model=None
+
+Quick start:
+    from hayeah.imagegen.openai import OpenAIProvider
+    p = OpenAIProvider()
+    p.generate("a cat wearing a top hat")[0].save("cat.png")
+
+Edit:
+    p = OpenAIProvider(model=None)
+    p.edit("make it blue", images=[Path("cat.png").read_bytes()])[0].save("blue.png")
 """
 
 from __future__ import annotations
 
 import base64
+import io
 from collections.abc import Callable
 from typing import Any
 
@@ -15,6 +25,7 @@ from hayeah.core import logger
 from openai import OpenAI
 from openai.types.responses import Response
 
+from . import ImageResult
 from .attachments import Attachment
 
 log = logger.new("imagegen")
@@ -40,16 +51,9 @@ IMAGE_MODELS = [
 ]
 
 
-def _output_format(suffix: str) -> str:
-    """Infer output format from file extension."""
-    ext_map = {".png": "png", ".webp": "webp", ".jpg": "jpeg", ".jpeg": "jpeg"}
-    return ext_map.get(suffix.lower(), "png")
-
-
 class OpenAIProvider:
     """OpenAI image generation via Responses API or Images API.
 
-    Merges the former OpenAIResponses and OpenAIImages classes.
     Auto-selects Responses API (streaming, multi-turn) vs Images API
     (direct, no text model) based on whether model is set.
 
@@ -101,18 +105,22 @@ class OpenAIProvider:
         Args:
             prompt: Text description of the image.
             images: Reference images as raw bytes.
-            image_attachments: Reference images as Attachment objects (alternative to images).
+            image_attachments: Reference images as Attachment objects
+                (alternative to images, used by CLI).
             n: Number of images (Images API only).
-            size: Image dimensions — "auto", "1024x1024", "1536x1024", "1024x1536".
+            size: "auto", "1024x1024", "1536x1024", "1024x1536".
             quality: "auto", "low", "medium", "high".
             background: "auto", "transparent", "opaque".
             output_format: "png", "jpeg", or "webp".
-            previous_response_id: Chain edits with a prior response (Responses API only).
-            on_partial: Callback for streaming partial previews (Responses API only).
+            previous_response_id: Chain edits with a prior response
+                (Responses API only).
+            on_partial: Callback receiving (index, image_bytes) for streaming
+                partial previews (Responses API only).
             partial_images: Number of partial previews, 0-3 (Responses API only).
-        """
-        from . import ImageResult
 
+        Returns:
+            List of ImageResult.
+        """
         if self.model is not None:
             return self._generate_responses(
                 prompt,
@@ -151,12 +159,13 @@ class OpenAIProvider:
             prompt: Text description of the edits.
             images: Source images as raw bytes. At least one required.
             n: Number of variations.
-            size: Image dimensions.
+            size: "auto", "1024x1024", "1536x1024", "1024x1536".
             quality: "auto", "low", "medium", "high".
             output_format: "png", "jpeg", or "webp".
-        """
-        from . import ImageResult
 
+        Returns:
+            List of ImageResult.
+        """
         log.info(
             "images_edit",
             model=self.image_model,
@@ -165,9 +174,6 @@ class OpenAIProvider:
             quality=quality,
             images=len(images),
         )
-
-        # images.edit() accepts file-like objects
-        import io
 
         image_files = [io.BytesIO(data) for data in images]
         image_input = image_files[0] if len(image_files) == 1 else image_files  # type: ignore[assignment]
@@ -193,6 +199,8 @@ class OpenAIProvider:
 
         return results
 
+    # -- Internal methods --
+
     def _generate_responses(
         self,
         prompt: str,
@@ -206,8 +214,6 @@ class OpenAIProvider:
         on_partial: Callable[[int, bytes], None] | None,
         partial_images: int,
     ) -> list[ImageResult]:
-        from . import ImageResult
-
         content: list[dict[str, str]] = [{"type": "input_text", "text": prompt}]
         for att in image_attachments or []:
             content.append({"type": "input_image", "image_url": att.data_url})
@@ -259,7 +265,6 @@ class OpenAIProvider:
         if response is None:
             raise RuntimeError("No response.completed event received")
 
-        # Extract image from response
         image_bytes: bytes | None = None
         for output in response.output:
             if output.type == "image_generation_call":
@@ -287,8 +292,6 @@ class OpenAIProvider:
         background: str,
         output_format: str,
     ) -> list[ImageResult]:
-        from . import ImageResult
-
         log.info(
             "images_api",
             model=self.image_model,
@@ -328,11 +331,11 @@ class OpenAIProvider:
                 item["result"] = f"<{len(item['result'])} chars base64>"
         for item in data.get("input", []):
             if isinstance(item, dict):
-                for content in item.get("content", []):
-                    if isinstance(content, dict) and content.get("type") == "input_image":
-                        url = content.get("image_url", "")
+                for content_item in item.get("content", []):
+                    if isinstance(content_item, dict) and content_item.get("type") == "input_image":
+                        url = content_item.get("image_url", "")
                         if isinstance(url, str) and url.startswith("data:"):
                             prefix = url.split(",", 1)[0]
-                            content["image_url"] = f"{prefix},<base64 omitted>"
+                            content_item["image_url"] = f"{prefix},<base64 omitted>"
         data["response_id"] = response.id
         return data

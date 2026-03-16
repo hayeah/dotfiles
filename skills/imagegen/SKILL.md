@@ -17,29 +17,36 @@ Requires env vars (in `~/.env.secret`):
 
 ## API
 
-Read `{baseDir}/src/hayeah/imagegen/__init__.py` for full API with docstrings.
+- OpenAI: read `{baseDir}/src/hayeah/imagegen/openai.py` for OpenAIProvider
+- Gemini: read `{baseDir}/src/hayeah/imagegen/gemini.py` for GeminiProvider
+- Shared: `{baseDir}/src/hayeah/imagegen/__init__.py` for ImageResult
 
 ## Quick examples
 
+### OpenAI
+
 ```bash
 godotenv -f ~/.env.secret python -c '
-from hayeah.imagegen import generate
-generate("a cat wearing a top hat")[0].save("cat.png")
+from hayeah.imagegen.openai import OpenAIProvider
+OpenAIProvider().generate("a cat wearing a top hat")[0].save("cat.png")
 '
 ```
 
 ```bash
 godotenv -f ~/.env.secret python -c '
-from hayeah.imagegen import generate
-generate("a landscape", provider="gemini", aspect_ratio="16:9")[0].save("land.png")
-'
-```
-
-```bash
-godotenv -f ~/.env.secret python -c '
-from hayeah.imagegen import edit
+from hayeah.imagegen.openai import OpenAIProvider
 from pathlib import Path
-edit("make it blue", images=[Path("cat.png")])[0].save("cat-blue.png")
+p = OpenAIProvider(model=None)
+p.edit("make it blue", images=[Path("cat.png").read_bytes()])[0].save("cat-blue.png")
+'
+```
+
+### Gemini
+
+```bash
+godotenv -f ~/.env.secret python -c '
+from hayeah.imagegen.gemini import GeminiProvider
+GeminiProvider().generate("a landscape", aspect_ratio="16:9")[0].save("land.png")
 '
 ```
 
@@ -72,4 +79,4 @@ When the user wants to refine an image, use OpenAI's `previous_response_id` rath
 
 ### Attach Context Instead of Describing
 
-When the user has a reference image, pass it as `images=[Path("ref.png")]` rather than trying to describe it in the prompt.
+When the user has a reference image, pass it as `images=[Path("ref.png").read_bytes()]` rather than trying to describe it in the prompt.
