@@ -105,7 +105,7 @@ Modules: p10k, antigen, fzf, zoxide, bun, orbstack
 GITHUB_REPOS=~                   # git-quick-clone resolves repos under ~/
 GODZKILLA_PATH=~                 # godzkilla resolves repos under ~/
 DROPBOX_ROOT=~/Dropbox           # Cloud storage root
-MDNOTES_ROOT=$DROPBOX_ROOT/md    # Markdown notes
+MDNOTES_ROOT=$DROPBOX_ROOT/notes # Markdown notes
 OUTPUT_ROOT=$DROPBOX_ROOT/output # Task output artifacts
 ```
 
