@@ -6,7 +6,7 @@ import shutil
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from hayeah import logger
+from hayeah.core import logger
 
 from .clipboard import ClipboardItem, FileItem, ImageItem, TextItem
 

@@ -6,11 +6,11 @@ requires-python = ">=3.11"
 dependencies = [
     "typer",
     "pyobjc-framework-Cocoa",
-    "hayeah",
+    "hayeah-core",
 ]
 
 [tool.uv.sources]
-hayeah = { path = "../../hayeah", editable = true }
+hayeah-core = { path = "../../hayeah", editable = true }
 
 [project.scripts]
 ctrlv = "ctrlv.main:run"

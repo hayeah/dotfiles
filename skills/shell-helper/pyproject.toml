@@ -6,11 +6,11 @@ requires-python = ">=3.11"
 dependencies = [
     "typer",
     "httpx",
-    "hayeah",
+    "hayeah-core",
 ]
 
 [tool.uv.sources]
-hayeah = { path = "../../hayeah", editable = true }
+hayeah-core = { path = "../../hayeah", editable = true }
 
 [project.scripts]
 shell-helper = "shell_helper.main:run"

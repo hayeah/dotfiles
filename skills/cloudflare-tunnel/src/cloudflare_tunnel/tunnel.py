@@ -5,7 +5,7 @@ from __future__ import annotations
 import os
 
 from cloudflare import Cloudflare
-from hayeah import logger
+from hayeah.core import logger
 
 from .config import TunnelConfig
 

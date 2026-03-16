@@ -7,7 +7,7 @@ from pathlib import Path
 
 import pytest
 
-from hayeah.fzfmatch import (
+from .fzfmatch import (
     MatchError,
     contains_word_exact,
     contains_word_prefix,

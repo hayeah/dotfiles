@@ -8,7 +8,7 @@ import sys
 from pathlib import Path
 from urllib.parse import urlparse, urlunparse
 
-from hayeah import logger
+from hayeah.core import logger
 
 from .parser import RepoInfo
 

@@ -12,7 +12,7 @@ from logging.handlers import RotatingFileHandler
 
 import structlog
 
-from hayeah.config import load as load_config
+from .config import load as load_config
 
 _shared_processors: list[structlog.types.Processor] = [
     structlog.contextvars.merge_contextvars,

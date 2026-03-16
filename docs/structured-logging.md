@@ -6,7 +6,7 @@ Language-agnostic spec for structured logging across CLI tools. Each language ha
 
 | Language | Package | Import |
 |---|---|---|
-| Python | `hayeah/` | `from hayeah import logger` |
+| Python | `hayeah/` | `from hayeah.core import logger` |
 | TypeScript | `hayeah-ts/` | `import { logger } from "hayeah-ts"` |
 | Go | `golib/logger/` | `"github.com/hayeah/dotfiles/golib/logger"` |
 

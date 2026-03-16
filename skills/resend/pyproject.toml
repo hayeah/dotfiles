@@ -7,11 +7,11 @@ dependencies = [
     "typer",
     "resend",
     "python-dotenv",
-    "hayeah",
+    "hayeah-core",
 ]
 
 [tool.uv.sources]
-hayeah = { path = "../../hayeah", editable = true }
+hayeah-core = { path = "../../hayeah", editable = true }
 
 [project.scripts]
 resend-email = "resend_email.main:run"

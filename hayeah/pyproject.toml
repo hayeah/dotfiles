@@ -1,5 +1,5 @@
 [project]
-name = "hayeah"
+name = "hayeah-core"
 version = "0.1.0"
 requires-python = ">=3.11"
 dependencies = ["structlog>=24.0"]
@@ -7,3 +7,19 @@ dependencies = ["structlog>=24.0"]
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/hayeah"]
+
+[dependency-groups]
+dev = [
+    "pytest",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["src"]
+
+[tool.pyright]
+pythonVersion = "3.11"
+include = ["src"]
+typeCheckingMode = "basic"
