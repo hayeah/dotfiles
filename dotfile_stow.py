@@ -143,6 +143,8 @@ class DotfileStow:
             if not src.is_file():
                 continue
             rel = src.relative_to(self.source_dir)
+            if rel.parts[0] == ".git":
+                continue
 
             if src.suffix == ".tmpl":
                 target = self.target_dir / str(rel).removesuffix(".tmpl")
