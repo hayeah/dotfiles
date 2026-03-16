@@ -1,19 +1,58 @@
 """Image generation with OpenAI and Gemini providers.
 
-Each provider has its own module with its own API:
+OpenAI usage:
 
     from hayeah.imagegen.openai import OpenAIProvider
+
     p = OpenAIProvider()
-    p.generate("a cat")[0].save("cat.png")
+
+    # Responses API (streaming, multi-turn, attachments)
+    results = p.generate("a cat wearing a top hat")
+    results[0].save("cat.png")
+
+    # With options
+    results = p.generate("a logo", size="1024x1024", quality="high", background="transparent")
+
+    # Multi-turn editing
+    r1 = p.generate("a cat in a garden")
+    r2 = p.generate("make it orange", previous_response_id=r1[0].metadata["response_id"])
+
+    # Streaming partial previews
+    def on_preview(index, data):
+        Path(f"preview-{index}.png").write_bytes(data)
+
+    results = p.generate("a river", on_partial=on_preview)
+
+    # Images API (direct, no text model — faster for simple prompts)
+    p_direct = OpenAIProvider(model=None)
+    results = p_direct.generate("a simple icon", n=3)
+
+    # Edit an existing image
+    p_direct.edit("make the hat blue", images=[Path("cat.png").read_bytes()])[0].save("cat-blue.png")
+
+Gemini usage:
 
     from hayeah.imagegen.gemini import GeminiProvider
-    p = GeminiProvider()
-    p.generate("a landscape", aspect_ratio="16:9")[0].save("landscape.png")
 
-Both return list[ImageResult].
+    p = GeminiProvider()
+
+    # Gemini native model
+    results = p.generate("a landscape", aspect_ratio="16:9", image_size="2K")
+    results[0].save("landscape.png")
+
+    # Imagen model
+    p_imagen = GeminiProvider(model="imagen-4.0-generate-001")
+    results = p_imagen.generate("a photo", n=2)
+
+    # With reference image
+    results = p.generate("remix this", images=[Path("ref.png").read_bytes()])
+
+Both providers return list[ImageResult].
 """
 
 from __future__ import annotations
+
+__all__ = ["ImageResult", "output_format_from_path"]
 
 from dataclasses import dataclass, field
 from pathlib import Path

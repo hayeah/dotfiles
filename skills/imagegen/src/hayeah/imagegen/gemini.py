@@ -12,6 +12,8 @@ Quick start:
 
 from __future__ import annotations
 
+__all__ = ["GeminiProvider"]
+
 from google import genai
 from google.genai import types
 from hayeah.core import logger
