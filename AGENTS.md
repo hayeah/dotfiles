@@ -5,19 +5,38 @@ When using a skill or tool, if you run into problems, mistakes, or ergonomic iss
 - Describe the problem and how you worked around it.
 - After you are done with your task, use /mdnote to note it.
   - This helps the human review and improve your tooling and workflow.
-- `$MDNOTES_ROOT` is a memory bank of research notes, design docs, and learnings from previous work sessions. Use `qmd` to search it when asked to refer to collected notes.
 
 ## HOT TIPS
 
-- Prefer uv+python for ad-hoc scripting.
-  - `uv run --with cloudflare python -c`
-    - If you'd like to use a package.
-  - `godotenv -f ~/.env.secret uv run --with cloudflare python -c`
-    - If you need access tokens in the script.
+- `$MDNOTES_ROOT` is a memory bank of research notes, design docs, and learnings from previous work sessions. Use `qmd` to search it when asked to refer to collected notes.
 - If you keep getting confused about the behaviour of a tool, quick clone the repo to study the source code.
   - Use /mdnote to produce a note.
-
 - `~/.ctrlv` contains dumped pasteboard contents: text, files, and images. Read here if asked to check the clipboard or ctrlv.
+
+## Temporary Files
+
+When you need temporary files or directories, prefer NOT to use /tmp.
+
+- Default to `$TMP_ROOT` (`$DROPBOX_ROOT/tmp`)
+- Naming convention to avoid collisions:
+  - `$TMP_ROOT/<date>/<msecTimestamp>-<title>`
+  - Date and millisecond timestamp must be alphanumeric-sortable
+
+## Ad-Hoc Scripting
+
+If writing more than ~15 lines:
+
+- Prefer writing scripts to files rather than using `-c`
+  - Easier for a human to audit
+  - Easier to tweak and fix
+- Put ad-hoc scripts in `$TMP_ROOT` following the naming convention in "Temporary Files"
+  - `$TMP_ROOT/<date>/<msecTimestamp>-<title>.<ext>`
+  - To iterate on a variant, copy and edit the original
+- Use uv+python for ad-hoc scripting
+  - `uv run --with cloudflare python`
+    - If you'd like to use a package
+  - `godotenv -f ~/.env.secret uv run --with cloudflare python`
+    - If you need access tokens in the script
 
 ## Dotfiles
 
