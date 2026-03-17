@@ -17,10 +17,13 @@ When using a skill or tool, if you run into problems, mistakes, or ergonomic iss
 
 When you need temporary files or directories, prefer NOT to use /tmp.
 
-- Default to `$TMP_ROOT` (`$DROPBOX_ROOT/tmp`)
-- Naming convention to avoid collisions:
-  - `$TMP_ROOT/<date>/<msecTimestamp>-<title>`
-  - Date and millisecond timestamp must be alphanumeric-sortable
+- Default to `$TMP_ROOT` (`$MDNOTES_ROOT/tmp`)
+- Naming convention: `$TMP_ROOT/<date>/<HHMMSS>.<ms>-<title>`
+- Follow this convention whenever you need to produce output.
+- Use the `tmpfile` helper to generate paths:
+  - `tmpfile foo.jpg` → `$TMP_ROOT/2026-03-17/143052.283-foo.jpg`
+  - Creates the date directory automatically
+  - Use in shell expansion: `foocmd -o "$(tmpfile foo.jpg)"`
 
 ## Ad-Hoc Scripting
 
@@ -29,8 +32,9 @@ If writing more than ~15 lines:
 - Prefer writing scripts to files rather than using `-c`
   - Easier for a human to audit
   - Easier to tweak and fix
-- Put ad-hoc scripts in `$TMP_ROOT` following the naming convention in "Temporary Files"
-  - `$TMP_ROOT/<date>/<msecTimestamp>-<title>.<ext>`
+- Put ad-hoc scripts in `$TMP_ROOT`:
+  - Run `tmpfile myscript.py` to get the path, then write your script there
+  - e.g. `tmpfile myscript.py` → `$TMP_ROOT/2026-03-17/143052.283-myscript.py`
   - To iterate on a variant, copy and edit the original
 - Use uv+python for ad-hoc scripting
   - `uv run --with cloudflare python`
@@ -110,17 +114,3 @@ Before writing new code that needs API keys:
 
 - Use `dotenv-ls` to check whether the required secrets are available.
 - If not, propose the env var names and ask the user to fill them in before proceeding.
-
-## Output Artifacts
-
-When asked to produce output or artifacts, or when a human would likely want to see results:
-
-- Produce directly to the output dir, or
-- Copy interesting/relevant tmp files to the output dir
-
-Output root dir: `$DROPBOX_ROOT/output`
-
-- Write output to `$OUTPUT_ROOT/<date>/<taskName>` when asked
-- Date should be sortable alphanumeric (e.g. `2026-03-07`)
-- Create your own task name
-- Reuse that path for the session
