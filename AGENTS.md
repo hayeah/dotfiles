@@ -60,6 +60,24 @@ Petty, I Know. But IMPORTANT for my happiness.
   - JsonApi -> JSONAPI
 - The default git branch SHOULD be `master`, not `main`.
 
+
+# Git Commit
+
+Example commit message:
+
+```
+Add tmpfile helper, move TMP_ROOT to MDNOTES_ROOT/tmp
+
+- Update TMP_ROOT from DROPBOX_ROOT/tmp to MDNOTES_ROOT/tmp
+- Document tmpfile helper usage in AGENTS.md
+- Remove Output Artifacts section (superseded by tmpfile convention)
+```
+
+- One clear subject line.
+- List of changes.
+
+DO NOT add `Co-Authored-By: Claude Opus 4.6 (1M context) <noreply@anthropic.com>` line.
+
 ## Install Tools
 
 - Prefer mise > homebrew when installing tools.
