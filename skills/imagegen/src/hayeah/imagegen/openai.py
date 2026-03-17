@@ -154,6 +154,7 @@ class OpenAIProvider:
         size: str = "auto",
         quality: str = "auto",
         output_format: str = "png",
+        input_fidelity: str | None = None,
     ) -> list[ImageResult]:
         """Edit images using the Images edit endpoint.
 
@@ -164,6 +165,9 @@ class OpenAIProvider:
             size: "auto", "1024x1024", "1536x1024", "1024x1536".
             quality: "auto", "low", "medium", "high".
             output_format: "png", "jpeg", or "webp".
+            input_fidelity: "high" or "low". Controls how closely the output
+                matches the style/features of input images. Default is "low".
+                Only supported for gpt-image-1 and gpt-image-1.5.
 
         Returns:
             List of ImageResult.
@@ -177,18 +181,38 @@ class OpenAIProvider:
             images=len(images),
         )
 
-        image_files = [io.BytesIO(data) for data in images]
-        image_input = image_files[0] if len(image_files) == 1 else image_files  # type: ignore[assignment]
+        def _named_bytesio(data: bytes, index: int) -> io.BytesIO:
+            buf = io.BytesIO(data)
+            buf.name = f"image{index}.png"  # filename hint for mimetype detection
+            return buf
+
+        image_files = [_named_bytesio(data, i) for i, data in enumerate(images)]
+        # MUST pass image as a list even for single images. A single file object
+        # sends "image=<file>" (singular field) which routes to the DALL-E-2 code
+        # path and rejects GPT image models. A list sends "image[]=<file>" (array
+        # syntax) which hits the GPT image model path.
+
+        edit_kwargs: dict = {
+            "image": image_files,
+            "prompt": prompt,
+            "model": self.image_model,
+            "n": n,
+            "size": size,
+            "quality": quality,
+        }
+        if input_fidelity is not None:
+            edit_kwargs["input_fidelity"] = input_fidelity
 
         result = self.client.images.edit(
-            image=image_input,  # type: ignore[arg-type]
-            prompt=prompt,
-            model=self.image_model,
-            n=n,
-            size=size,  # type: ignore[arg-type]
-            quality=quality,  # type: ignore[arg-type]
+            **edit_kwargs,  # type: ignore[arg-type]
             output_format=output_format,  # type: ignore[arg-type]
         )
+
+        # Build response metadata, stripping base64 image data
+        meta = result.model_dump()
+        for item in meta.get("data", []):
+            if item.get("b64_json"):
+                item["b64_json"] = f"<{len(item['b64_json'])} chars base64>"
 
         results: list[ImageResult] = []
         for image in result.data:
@@ -196,7 +220,7 @@ class OpenAIProvider:
             results.append(ImageResult(
                 data=image_bytes,
                 format=output_format,
-                metadata={"model": self.image_model},
+                metadata=meta,
             ))
 
         return results
