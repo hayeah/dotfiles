@@ -1,5 +1,6 @@
 """Makefile.py for dotfiles refresh: stow dotfiles + mise install + skill sync."""
 
+import json
 from pathlib import Path
 
 from pymake import sh, task
@@ -10,7 +11,7 @@ HOME = Path.home()
 REPO = Path(__file__).resolve().parent
 PRIVATE_REPO = HOME / "github.com/hayeah/dotfiles-private"
 
-# Skill sources: local directories containing SKILL.md files
+# Skill sources and destinations for godzkilla sync
 SKILL_SOURCES = [
     "github.com/hayeah/dotfiles/skills",
     "github.com/hayeah/devportv2",
@@ -18,11 +19,10 @@ SKILL_SOURCES = [
     "github.com/hayeah/pymake",
 ]
 
-# Agent skill directories to sync into
 SKILL_DESTS = [
-    HOME / ".claude/skills",
-    HOME / ".codex/skills",
-    HOME / ".openclaw/skills",
+    "~/.claude/skills",
+    "~/.codex/skills",
+    "~/.openclaw/skills",
 ]
 
 
@@ -76,15 +76,14 @@ def mise():
 @task()
 def skills(dry: bool = False):
     """Sync skills from local repos into agent skill directories via godzkilla."""
-    dests = " ".join(f"--destination {d}" for d in SKILL_DESTS)
-    sources = " ".join(f"--source {s}" for s in SKILL_SOURCES)
+    directives = [{"from": SKILL_SOURCES, "to": SKILL_DESTS}]
     dry_flag = " --dry" if dry else ""
 
-    for dest in SKILL_DESTS:
+    for dest in [Path(d).expanduser() for d in SKILL_DESTS]:
         if dest.is_symlink():
             dest.unlink()
 
-    sh(f"godzkilla sync{dry_flag} {dests} {sources}")
+    sh(f"godzkilla sync{dry_flag} --json '{json.dumps(directives)}'")
 
 
 @task(inputs=[private, dotfiles, tmux_plugins, mise, skills])

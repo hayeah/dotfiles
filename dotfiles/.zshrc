@@ -22,3 +22,6 @@ zsh_reload() {
   export PATH="$_ORIGINAL_PATH"
   exec zsh -l
 }
+
+# Vite+ bin (https://viteplus.dev)
+. "$HOME/.vite-plus/env"
