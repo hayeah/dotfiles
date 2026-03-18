@@ -1,18 +1,21 @@
 """hayeah.logger — structured logging for dotfiles tools.
 
-By default, logs to stderr only. Set HAYEAH_CONFIG to a TOML file
-with [log] dir = "~/.local/log" to enable file logging.
+Usage:
+
+    from hayeah.core.logger import LogConfig, new
+
+    log = new("my-tool", LogConfig(dir=Path("~/.local/log"), level="DEBUG"))
 """
 
 from __future__ import annotations
 
 import logging
 import sys
+from dataclasses import dataclass
 from logging.handlers import RotatingFileHandler
+from pathlib import Path
 
 import structlog
-
-from .config import load as load_config
 
 _shared_processors: list[structlog.types.Processor] = [
     structlog.contextvars.merge_contextvars,
@@ -23,6 +26,12 @@ _shared_processors: list[structlog.types.Processor] = [
 ]
 
 _configured = False
+
+
+@dataclass
+class LogConfig:
+    dir: Path | None = None
+    level: str = "INFO"
 
 
 def _ensure_configured() -> None:
@@ -62,11 +71,11 @@ def _json_formatter() -> structlog.stdlib.ProcessorFormatter:
     )
 
 
-def new(name: str) -> structlog.stdlib.BoundLogger:
+def new(name: str, cfg: LogConfig | None = None) -> structlog.stdlib.BoundLogger:
     """Return a structured logger with console + optional JSONL file output.
 
-    File logging is enabled only when HAYEAH_CONFIG points to a TOML
-    file that sets [log] dir.  Same name returns the same logger (idempotent).
+    Pass a LogConfig to control log level and file output.
+    Same name returns the same logger (idempotent).
     """
     _ensure_configured()
 
@@ -76,9 +85,10 @@ def new(name: str) -> structlog.stdlib.BoundLogger:
     if stdlib_logger.handlers:
         return structlog.get_logger(name)
 
-    cfg = load_config()
+    if cfg is None:
+        cfg = LogConfig()
 
-    stdlib_logger.setLevel(cfg.log.level)
+    stdlib_logger.setLevel(cfg.level)
     stdlib_logger.propagate = False  # don't leak to root
 
     # Console handler — pretty colored output to stderr
@@ -87,10 +97,11 @@ def new(name: str) -> structlog.stdlib.BoundLogger:
     stdlib_logger.addHandler(console)
 
     # File handler — JSONL with rotation (only if log dir configured)
-    if cfg.log.dir:
-        cfg.log.dir.mkdir(parents=True, exist_ok=True)
+    if cfg.dir:
+        log_dir = cfg.dir.expanduser()
+        log_dir.mkdir(parents=True, exist_ok=True)
         file_h = RotatingFileHandler(
-            cfg.log.dir / f"{name}.jsonl",
+            log_dir / f"{name}.jsonl",
             maxBytes=5 * 1024 * 1024,
             backupCount=3,
             encoding="utf-8",
