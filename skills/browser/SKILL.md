@@ -248,6 +248,7 @@ Dump the accessibility tree of a session. Returns a compact indented tree with r
 ```bash
 browser content --open https://example.com
 browser content --open https://chatgpt.com/share/<share-id>
+browser content --open https://chatgpt.com/s/<post-id>
 browser content https://example.com
 ```
 
@@ -255,6 +256,7 @@ Extract readable content as markdown. Uses Mozilla Readability for article extra
 
 Auto-detects site-specific extractors:
 - `chatgpt.com/share/...`: exports the full conversation as markdown from hydrated share data
+- `chatgpt.com/s/...`: exports ChatGPT post conversations as markdown
 
 ## When to Use
 

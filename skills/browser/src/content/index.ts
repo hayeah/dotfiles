@@ -1,4 +1,5 @@
 import type { Page } from "puppeteer-core";
+import { chatGPTPostExtractor } from "./extractors/chatgpt-post.js";
 import { chatGPTContentExtractor } from "./extractors/chatgpt.js";
 import { defaultContentExtractor } from "./extractors/default.js";
 import type { ContentExtractor, ExtractedContent } from "./types.js";
@@ -6,6 +7,7 @@ import type { ContentExtractor, ExtractedContent } from "./types.js";
 const DEFAULT_EXTRACTOR_ID = defaultContentExtractor.id;
 
 export const contentExtractors = new Map<string, ContentExtractor>([
+	[chatGPTPostExtractor.id, chatGPTPostExtractor],
 	[chatGPTContentExtractor.id, chatGPTContentExtractor],
 	[defaultContentExtractor.id, defaultContentExtractor],
 ]);
