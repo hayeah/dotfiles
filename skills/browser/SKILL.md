@@ -144,7 +144,20 @@ browser eval 'document.querySelectorAll("a").length' -s a3f2
 browser eval script.js
 ```
 
-Execute JavaScript in a session. Pass inline code or a `.js`/`.mjs`/`.ts` file path. Code runs in async context.
+Execute JavaScript in a session. Pass inline code or a `.js`/`.mjs`/`.ts` file path. Code runs in async context. 
+
+IMPORTANT: For scripts longer than 5–10 lines, write to a file using the `tmpfile` convention and pass the path:
+
+```bash
+# 1. generate the path
+tmpfile scrape.js
+# => $TMP_ROOT/2026-03-17/143052.283-scrape.js
+
+# 2. write your script to that path (use the Write tool)
+
+# 3. eval it
+browser eval $TMP_ROOT/2026-03-17/143052.283-scrape.js -s a3f2
+```
 
 ## Fetch
 
