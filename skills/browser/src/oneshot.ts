@@ -50,7 +50,7 @@ export function withOneShot<T extends OneShotArgv>(
 			}
 
 			if (resolved.url) {
-				await page.goto(resolved.url, { waitUntil: "domcontentloaded" });
+				await page.goto(resolved.url, { waitUntil: "networkidle0" });
 			}
 
 			// Inject the targetId as session so resolvePage finds it
