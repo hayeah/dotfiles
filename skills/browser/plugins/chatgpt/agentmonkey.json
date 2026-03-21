@@ -4,16 +4,16 @@
   "routes": [
     {
       "match": ["*://chatgpt.com/c/*"],
-      "browser": "src/conversation.ts",
-      "node": "src/conversation.node.ts"
+      "browser": "conversation.ts",
+      "node": "conversation.node.ts"
     },
     {
       "match": ["*://chatgpt.com/share/*"],
-      "browser": "src/share.ts"
+      "browser": "share.ts"
     },
     {
       "match": ["*://chatgpt.com/*"],
-      "browser": "src/common.ts"
+      "browser": "common.ts"
     }
   ]
 }

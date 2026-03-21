@@ -1,5 +1,5 @@
 var __browserPlugin = (function() {
-	//#region plugins/chatgpt/src/common.ts
+	//#region plugins/chatgpt/common.ts
 	function setup() {
 		function isLoggedIn() {
 			return document.querySelector("[data-testid=\"accounts-profile-button\"]") !== null;

@@ -1,5 +1,5 @@
 var __browserPlugin = (function() {
-	//#region plugins/chatgpt/src/conversation.ts
+	//#region plugins/chatgpt/conversation.ts
 	function setup() {
 		function messages() {
 			const els = document.querySelectorAll("[data-message-id]");

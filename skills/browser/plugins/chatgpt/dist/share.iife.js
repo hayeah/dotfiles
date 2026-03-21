@@ -1,5 +1,5 @@
 var __browserPlugin = (function() {
-	//#region plugins/chatgpt/src/share.ts
+	//#region plugins/chatgpt/share.ts
 	function setup() {
 		function shareData() {
 			const data = window.__reactRouterContext?.state?.loaderData?.["routes/share.$shareId.($action)"]?.serverResponse?.data;

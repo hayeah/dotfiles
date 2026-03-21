@@ -20,7 +20,7 @@ function pluginDirs(): string[] {
 }
 
 function loadPlugin(dir: string): ResolvedPlugin | null {
-	const manifestPath = join(dir, "plugin.json");
+	const manifestPath = join(dir, "agentmonkey.json");
 	if (!existsSync(manifestPath)) return null;
 
 	const manifest: PluginManifest = JSON.parse(readFileSync(manifestPath, "utf-8"));
