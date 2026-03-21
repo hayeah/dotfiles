@@ -1,5 +1,6 @@
 import type { CommandModule } from "yargs";
 import { scanPlugins, matchPlugins } from "../plugins/loader.js";
+import { buildPlugin } from "../plugins/build.js";
 
 interface Args {
 	name?: string;
@@ -8,11 +9,11 @@ interface Args {
 
 export const pluginsCommand: CommandModule<{}, Args> = {
 	command: "plugins [name]",
-	describe: "List available plugins or show plugin details",
+	describe: "List available plugins, show details, or build",
 	builder: {
 		name: {
 			type: "string",
-			describe: "Plugin name to show details for",
+			describe: "Plugin name (or 'build' to build all plugins)",
 		},
 		url: {
 			type: "string",
@@ -22,8 +23,18 @@ export const pluginsCommand: CommandModule<{}, Args> = {
 	handler: async (argv) => {
 		const plugins = scanPlugins();
 
+		// browser plugins build [name]
+		if (argv.name === "build") {
+			// Build all plugins
+			for (const plugin of plugins) {
+				await buildPlugin(plugin);
+			}
+			return;
+		}
+
 		if (argv.name) {
-			// Show details for a specific plugin
+			// Check if it's "build <name>" pattern via extra args
+			// Or show details for a specific plugin
 			const plugin = plugins.find((p) => p.name === argv.name);
 			if (!plugin) {
 				console.error(`Plugin "${argv.name}" not found`);
