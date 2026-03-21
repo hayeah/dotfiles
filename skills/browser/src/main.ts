@@ -15,6 +15,7 @@ import { closeCommand } from "./commands/close.js";
 import { networkCommand } from "./commands/network.js";
 import { fetchCommand } from "./commands/fetch.js";
 import { openCommand } from "./commands/open.js";
+import { pluginsCommand } from "./commands/plugins.js";
 
 yargs(hideBin(process.argv))
 	.scriptName("browser")
@@ -33,6 +34,7 @@ yargs(hideBin(process.argv))
 	.command(accessibilityCommand)
 	.command(networkCommand)
 	.command(fetchCommand)
+	.command(pluginsCommand)
 	.demandCommand(1, "Please specify a command")
 	.strict()
 	.help()

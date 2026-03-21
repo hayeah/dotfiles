@@ -1,0 +1,19 @@
+{
+  "name": "chatgpt",
+  "description": "Helpers for interacting with ChatGPT web UI",
+  "routes": [
+    {
+      "match": ["*://chatgpt.com/c/*"],
+      "browser": "src/conversation.ts",
+      "node": "src/conversation.node.ts"
+    },
+    {
+      "match": ["*://chatgpt.com/share/*"],
+      "browser": "src/share.ts"
+    },
+    {
+      "match": ["*://chatgpt.com/*"],
+      "browser": "src/common.ts"
+    }
+  ]
+}

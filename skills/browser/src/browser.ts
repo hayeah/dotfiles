@@ -41,6 +41,11 @@ export const sessionOption = {
 export class Browser {
 	private browser: PuppeteerBrowser | null = null;
 
+	get puppeteerBrowser(): PuppeteerBrowser {
+		if (!this.browser) throw new Error("Not connected");
+		return this.browser;
+	}
+
 	async connect(): Promise<this> {
 		this.browser = await Promise.race([
 			puppeteer.connect({ browserURL: cdpURL(), defaultViewport: null, protocolTimeout: 0 }),
