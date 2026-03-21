@@ -7,7 +7,7 @@ A language-agnostic specification for parsing git repository references into str
 | Field | Type | Description |
 |-------|------|-------------|
 | `url` | string | Clone URL, always `.git`-suffixed |
-| `dest_dir` | string | Local directory path: `{host}/{user}/{repo}` (no `.git` suffix) |
+| `repo_id` | string | Canonical identifier: `{host}/{user}/{repo}` (no `.git` suffix) |
 | `user` | string | Repository owner / organization |
 | `repo` | string | Repository name (no `.git` suffix) |
 | `branch` | string? | Branch name, extracted from tree/blob URLs |
@@ -22,7 +22,7 @@ Bare `user/repo` without any URL scheme or `@` prefix. Assumes GitHub.
 - Must contain exactly one `/`
 - Multi-level paths (`org/user/repo`) are invalid
 - Clone URL: `https://github.com/{user}/{repo}.git`
-- Dest dir: `github.com/{user}/{repo}`
+- Repo ID: `github.com/{user}/{repo}`
 - Repo names may contain dots, dashes, underscores (e.g. `complex-repo-name.js`)
 
 ### Domain-Prefixed Shorthand — `github.com/user/repo`
@@ -71,7 +71,7 @@ Standard git SSH clone URL.
 Applied to all formats after initial parsing:
 
 - If `url` does not end with `.git`, append `.git`
-- If `dest_dir` ends with `.git`, strip it
+- If `repo_id` ends with `.git`, strip it
 
 ## Known Hosts
 

@@ -43,9 +43,9 @@ def clone(
     if dest_dir:
         dest = Path(dest_dir)
     elif github_repos := os.environ.get("GITHUB_REPOS"):
-        dest = Path(github_repos) / repo_info.dest_dir
+        dest = Path(github_repos) / repo_info.repo_id
     else:
-        dest = Path(repo_info.dest_dir)
+        dest = Path(repo_info.repo_id)
     if (dest / ".git").is_dir():
         existing = get_remote_url(dest)
         expected = _normalize_clone_url(repo_info.url)

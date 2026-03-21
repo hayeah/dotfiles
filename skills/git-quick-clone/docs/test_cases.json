@@ -4,7 +4,7 @@
       "input": "user/repo",
       "expected": {
         "url": "https://github.com/user/repo.git",
-        "dest_dir": "github.com/user/repo",
+        "repo_id": "github.com/user/repo",
         "user": "user",
         "repo": "repo",
         "branch": null,
@@ -15,7 +15,7 @@
       "input": "https://github.com/user/repo",
       "expected": {
         "url": "https://github.com/user/repo.git",
-        "dest_dir": "github.com/user/repo",
+        "repo_id": "github.com/user/repo",
         "user": "user",
         "repo": "repo",
         "branch": null,
@@ -26,7 +26,7 @@
       "input": "https://github.com/user/repo.git",
       "expected": {
         "url": "https://github.com/user/repo.git",
-        "dest_dir": "github.com/user/repo",
+        "repo_id": "github.com/user/repo",
         "user": "user",
         "repo": "repo",
         "branch": null,
@@ -37,7 +37,7 @@
       "input": "git@github.com:user/repo.git",
       "expected": {
         "url": "git@github.com:user/repo.git",
-        "dest_dir": "github.com/user/repo",
+        "repo_id": "github.com/user/repo",
         "user": "user",
         "repo": "repo",
         "branch": null,
@@ -48,7 +48,7 @@
       "input": "user/complex-repo-name.js",
       "expected": {
         "url": "https://github.com/user/complex-repo-name.js.git",
-        "dest_dir": "github.com/user/complex-repo-name.js",
+        "repo_id": "github.com/user/complex-repo-name.js",
         "user": "user",
         "repo": "complex-repo-name.js",
         "branch": null,
@@ -59,7 +59,7 @@
       "input": "https://github.com/user/repo/blob/main/README.md",
       "expected": {
         "url": "https://github.com/user/repo.git",
-        "dest_dir": "github.com/user/repo",
+        "repo_id": "github.com/user/repo",
         "user": "user",
         "repo": "repo",
         "branch": "main",
@@ -70,7 +70,7 @@
       "input": "https://github.com/user/repo/tree/master/src",
       "expected": {
         "url": "https://github.com/user/repo.git",
-        "dest_dir": "github.com/user/repo",
+        "repo_id": "github.com/user/repo",
         "user": "user",
         "repo": "repo",
         "branch": "master",
@@ -81,7 +81,7 @@
       "input": "https://github.com/bigcode-project/bigcode-evaluation-harness/blob/main/docs/guide.md",
       "expected": {
         "url": "https://github.com/bigcode-project/bigcode-evaluation-harness.git",
-        "dest_dir": "github.com/bigcode-project/bigcode-evaluation-harness",
+        "repo_id": "github.com/bigcode-project/bigcode-evaluation-harness",
         "user": "bigcode-project",
         "repo": "bigcode-evaluation-harness",
         "branch": "main",
@@ -92,7 +92,7 @@
       "input": "https://github.com/EleutherAI/lm-evaluation-harness?tab=readme-ov-file",
       "expected": {
         "url": "https://github.com/EleutherAI/lm-evaluation-harness.git",
-        "dest_dir": "github.com/EleutherAI/lm-evaluation-harness",
+        "repo_id": "github.com/EleutherAI/lm-evaluation-harness",
         "user": "EleutherAI",
         "repo": "lm-evaluation-harness",
         "branch": null,
@@ -103,7 +103,7 @@
       "input": "https://github.com/EleutherAI/lm-evaluation-harness/tree/main?tab=readme-ov-file",
       "expected": {
         "url": "https://github.com/EleutherAI/lm-evaluation-harness.git",
-        "dest_dir": "github.com/EleutherAI/lm-evaluation-harness",
+        "repo_id": "github.com/EleutherAI/lm-evaluation-harness",
         "user": "EleutherAI",
         "repo": "lm-evaluation-harness",
         "branch": "main",
@@ -114,7 +114,7 @@
       "input": "https://github.com/raycast/extensions/tree/main/extensions/promptlab",
       "expected": {
         "url": "https://github.com/raycast/extensions.git",
-        "dest_dir": "github.com/raycast/extensions",
+        "repo_id": "github.com/raycast/extensions",
         "user": "raycast",
         "repo": "extensions",
         "branch": "main",
@@ -125,7 +125,7 @@
       "input": "github.com/user/repo",
       "expected": {
         "url": "https://github.com/user/repo.git",
-        "dest_dir": "github.com/user/repo",
+        "repo_id": "github.com/user/repo",
         "user": "user",
         "repo": "repo",
         "branch": null,
@@ -136,7 +136,7 @@
       "input": "gitlab.com/user/repo",
       "expected": {
         "url": "https://gitlab.com/user/repo.git",
-        "dest_dir": "gitlab.com/user/repo",
+        "repo_id": "gitlab.com/user/repo",
         "user": "user",
         "repo": "repo",
         "branch": null,
@@ -147,7 +147,7 @@
       "input": "git@github.com:user/repo",
       "expected": {
         "url": "git@github.com:user/repo.git",
-        "dest_dir": "github.com/user/repo",
+        "repo_id": "github.com/user/repo",
         "user": "user",
         "repo": "repo",
         "branch": null,
@@ -158,7 +158,7 @@
       "input": "git@gitlab.com:user/repo.git",
       "expected": {
         "url": "git@gitlab.com:user/repo.git",
-        "dest_dir": "gitlab.com/user/repo",
+        "repo_id": "gitlab.com/user/repo",
         "user": "user",
         "repo": "repo",
         "branch": null,
@@ -169,7 +169,7 @@
       "input": "https://github.com/user/repo/blob/main/a/b/c.txt",
       "expected": {
         "url": "https://github.com/user/repo.git",
-        "dest_dir": "github.com/user/repo",
+        "repo_id": "github.com/user/repo",
         "user": "user",
         "repo": "repo",
         "branch": "main",

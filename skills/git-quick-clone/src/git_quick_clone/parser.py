@@ -10,7 +10,7 @@ from urllib.parse import urlparse, urlunparse
 @dataclass
 class RepoInfo:
     url: str
-    dest_dir: str
+    repo_id: str
     user: str
     repo: str
     branch: str | None = None
@@ -45,8 +45,8 @@ class RepoURLParser:
 
         if not info.url.endswith(".git"):
             info.url = f"{info.url}.git"
-        if info.dest_dir.endswith(".git"):
-            info.dest_dir = info.dest_dir[:-4]
+        if info.repo_id.endswith(".git"):
+            info.repo_id = info.repo_id[:-4]
 
         return info
 
@@ -58,7 +58,7 @@ class RepoURLParser:
         user, repo = repo_url.split("/")
         return RepoInfo(
             url=f"https://github.com/{repo_url}",
-            dest_dir=f"github.com/{repo_url}",
+            repo_id=f"github.com/{repo_url}",
             user=user,
             repo=repo,
         )
@@ -97,7 +97,7 @@ class RepoURLParser:
 
         return RepoInfo(
             url=base_url,
-            dest_dir=f"{host}/{user_repo}",
+            repo_id=f"{host}/{user_repo}",
             user=user,
             repo=repo,
             branch=branch,
@@ -118,7 +118,7 @@ class RepoURLParser:
         user_repo = f"{user}/{repo}"
         return RepoInfo(
             url=f"git@{host}:{user_repo}",
-            dest_dir=f"{host}/{user_repo}",
+            repo_id=f"{host}/{user_repo}",
             user=user,
             repo=repo,
         )

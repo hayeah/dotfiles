@@ -16,7 +16,7 @@ _CASES = json.loads(_CASES_PATH.read_text())
 def _to_repo_info(d: dict) -> RepoInfo:
     return RepoInfo(
         url=d["url"],
-        dest_dir=d["dest_dir"],
+        repo_id=d["repo_id"],
         user=d["user"],
         repo=d["repo"],
         branch=d.get("branch"),
