@@ -1,0 +1,194 @@
+{
+  "valid": [
+    {
+      "input": "user/repo",
+      "expected": {
+        "url": "https://github.com/user/repo.git",
+        "dest_dir": "github.com/user/repo",
+        "user": "user",
+        "repo": "repo",
+        "branch": null,
+        "sparse_path": null
+      }
+    },
+    {
+      "input": "https://github.com/user/repo",
+      "expected": {
+        "url": "https://github.com/user/repo.git",
+        "dest_dir": "github.com/user/repo",
+        "user": "user",
+        "repo": "repo",
+        "branch": null,
+        "sparse_path": null
+      }
+    },
+    {
+      "input": "https://github.com/user/repo.git",
+      "expected": {
+        "url": "https://github.com/user/repo.git",
+        "dest_dir": "github.com/user/repo",
+        "user": "user",
+        "repo": "repo",
+        "branch": null,
+        "sparse_path": null
+      }
+    },
+    {
+      "input": "git@github.com:user/repo.git",
+      "expected": {
+        "url": "git@github.com:user/repo.git",
+        "dest_dir": "github.com/user/repo",
+        "user": "user",
+        "repo": "repo",
+        "branch": null,
+        "sparse_path": null
+      }
+    },
+    {
+      "input": "user/complex-repo-name.js",
+      "expected": {
+        "url": "https://github.com/user/complex-repo-name.js.git",
+        "dest_dir": "github.com/user/complex-repo-name.js",
+        "user": "user",
+        "repo": "complex-repo-name.js",
+        "branch": null,
+        "sparse_path": null
+      }
+    },
+    {
+      "input": "https://github.com/user/repo/blob/main/README.md",
+      "expected": {
+        "url": "https://github.com/user/repo.git",
+        "dest_dir": "github.com/user/repo",
+        "user": "user",
+        "repo": "repo",
+        "branch": "main",
+        "sparse_path": ""
+      }
+    },
+    {
+      "input": "https://github.com/user/repo/tree/master/src",
+      "expected": {
+        "url": "https://github.com/user/repo.git",
+        "dest_dir": "github.com/user/repo",
+        "user": "user",
+        "repo": "repo",
+        "branch": "master",
+        "sparse_path": "src"
+      }
+    },
+    {
+      "input": "https://github.com/bigcode-project/bigcode-evaluation-harness/blob/main/docs/guide.md",
+      "expected": {
+        "url": "https://github.com/bigcode-project/bigcode-evaluation-harness.git",
+        "dest_dir": "github.com/bigcode-project/bigcode-evaluation-harness",
+        "user": "bigcode-project",
+        "repo": "bigcode-evaluation-harness",
+        "branch": "main",
+        "sparse_path": "docs"
+      }
+    },
+    {
+      "input": "https://github.com/EleutherAI/lm-evaluation-harness?tab=readme-ov-file",
+      "expected": {
+        "url": "https://github.com/EleutherAI/lm-evaluation-harness.git",
+        "dest_dir": "github.com/EleutherAI/lm-evaluation-harness",
+        "user": "EleutherAI",
+        "repo": "lm-evaluation-harness",
+        "branch": null,
+        "sparse_path": null
+      }
+    },
+    {
+      "input": "https://github.com/EleutherAI/lm-evaluation-harness/tree/main?tab=readme-ov-file",
+      "expected": {
+        "url": "https://github.com/EleutherAI/lm-evaluation-harness.git",
+        "dest_dir": "github.com/EleutherAI/lm-evaluation-harness",
+        "user": "EleutherAI",
+        "repo": "lm-evaluation-harness",
+        "branch": "main",
+        "sparse_path": null
+      }
+    },
+    {
+      "input": "https://github.com/raycast/extensions/tree/main/extensions/promptlab",
+      "expected": {
+        "url": "https://github.com/raycast/extensions.git",
+        "dest_dir": "github.com/raycast/extensions",
+        "user": "raycast",
+        "repo": "extensions",
+        "branch": "main",
+        "sparse_path": "extensions/promptlab"
+      }
+    },
+    {
+      "input": "github.com/user/repo",
+      "expected": {
+        "url": "https://github.com/user/repo.git",
+        "dest_dir": "github.com/user/repo",
+        "user": "user",
+        "repo": "repo",
+        "branch": null,
+        "sparse_path": null
+      }
+    },
+    {
+      "input": "gitlab.com/user/repo",
+      "expected": {
+        "url": "https://gitlab.com/user/repo.git",
+        "dest_dir": "gitlab.com/user/repo",
+        "user": "user",
+        "repo": "repo",
+        "branch": null,
+        "sparse_path": null
+      }
+    },
+    {
+      "input": "git@github.com:user/repo",
+      "expected": {
+        "url": "git@github.com:user/repo.git",
+        "dest_dir": "github.com/user/repo",
+        "user": "user",
+        "repo": "repo",
+        "branch": null,
+        "sparse_path": null
+      }
+    },
+    {
+      "input": "git@gitlab.com:user/repo.git",
+      "expected": {
+        "url": "git@gitlab.com:user/repo.git",
+        "dest_dir": "gitlab.com/user/repo",
+        "user": "user",
+        "repo": "repo",
+        "branch": null,
+        "sparse_path": null
+      }
+    },
+    {
+      "input": "https://github.com/user/repo/blob/main/a/b/c.txt",
+      "expected": {
+        "url": "https://github.com/user/repo.git",
+        "dest_dir": "github.com/user/repo",
+        "user": "user",
+        "repo": "repo",
+        "branch": "main",
+        "sparse_path": "a/b"
+      }
+    }
+  ],
+  "invalid": [
+    {
+      "input": "org/user/repo",
+      "error": "too many path segments for shorthand"
+    },
+    {
+      "input": "invalid-url-format",
+      "error": "unrecognized format"
+    },
+    {
+      "input": "https://bitbucket.org/user/repo",
+      "error": "unsupported host"
+    }
+  ]
+}

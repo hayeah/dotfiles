@@ -1,137 +1,41 @@
-"""Tests for parse_repo_url."""
+"""Tests for parse_repo_url — driven by docs/test_cases.json."""
 
 from __future__ import annotations
+
+import json
+from pathlib import Path
 
 import pytest
 
 from .parser import RepoInfo, parse_repo_url
 
-VALID_CASES: list[tuple[str, RepoInfo]] = [
-    (
-        "user/repo",
-        RepoInfo(
-            url="https://github.com/user/repo.git",
-            dest_dir="github.com/user/repo",
-            user="user",
-            repo="repo",
-        ),
-    ),
-    (
-        "https://github.com/user/repo",
-        RepoInfo(
-            url="https://github.com/user/repo.git",
-            dest_dir="github.com/user/repo",
-            user="user",
-            repo="repo",
-        ),
-    ),
-    (
-        "https://github.com/user/repo.git",
-        RepoInfo(
-            url="https://github.com/user/repo.git",
-            dest_dir="github.com/user/repo",
-            user="user",
-            repo="repo",
-        ),
-    ),
-    (
-        "git@github.com:user/repo.git",
-        RepoInfo(
-            url="git@github.com:user/repo.git",
-            dest_dir="github.com/user/repo",
-            user="user",
-            repo="repo",
-        ),
-    ),
-    (
-        "user/complex-repo-name.js",
-        RepoInfo(
-            url="https://github.com/user/complex-repo-name.js.git",
-            dest_dir="github.com/user/complex-repo-name.js",
-            user="user",
-            repo="complex-repo-name.js",
-        ),
-    ),
-    (
-        "https://github.com/user/repo/blob/main/README.md",
-        RepoInfo(
-            url="https://github.com/user/repo.git",
-            dest_dir="github.com/user/repo",
-            user="user",
-            repo="repo",
-            branch="main",
-            sparse_path="",
-        ),
-    ),
-    (
-        "https://github.com/user/repo/tree/master/src",
-        RepoInfo(
-            url="https://github.com/user/repo.git",
-            dest_dir="github.com/user/repo",
-            user="user",
-            repo="repo",
-            branch="master",
-            sparse_path="src",
-        ),
-    ),
-    (
-        "https://github.com/bigcode-project/bigcode-evaluation-harness/blob/main/docs/guide.md",
-        RepoInfo(
-            url="https://github.com/bigcode-project/bigcode-evaluation-harness.git",
-            dest_dir="github.com/bigcode-project/bigcode-evaluation-harness",
-            user="bigcode-project",
-            repo="bigcode-evaluation-harness",
-            branch="main",
-            sparse_path="docs",
-        ),
-    ),
-    (
-        "https://github.com/EleutherAI/lm-evaluation-harness?tab=readme-ov-file",
-        RepoInfo(
-            url="https://github.com/EleutherAI/lm-evaluation-harness.git",
-            dest_dir="github.com/EleutherAI/lm-evaluation-harness",
-            user="EleutherAI",
-            repo="lm-evaluation-harness",
-        ),
-    ),
-    (
-        "https://github.com/EleutherAI/lm-evaluation-harness/tree/main?tab=readme-ov-file",
-        RepoInfo(
-            url="https://github.com/EleutherAI/lm-evaluation-harness.git",
-            dest_dir="github.com/EleutherAI/lm-evaluation-harness",
-            user="EleutherAI",
-            repo="lm-evaluation-harness",
-            branch="main",
-        ),
-    ),
-    (
-        "https://github.com/raycast/extensions/tree/main/extensions/promptlab",
-        RepoInfo(
-            url="https://github.com/raycast/extensions.git",
-            dest_dir="github.com/raycast/extensions",
-            user="raycast",
-            repo="extensions",
-            branch="main",
-            sparse_path="extensions/promptlab",
-        ),
-    ),
-]
-
-_IDS = [case[0] for case in VALID_CASES]
+_CASES_PATH = Path(__file__).resolve().parents[2] / "docs" / "test_cases.json"
+_CASES = json.loads(_CASES_PATH.read_text())
 
 
-@pytest.mark.parametrize("raw,expected", VALID_CASES, ids=_IDS)
+def _to_repo_info(d: dict) -> RepoInfo:
+    return RepoInfo(
+        url=d["url"],
+        dest_dir=d["dest_dir"],
+        user=d["user"],
+        repo=d["repo"],
+        branch=d.get("branch"),
+        sparse_path=d.get("sparse_path"),
+    )
+
+
+_VALID = [(c["input"], _to_repo_info(c["expected"])) for c in _CASES["valid"]]
+_VALID_IDS = [c["input"] for c in _CASES["valid"]]
+
+_INVALID = [c["input"] for c in _CASES["invalid"]]
+
+
+@pytest.mark.parametrize("raw,expected", _VALID, ids=_VALID_IDS)
 def test_parse_valid(raw: str, expected: RepoInfo) -> None:
     assert parse_repo_url(raw) == expected
 
 
-@pytest.mark.parametrize(
-    "raw",
-    [
-        "org/user/repo",
-        "invalid-url-format",
-    ],
-)
+@pytest.mark.parametrize("raw", _INVALID, ids=_INVALID)
 def test_parse_invalid(raw: str) -> None:
     with pytest.raises(ValueError):
         parse_repo_url(raw)
