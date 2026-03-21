@@ -148,11 +148,39 @@ def _open_resolved_local(query: str | None, editor_name: str | None = None) -> N
             open_local(editor, config, path)
 
 
+def _is_path_like(query: str) -> bool:
+    """Return True if query looks like an explicit path rather than a project name."""
+    return query.startswith(("/", "~/", "./", "../")) or query == "."
+
+
+def _ssh_path_exists(host: str, path: str) -> str | None:
+    """Check if a path exists on a remote host, return the resolved absolute path or None."""
+    try:
+        r = subprocess.run(
+            ["ssh", host, f'p={shlex.quote(path)}; p="${{p/#~/$HOME}}"; [ -d "$p" ] && echo "$p"'],
+            capture_output=True, text=True, check=True,
+        )
+        result = r.stdout.strip()
+        return result if result else None
+    except subprocess.CalledProcessError:
+        return None
+
+
 def _open_resolved_ssh(
     host: str, query: str | None, editor_name: str | None = None,
 ) -> None:
     """Resolve query to a remote project via SSH + fzf, then open editor."""
     editor, config = resolve_editor(editor_name)
+
+    # If query looks like an explicit path, try it directly on the remote
+    if query and _is_path_like(query):
+        remote_path = _ssh_path_exists(host, query)
+        if remote_path:
+            open_ssh(editor, config, host, remote_path)
+            return
+        typer.echo(f"Path '{query}' not found on {host}", err=True)
+        raise typer.Exit(1)
+
     projects = ssh_github_projects(host)
 
     if not projects:
