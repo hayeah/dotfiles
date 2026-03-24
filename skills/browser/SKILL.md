@@ -209,6 +209,8 @@ browser screencap --open https://myapp.com -n 20 -i 1000 --video
 Options:
 - `-n, --frames <N>`: Number of frames to capture (default: 30)
 - `-i, --interval <ms>`: Milliseconds between captures (default: 500)
+- `--fps <N>`: Capture at this frame rate (overrides --interval). ~15fps is the practical ceiling for real-time capture.
+- `-S, --selector <css>`: CSS selector to capture a specific element instead of full viewport
 - `-o, --output <dir>`: Output directory for frame PNGs (default: ./frames)
 - `--video`: Also generate `output.mp4` from frames via ffmpeg
 - `-w, --wait <expr>`: JS expression to poll until truthy before starting capture
