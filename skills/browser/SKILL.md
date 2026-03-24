@@ -196,6 +196,26 @@ Options:
 
 Legacy device flags (`--device`, `--viewport`, `--mobile`) still work on screenshot for backward compatibility, but prefer `--open` with a context spec.
 
+## Screencap
+
+Capture multiple frames from a page at fixed intervals, optionally combining into an MP4 video.
+
+```bash
+browser screencap -n 30 -i 500 -o ./frames
+browser screencap -n 60 -i 200 -o ./frames --video
+browser screencap --open https://myapp.com -n 20 -i 1000 --video
+```
+
+Options:
+- `-n, --frames <N>`: Number of frames to capture (default: 30)
+- `-i, --interval <ms>`: Milliseconds between captures (default: 500)
+- `-o, --output <dir>`: Output directory for frame PNGs (default: ./frames)
+- `--video`: Also generate `output.mp4` from frames via ffmpeg
+- `-w, --wait <expr>`: JS expression to poll until truthy before starting capture
+- `--timeout <ms>`: Max wait time for `--wait` (default: 10000)
+
+Frames are saved as `frame-0000.png`, `frame-0001.png`, etc. Video uses h264_videotoolbox encoder at fps derived from interval.
+
 ## Pick Elements
 
 ```bash

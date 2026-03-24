@@ -16,6 +16,7 @@ import { networkCommand } from "./commands/network.js";
 import { fetchCommand } from "./commands/fetch.js";
 import { openCommand } from "./commands/open.js";
 import { pluginsCommand } from "./commands/plugins.js";
+import { screencapCommand } from "./commands/screencap.js";
 
 yargs(hideBin(process.argv))
 	.scriptName("browser")
@@ -35,6 +36,7 @@ yargs(hideBin(process.argv))
 	.command(networkCommand)
 	.command(fetchCommand)
 	.command(pluginsCommand)
+	.command(screencapCommand)
 	.demandCommand(1, "Please specify a command")
 	.strict()
 	.help()
