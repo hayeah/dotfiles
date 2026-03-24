@@ -1,9 +1,10 @@
 import type { CommandModule } from "yargs";
 import { execSync, spawn, type ChildProcess } from "node:child_process";
 import { join } from "node:path";
-import type { Page, CDPSession } from "puppeteer-core";
-import { Browser, sessionOption, callerResolve } from "../browser.js";
-import { openOption, withOneShot } from "../oneshot.js";
+import type { Page } from "puppeteer-core";
+import { callerResolve, sessionOption } from "../browser.js";
+import { openOption } from "../oneshot.js";
+import { withFreshPage, withPage } from "../with-page.js";
 
 interface Args {
 	open?: string;
@@ -33,7 +34,9 @@ function findFfmpeg(): string {
 	throw new Error("ffmpeg not found. Install via: mise use ffmpeg");
 }
 
-function buildFfmpegArgs(fps: number, outPath: string, inputCodec: string, crop?: CropRect): string[] {
+interface CropRect { x: number; y: number; w: number; h: number }
+
+function buildFfmpegArgs(fps: number, inputCodec: string, crop?: CropRect): string[] {
 	const args = [
 		"-loglevel", "error",
 		"-f", "image2pipe",
@@ -42,13 +45,11 @@ function buildFfmpegArgs(fps: number, outPath: string, inputCodec: string, crop?
 		"-i", "pipe:0",
 		"-an",
 	];
-
 	if (crop) {
 		const cw = crop.w % 2 === 0 ? crop.w : crop.w - 1;
 		const ch = crop.h % 2 === 0 ? crop.h : crop.h - 1;
 		args.push("-vf", `crop=${cw}:${ch}:${crop.x}:${crop.y}`);
 	}
-
 	return args;
 }
 
@@ -60,13 +61,6 @@ function addEncoder(ffmpegBin: string, args: string[], outPath: string): void {
 		args.push("-c:v", "libx264", "-preset", "ultrafast", "-crf", "23");
 	}
 	args.push("-pix_fmt", "yuv420p", "-y", outPath);
-}
-
-interface CropRect {
-	x: number;
-	y: number;
-	w: number;
-	h: number;
 }
 
 async function waitForFfmpeg(ffmpeg: ChildProcess): Promise<void> {
@@ -96,14 +90,11 @@ async function getElementCrop(page: Page, selector: string, timeout: number): Pr
 	};
 }
 
-/** CDP screencast: high fps, pipes frames directly from compositor to ffmpeg */
 async function recordScreencast(
-	page: Page,
-	ffmpegBin: string,
-	outPath: string,
+	page: Page, ffmpegBin: string, outPath: string,
 	opts: { duration: number; fps: number; quality: number; crop?: CropRect },
 ): Promise<void> {
-	const args = buildFfmpegArgs(opts.fps, outPath, "mjpeg", opts.crop);
+	const args = buildFfmpegArgs(opts.fps, "mjpeg", opts.crop);
 	addEncoder(ffmpegBin, args, outPath);
 	const ffmpeg = spawn(ffmpegBin, args, { stdio: ["pipe", "inherit", "inherit"] });
 
@@ -118,8 +109,6 @@ async function recordScreencast(
 		client.send("Page.screencastFrameAck", { sessionId }).catch(() => {});
 
 		const buf = Buffer.from(data, "base64");
-
-		// Duplicate frames to fill gaps and maintain target fps
 		if (previousTimestamp !== null) {
 			const dt = Math.max(metadata.timestamp - previousTimestamp, 0);
 			const count = Math.max(Math.round(opts.fps * dt), 1);
@@ -132,7 +121,6 @@ async function recordScreencast(
 			frameCount++;
 		}
 		previousTimestamp = metadata.timestamp;
-
 		process.stderr.write(`\rFrames: ${frameCount}`);
 	});
 
@@ -164,14 +152,11 @@ async function recordScreencast(
 	await waitForFfmpeg(ffmpeg);
 }
 
-/** Screenshot loop: slower but works in all cases */
 async function recordScreenshots(
-	page: Page,
-	ffmpegBin: string,
-	outPath: string,
+	page: Page, ffmpegBin: string, outPath: string,
 	opts: { duration: number; fps: number; quality: number; clip?: { x: number; y: number; width: number; height: number } },
 ): Promise<void> {
-	const args = buildFfmpegArgs(opts.fps, outPath, "mjpeg");
+	const args = buildFfmpegArgs(opts.fps, "mjpeg");
 	addEncoder(ffmpegBin, args, outPath);
 	const ffmpeg = spawn(ffmpegBin, args, { stdio: ["pipe", "inherit", "inherit"] });
 
@@ -180,7 +165,6 @@ async function recordScreenshots(
 
 	for (let i = 0; i < totalFrames; i++) {
 		const start = Date.now();
-
 		const buf = await page.screenshot({
 			type: "jpeg",
 			quality: opts.quality,
@@ -201,6 +185,42 @@ async function recordScreenshots(
 	process.stderr.write("\n");
 	ffmpeg.stdin!.end();
 	await waitForFfmpeg(ffmpeg);
+}
+
+async function doRecord(page: Page, argv: Args): Promise<void> {
+	const outPath = callerResolve(argv.output);
+	const ffmpegBin = findFfmpeg();
+
+	if (argv.wait) {
+		await page.waitForFunction(argv.wait, { timeout: argv.timeout });
+	}
+
+	let clip: { x: number; y: number; width: number; height: number } | undefined;
+	let crop: CropRect | undefined;
+	if (argv.selector) {
+		const result = await getElementCrop(page, argv.selector, argv.timeout ?? 10000);
+		clip = result.clip;
+		crop = result.crop;
+	}
+
+	if (argv.trigger) {
+		await page.evaluate(argv.trigger);
+	}
+
+	const mode = argv.screenshots ? "screenshots" : "screencast";
+	process.stderr.write(`Recording ${argv.duration}s at ${argv.fps}fps (${mode}) → ${outPath}\n`);
+
+	if (argv.screenshots) {
+		await recordScreenshots(page, ffmpegBin, outPath, {
+			duration: argv.duration, fps: argv.fps, quality: argv.quality, clip,
+		});
+	} else {
+		await recordScreencast(page, ffmpegBin, outPath, {
+			duration: argv.duration, fps: argv.fps, quality: argv.quality, crop,
+		});
+	}
+
+	console.log(outPath);
 }
 
 export const screencapCommand: CommandModule<{}, Args> = {
@@ -239,7 +259,7 @@ export const screencapCommand: CommandModule<{}, Args> = {
 		trigger: {
 			type: "string",
 			alias: "t",
-			describe: "JS expression to evaluate right before recording starts (e.g. \"__epub.anim.start()\")",
+			describe: "JS expression to evaluate right before recording starts",
 		},
 		selector: {
 			type: "string",
@@ -258,78 +278,16 @@ export const screencapCommand: CommandModule<{}, Args> = {
 		},
 	},
 	handler: async (argv) => {
-		const outPath = callerResolve(argv.output);
-		const ffmpegBin = findFfmpeg();
-		const useScreencast = !argv.screenshots;
-
-		const browser = await new Browser().connect();
-		try {
-			// Determine the URL to record
-			let url: string;
-			if (argv.open) {
-				url = argv.open;
-			} else {
-				const sourcePage = await browser.resolvePage(argv.session);
-				url = sourcePage.url();
-			}
-
-			// Always create a fresh tab for screencast (CDP needs page created by this connection)
-			// For screenshots on existing page, we can reuse it
-			let page: Page;
-			let cleanupPage = false;
-			if (useScreencast || argv.open) {
-				page = await browser.puppeteerBrowser.newPage();
-				cleanupPage = true;
-				await page.goto(url, { waitUntil: "networkidle0" });
-				await new Promise((r) => setTimeout(r, 500));
-			} else {
-				page = await browser.resolvePage(argv.session);
-			}
-
-			try {
-				if (argv.wait) {
-					await page.waitForFunction(argv.wait, { timeout: argv.timeout });
-				}
-
-				let clip: { x: number; y: number; width: number; height: number } | undefined;
-				let crop: CropRect | undefined;
-				if (argv.selector) {
-					const result = await getElementCrop(page, argv.selector, argv.timeout ?? 10000);
-					clip = result.clip;
-					crop = result.crop;
-				}
-
-				if (argv.trigger) {
-					await page.evaluate(argv.trigger);
-				}
-
-				const mode = useScreencast ? "screencast" : "screenshots";
-				process.stderr.write(
-					`Recording ${argv.duration}s at ${argv.fps}fps (${mode}) → ${outPath}\n`,
-				);
-
-				if (useScreencast) {
-					await recordScreencast(page, ffmpegBin, outPath, {
-						duration: argv.duration,
-						fps: argv.fps,
-						quality: argv.quality,
-						crop,
-					});
-				} else {
-					await recordScreenshots(page, ffmpegBin, outPath, {
-						duration: argv.duration,
-						fps: argv.fps,
-						quality: argv.quality,
-						clip,
-					});
-				}
-
-				console.log(outPath);
-			} finally {
-				if (cleanupPage) await page.close().catch(() => {});
-			}
-		} finally {
-			await browser.disconnect();
+		if (argv.screenshots) {
+			// Screenshots work on existing pages — no fresh tab needed
+			await withPage(argv, async ({ page }) => {
+				await doRecord(page, argv);
+			});
+		} else {
+			// Screencast needs a fresh tab (CDP compositor ownership)
+			await withFreshPage(argv, async ({ page }) => {
+				await doRecord(page, argv);
+			});
 		}
 	},
 };
