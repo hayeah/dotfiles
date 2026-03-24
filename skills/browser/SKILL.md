@@ -201,17 +201,22 @@ Legacy device flags (`--device`, `--viewport`, `--mobile`) still work on screens
 Record video from a browser page. Takes rapid screenshots and pipes them to ffmpeg for video output.
 
 ```bash
-browser screencap -d 5 --fps 10 -o recording.mp4
-browser screencap -S '#my-widget' -d 10 --fps 15 -o widget.mp4
-browser screencap --open https://myapp.com -d 5 -o demo.mp4
+browser screencap -d 5 --fps 15 -o recording.mp4
+browser screencap -S '#my-widget' -d 10 -o widget.mp4
+browser screencap -t '__epub.anim.start()' -S '#canvas' -d 5 -o anim.mp4
+browser screencap --screenshots -d 5 --fps 10 -o fallback.mp4
 ```
+
+Default mode uses CDP screencast (high fps, efficient). Falls back to `--screenshots` mode if screencast returns 0 frames.
 
 Options:
 - `-d, --duration <sec>`: Recording duration in seconds (default: 5)
-- `--fps <N>`: Target frame rate (default: 10, practical ceiling ~15)
+- `--fps <N>`: Target frame rate (default: 15)
 - `-S, --selector <css>`: CSS selector to crop to a specific element
+- `-t, --trigger <expr>`: JS expression to evaluate right before recording (e.g. start an animation)
 - `-o, --output <path>`: Output video file path (default: ./recording.mp4)
 - `--quality <1-100>`: JPEG quality for frames (default: 80)
+- `--screenshots`: Use screenshot loop instead of CDP screencast (slower, ~15fps ceiling, but works everywhere)
 - `-w, --wait <expr>`: JS expression to poll until truthy before recording
 - `--timeout <ms>`: Max wait time for `--wait` (default: 10000)
 
