@@ -222,6 +222,25 @@ Options:
 
 Requires ffmpeg. Uses h264_videotoolbox (macOS hardware encoder) when available, falls back to libx264.
 
+## Profile
+
+Capture CPU profile and optionally a heap snapshot from a page. Opens a fresh tab for clean profiling baseline.
+
+```bash
+browser profile --open https://myapp.com -d 5 -o ./profile
+browser profile -s 3 -t '__app.start()' -d 10 --mem -o ./profile
+```
+
+Outputs `<path>.cpuprofile` (loadable in Chrome DevTools Performance tab) and optionally `<path>.heapsnapshot` (Memory tab).
+
+Options:
+- `-d, --duration <sec>`: Profiling duration in seconds (default: 5)
+- `--mem`: Also capture a heap snapshot after CPU profiling
+- `-t, --trigger <expr>`: JS expression to evaluate before profiling starts
+- `-o, --output <path>`: Output base path without extension (default: ./profile)
+- `-w, --wait <expr>`: JS expression to poll until truthy before profiling
+- `--timeout <ms>`: Max wait time for `--wait` (default: 10000)
+
 ## Pick Elements
 
 ```bash
