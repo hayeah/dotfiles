@@ -198,25 +198,24 @@ Legacy device flags (`--device`, `--viewport`, `--mobile`) still work on screens
 
 ## Screencap
 
-Capture multiple frames from a page at fixed intervals, optionally combining into an MP4 video.
+Record video from a browser page. Takes rapid screenshots and pipes them to ffmpeg for video output.
 
 ```bash
-browser screencap -n 30 -i 500 -o ./frames
-browser screencap -n 60 -i 200 -o ./frames --video
-browser screencap --open https://myapp.com -n 20 -i 1000 --video
+browser screencap -d 5 --fps 10 -o recording.mp4
+browser screencap -S '#my-widget' -d 10 --fps 15 -o widget.mp4
+browser screencap --open https://myapp.com -d 5 -o demo.mp4
 ```
 
 Options:
-- `-n, --frames <N>`: Number of frames to capture (default: 30)
-- `-i, --interval <ms>`: Milliseconds between captures (default: 500)
-- `--fps <N>`: Capture at this frame rate (overrides --interval). ~15fps is the practical ceiling for real-time capture.
-- `-S, --selector <css>`: CSS selector to capture a specific element instead of full viewport
-- `-o, --output <dir>`: Output directory for frame PNGs (default: ./frames)
-- `--video`: Also generate `output.mp4` from frames via ffmpeg
-- `-w, --wait <expr>`: JS expression to poll until truthy before starting capture
+- `-d, --duration <sec>`: Recording duration in seconds (default: 5)
+- `--fps <N>`: Target frame rate (default: 10, practical ceiling ~15)
+- `-S, --selector <css>`: CSS selector to crop to a specific element
+- `-o, --output <path>`: Output video file path (default: ./recording.mp4)
+- `--quality <1-100>`: JPEG quality for frames (default: 80)
+- `-w, --wait <expr>`: JS expression to poll until truthy before recording
 - `--timeout <ms>`: Max wait time for `--wait` (default: 10000)
 
-Frames are saved as `frame-0000.png`, `frame-0001.png`, etc. Video uses h264_videotoolbox encoder at fps derived from interval.
+Requires ffmpeg. Uses h264_videotoolbox (macOS hardware encoder) when available, falls back to libx264.
 
 ## Pick Elements
 
