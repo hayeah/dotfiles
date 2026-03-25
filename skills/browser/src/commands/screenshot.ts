@@ -2,9 +2,15 @@ import type { CommandModule } from "yargs";
 import { execSync } from "node:child_process";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { parse as parseYAML } from "yaml";
 import { Browser, sessionOption, callerResolve } from "../browser.js";
 import { applyEmulation, emulationOptions } from "../emulation.js";
 import { openOption, withOneShot } from "../oneshot.js";
+
+interface Step {
+	eval?: string;
+	wait?: string;
+}
 
 interface Args {
 	open?: string;
@@ -14,10 +20,22 @@ interface Args {
 	mobile: boolean;
 	output?: string;
 	full?: boolean;
+	eval?: string;
 	wait?: string;
 	timeout?: number;
 	maxSize?: number;
 	quality?: number;
+	steps?: string;
+}
+
+/**
+ * Insert an index before the file extension.
+ * "foo.png" + 1 → "foo.1.png"
+ */
+function indexedPath(filepath: string, index: number): string {
+	const dotIdx = filepath.lastIndexOf(".");
+	if (dotIdx === -1) return `${filepath}.${index}`;
+	return `${filepath.slice(0, dotIdx)}.${index}${filepath.slice(dotIdx)}`;
 }
 
 /**
@@ -62,10 +80,15 @@ export const screenshotCommand: CommandModule<{}, Args> = {
 			describe: "Capture full scrollable page",
 			default: false,
 		},
+		eval: {
+			type: "string",
+			alias: "e",
+			describe: "JS to evaluate on the page before capturing (runs after --wait if both given)",
+		},
 		wait: {
 			type: "string",
 			alias: "w",
-			describe: "JS expression to poll until truthy before capturing",
+			describe: "JS expression to poll until truthy, or plain number for sleep in ms",
 		},
 		timeout: {
 			type: "number",
@@ -81,6 +104,10 @@ export const screenshotCommand: CommandModule<{}, Args> = {
 			type: "number",
 			describe: "JPEG quality 1-100 (with --max-size)",
 			default: 85,
+		},
+		steps: {
+			type: "string",
+			describe: "YAML list of steps, each with optional eval/wait. Captures a screenshot per step.",
 		},
 	},
 	handler: withOneShot(async (argv) => {
@@ -101,30 +128,56 @@ export const screenshotCommand: CommandModule<{}, Args> = {
 				await page.reload({ waitUntil: "networkidle0" });
 			}
 
-			if (argv.wait) {
-				await page.waitForFunction(argv.wait, { timeout: argv.timeout });
+			// Build step list: either from --steps YAML or from inline --eval/--wait
+			let steps: Step[];
+			if (argv.steps) {
+				steps = parseYAML(argv.steps);
+				if (!Array.isArray(steps)) {
+					throw new Error("--steps must be a YAML list");
+				}
+			} else {
+				steps = [{ eval: argv.eval, wait: argv.wait }];
 			}
 
 			const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
-			let filepath = argv.output ? callerResolve(argv.output) : join(tmpdir(), `screenshot-${timestamp}.png`);
+			const basePath = argv.output ? callerResolve(argv.output) : join(tmpdir(), `screenshot-${timestamp}.png`);
+			const multiStep = steps.length > 1;
 
-			if (argv.full && emulation) {
-				// fullPage: true ignores emulation width on headed Chrome.
-				// Use clip instead to capture the full page at the emulated width.
-				const scrollHeight = await page.evaluate(() => document.documentElement.scrollHeight);
-				await page.screenshot({
-					path: filepath,
-					clip: { x: 0, y: 0, width: emulation.width, height: scrollHeight },
-				});
-			} else {
-				await page.screenshot({ path: filepath, fullPage: argv.full });
+			for (let i = 0; i < steps.length; i++) {
+				const step = steps[i];
+
+				if (step.wait) {
+					const waitMs = Number(step.wait);
+					if (!isNaN(waitMs) && String(waitMs) === step.wait) {
+						await new Promise((r) => setTimeout(r, waitMs));
+					} else {
+						await page.waitForFunction(step.wait, { timeout: argv.timeout });
+					}
+				}
+
+				if (step.eval) {
+					await page.evaluate(step.eval);
+					await new Promise((r) => setTimeout(r, 2000));
+				}
+
+				let filepath = multiStep ? indexedPath(basePath, i + 1) : basePath;
+
+				if (argv.full && emulation) {
+					const scrollHeight = await page.evaluate(() => document.documentElement.scrollHeight);
+					await page.screenshot({
+						path: filepath,
+						clip: { x: 0, y: 0, width: emulation.width, height: scrollHeight },
+					});
+				} else {
+					await page.screenshot({ path: filepath, fullPage: argv.full });
+				}
+
+				if (argv.maxSize) {
+					filepath = constrainImage(filepath, argv.maxSize, argv.quality ?? 85);
+				}
+
+				console.log(filepath);
 			}
-
-			if (argv.maxSize) {
-				filepath = constrainImage(filepath, argv.maxSize, argv.quality ?? 85);
-			}
-
-			console.log(filepath);
 
 			// Restore original window size after screenshot
 			await emulation?.restore();

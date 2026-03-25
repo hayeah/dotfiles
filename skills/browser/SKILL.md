@@ -189,12 +189,44 @@ Capture current viewport and return file path.
 Options:
 - `-o, --output <path>`: Save to specific path instead of temp file
 - `--full`: Capture full scrollable page
-- `-w, --wait <expr>`: JS expression to poll until truthy before capturing
+- `-w, --wait <expr>`: JS expression to poll until truthy, or a plain number for sleep in ms (e.g. `--wait 5000`)
 - `--timeout <ms>`: Max wait time for `--wait` (default: 10000)
 - `-m, --max-size <px>`: Constrain longest side and output as JPEG
 - `--quality <1-100>`: JPEG quality (with `--max-size`, default: 85)
 
+**DPR matters**: Puppeteer defaults to DPR=1. Subtle effects (low-opacity canvas text, thin fonts) may be invisible at 1x. Use `--open` with a viewport spec to set DPR=2 for retina-accurate screenshots:
+
+```bash
+browser screenshot --open '{"url":"http://localhost:5173","viewport":"1280x800@2"}'
+```
+
+**`--full` caveat**: Full-page capture scrolls the document and stitches the result. Fixed/sticky sidebars and headers may not render correctly — they can appear cut off or missing. Use viewport capture (without `--full`) when the layout has fixed positioning.
+
 Legacy device flags (`--device`, `--viewport`, `--mobile`) still work on screenshot for backward compatibility, but prefer `--open` with a context spec.
+
+### Multi-Step Screenshots (`--steps`)
+
+Capture multiple screenshots from a single page load. Each step can eval JS and/or wait for a condition before capturing. Steps run sequentially on the same page.
+
+```bash
+browser screenshot --open http://localhost:5173/dashboard \
+  -o "$(tmpfile debug.png)" \
+  --steps '
+- wait: __agent?.store.rows.length > 0
+- eval: __agent.openDetail(2)
+  wait: __agent.store.modalOpen && __agent.$modal
+- eval: __agent.store.searchQuery = "alice"
+  wait: __agent?.store.rows.length > 0
+'
+```
+
+Each step is a YAML map with optional `eval` and `wait` keys. Execution order per step: wait → eval → screenshot.
+
+With multiple steps, the `-o` path gets an index injected before the extension:
+- `-o debug.png` → `debug.1.png`, `debug.2.png`, `debug.3.png`
+- `-o "$(tmpfile debug.png)"` → `$TMP_ROOT/2026-03-25/143052.283-debug.1.png`, etc.
+
+With a single step, `-o` works exactly as before (no index).
 
 ## Screencap
 
