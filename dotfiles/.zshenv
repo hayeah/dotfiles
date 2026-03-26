@@ -75,5 +75,4 @@ export DROPBOX_ROOT="$HOME/Dropbox"
 export MDNOTES_ROOT="$DROPBOX_ROOT/notes"
 export OUTPUT_ROOT="$DROPBOX_ROOT/output"
 export TMP_ROOT="$MDNOTES_ROOT/tmp"
-# Vite+ bin (https://viteplus.dev)
-. "$HOME/.vite-plus/env"
+_init vite-plus
