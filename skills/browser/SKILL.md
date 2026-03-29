@@ -151,12 +151,12 @@ IMPORTANT: For scripts longer than 5–10 lines, write to a file using the `tmpf
 ```bash
 # 1. generate the path
 tmpfile scrape.js
-# => $TMP_ROOT/2026-03-17/143052.283-scrape.js
+# => $MDNOTES_ROOT/2026-03-29/tmp/143052.283-scrape.js
 
 # 2. write your script to that path (use the Write tool)
 
 # 3. eval it
-browser eval $TMP_ROOT/2026-03-17/143052.283-scrape.js -s a3f2
+browser eval $MDNOTES_ROOT/2026-03-29/tmp/143052.283-scrape.js -s a3f2
 ```
 
 ## Fetch
@@ -224,7 +224,7 @@ Each step is a YAML map with optional `eval` and `wait` keys. Execution order pe
 
 With multiple steps, the `-o` path gets an index injected before the extension:
 - `-o debug.png` → `debug.1.png`, `debug.2.png`, `debug.3.png`
-- `-o "$(tmpfile debug.png)"` → `$TMP_ROOT/2026-03-25/143052.283-debug.1.png`, etc.
+- `-o "$(tmpfile debug.png)"` → `$MDNOTES_ROOT/2026-03-25/tmp/143052.283-debug.1.png`, etc.
 
 With a single step, `-o` works exactly as before (no index).
 

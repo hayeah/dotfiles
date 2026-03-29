@@ -13,15 +13,23 @@ When using a skill or tool, if you run into problems, mistakes, or ergonomic iss
   - Use /mdnote to produce a note.
 - `~/.ctrlv` contains dumped pasteboard contents: text, files, and images. Read here if asked to check the clipboard or ctrlv.
 
+## Notes & Scratch Files
+
+`$MDNOTES_ROOT` (`~/Dropbox/notes`) is organized by date:
+
+- `$MDNOTES_ROOT/<date>/` — notes for the day (via /mdnote, see SKILL.md)
+- `$MDNOTES_ROOT/<date>/tmp/` — temporary/scratch files for the day
+
+Use /mdnote to create notes. See the mdnote SKILL.md for full conventions (frontmatter, naming, tags).
+
 ## Temporary Files
 
 When you need temporary files or directories, prefer NOT to use /tmp.
 
-- Default to `$TMP_ROOT` (`$MDNOTES_ROOT/tmp`)
-- Naming convention: `$TMP_ROOT/<date>/<HHMMSS>.<ms>-<title>`
+- Naming convention: `$MDNOTES_ROOT/<date>/tmp/<HHMMSS>.<ms>-<title>`
 - Follow this convention whenever you need to produce output.
 - Use the `tmpfile` helper to generate paths:
-  - `tmpfile foo.jpg` → `$TMP_ROOT/2026-03-17/143052.283-foo.jpg`
+  - `tmpfile foo.jpg` → `$MDNOTES_ROOT/2026-03-29/tmp/143052.283-foo.jpg`
   - Creates the date directory automatically
   - Use in shell expansion: `foocmd -o "$(tmpfile foo.jpg)"`
 
@@ -32,9 +40,9 @@ If writing more than ~15 lines:
 - Prefer writing scripts to files rather than using `-c`
   - Easier for a human to audit
   - Easier to tweak and fix
-- Put ad-hoc scripts in `$TMP_ROOT`:
+- Put ad-hoc scripts in the day's tmp dir:
   - Run `tmpfile myscript.py` to get the path, then write your script there
-  - e.g. `tmpfile myscript.py` → `$TMP_ROOT/2026-03-17/143052.283-myscript.py`
+  - e.g. `tmpfile myscript.py` → `$MDNOTES_ROOT/2026-03-29/tmp/143052.283-myscript.py`
   - To iterate on a variant, copy and edit the original
 - Use uv+python for ad-hoc scripting
   - `uv run --with cloudflare python`
