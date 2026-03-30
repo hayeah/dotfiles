@@ -125,9 +125,9 @@ cd ~/github.com/hayeah/webui-template
 pnpm install
 vp dev --port 5173
 
-# Or scaffold via Vite+
-vp create github:hayeah/webui-template
-cd webui-template
+# Or scaffold via Vite+ (pass project name after --)
+vp create github:hayeah/webui-template -- myapp
+cd myapp
 vp dev --port 5173
 ```
 
