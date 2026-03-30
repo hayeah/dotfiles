@@ -10,6 +10,110 @@ globs:
 
 # Web UI Development
 
+## Dev Workflow
+
+When working on a page, use the tap API + screenshots to verify different states:
+
+```bash
+# Start dev server on an explicit port (see Port Usage below)
+vp dev --port 5173
+
+# Open a session
+browser open http://localhost:5173    # → session key a3f2
+
+# Manipulate state via tap API, screenshot each state
+browser eval -s a3f2 '__tap__.library.searchQuery = "alice"'
+browser screenshot -s a3f2 -o "$(tmpfile search.png)"
+
+browser eval -s a3f2 '__tap__.openBook("alice-123", 5)'
+browser screenshot -s a3f2 -o "$(tmpfile reader.png)"
+
+# Or use multi-step screenshots for a quick sweep
+browser screenshot --open http://localhost:5173 \
+  -o "$(tmpfile states.png)" \
+  --steps '
+- wait: __tap__
+- eval: __tap__.library.searchQuery = "alice"
+  wait: document.querySelector(".book-list")
+- eval: __tap__.openBook("alice-123", 5)
+  wait: document.querySelector(".reader")
+'
+```
+
+Read the `__DOC__` in the root store to see what's available on `__tap__`, then drive the app through its states programmatically. Screenshot to confirm each state looks right.
+
+## Port Usage
+
+Always start the dev server with an explicit port. Vite auto-finds an unused port when the default is taken, which causes the agent to lose track of the URL.
+
+Find a free port (checks both `127.0.0.1` and `0.0.0.0`):
+
+```bash
+python3 -c "import socket; s=socket.socket(); s.bind(('127.0.0.1',0)); p=s.getsockname()[1]; s.close(); s2=socket.socket(); s2.bind(('0.0.0.0',p)); s2.close(); print(p)"
+```
+
+Then start with that port:
+
+```bash
+vp dev --port 5173
+```
+
+## File Conventions
+
+- **PascalCase** for React components and files (`BookLibrary.tsx`)
+- **camelCase** with `use` prefix for hooks (`useReadingProgress.ts`)
+
+Group files by page (roughly mapping to routes), not by type (`hooks/`, `utils/`). Keep bespoke helpers and subcomponents together with the page they belong to.
+
+```
+pages/
+  reader/
+    Reader.tsx              # entry component
+    Reader.test.tsx
+    ReaderToolbar.tsx        # subcomponent
+    ReaderChapterNav.tsx     # subcomponent
+  library/
+    Library.tsx
+    Library.test.tsx
+    LibrarySearch.tsx
+    LibraryShelf.tsx
+State/
+  AppStore.ts
+  LibraryStore.ts
+  ReadingSession.ts
+  StoreContext.ts
+  Models/
+    BookEntry.ts
+```
+
+## Coding Conventions
+
+- For complex features, avoid bags of loose functions.
+  - Group related methods in a class.
+  - Prefer class properties over passing shared state through parameters.
+- Name getters as nouns, not `get*` — e.g. `user()` not `getUser()`.
+
+### Classes
+
+- Use `constructor(public foo: string, public bar: number)` to declare and assign instance properties.
+- Prefer composition and injection over constructing dependencies inside the constructor.
+- For async initialization, use a static factory method that injects the awaited value into a normal constructor. Avoids needing an `init` instance method.
+
+```typescript
+class Reader {
+  // Static factory for async setup
+  static async create(bookId: string) {
+    const metadata = await fetchMetadata(bookId);
+    return new Reader(bookId, metadata);
+  }
+
+  constructor(
+    public bookId: string,
+    public metadata: BookMetadata,
+  ) {}
+}
+```
+
 ## Setup & Tooling
 
 **TLDR**: Use Vite+ (`vp`) as the unified toolchain — it replaces Vite, Vitest, ESLint, Prettier in one CLI.
@@ -59,11 +163,17 @@ browser eval -s a3f2 'document.querySelectorAll("button").length'
 browser eval -s a3f2 myscript.js
 ```
 
-For scripts longer than ~10 lines, write to a temp file first:
+For scripts longer than ~10 lines, write to a temp file:
 
 ```bash
-# Write script via Write tool, then:
-browser eval -s a3f2 "$(tmpfile scrape.js)"
+# Get a path
+tmpfile scrape.js
+# => $MDNOTES_ROOT/2026-03-30/tmp/143052.283-scrape.js
+
+# Write your script to that path (use the Write tool)
+
+# Run it
+browser eval -s a3f2 $MDNOTES_ROOT/2026-03-30/tmp/143052.283-scrape.js
 ```
 
 ### One-Shot Mode (`--open`)
@@ -176,10 +286,10 @@ useEffect(() => {
 ```
 
 Key conventions:
-- **`window.__tap__`** — always this name, one object per route
+- **`window.__tap__`** — always this name, one object per app
 - **`__DOC__`** — string constant, first thing after imports (like a Python module docstring)
 - **`$` prefix** — DOM elements (`$searchInput`, `$scrollArea`)
-- **Per-route** — register on mount, clean up on unmount
+- **Register once** — set up on app init
 - Works with MobX (cleanest), React useState, or Zustand
 
 Agent drives the page via `browser eval`:

@@ -17,12 +17,12 @@ Each route exposes app state and actions on `window.__tap__` so the agent can ma
 
 ## Convention
 
-- **`window.__tap__`** — always this name, one object per route
+- **`window.__tap__`** — always this name, one object per app
 - **`__DOC__`** — a string constant in the component file. The agent reads it from source, not at runtime. For the agent's context, not the browser.
 - **`$` prefix** — DOM elements. `$searchInput`, `$tocButton`, `$scrollArea`
 - **Everything else** — state, setters, stores, callbacks. No categories. Just names.
 - **Stateless** — prefer APIs that take parameters over ones that depend on prior state. `item(id).details()` not `selectItem(id)` + `getDetails()`. Each call should be self-contained.
-- **Per-route** — each page registers on mount, cleans up on unmount
+- **Register once** — set up on app init
 
 ## `__DOC__`
 
