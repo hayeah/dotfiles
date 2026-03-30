@@ -349,22 +349,6 @@ Auto-detects site-specific extractors:
 
 ## Efficiency Guide
 
-### Accessibility Tree Over Screenshots
-
-**Don't** take screenshots to understand page state. **Do** use `browser a11y` first — it gives you the full semantic structure. Fall back to DOM parsing for detailed markup:
-
-```javascript
-// Get page structure
-document.body.innerHTML.slice(0, 5000)
-
-// Find interactive elements
-Array.from(document.querySelectorAll('button, input, [role="button"]')).map(e => ({
-  id: e.id,
-  text: e.textContent.trim(),
-  class: e.className
-}))
-```
-
 ### Complex Scripts in Single Calls
 
 Wrap everything in an IIFE to run multi-statement code:
