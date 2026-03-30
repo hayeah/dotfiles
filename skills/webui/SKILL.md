@@ -131,6 +131,50 @@ Everything lives in a single `vite.config.ts` — no separate vitest/eslint/pret
 
 Full reference: [Vite+ Guide](guides/viteplus.md)
 
+## Libraries
+
+**TLDR**: Tailwind v4 for styling, Radix for UI primitives, Framer Motion for animation, MobX for state, wouter for routing.
+
+- **Styling**: Tailwind CSS v4, clsx + tailwind-merge (`cn()`), cva for variants
+- **Icons**: lucide-react
+- **Animation**: framer-motion
+- **Interaction**: @dnd-kit (drag-drop), cmdk (command palette), embla-carousel-react
+- **Forms**: zod + react-hook-form
+- **Charts**: recharts
+- **UI primitives**: radix-ui, vaul (drawer), sonner (toasts)
+- **State**: mobx + mobx-react-lite
+- **Routing**: wouter
+
+Full reference: [Libraries Guide](guides/libraries.md)
+
+## Design Foundation
+
+Set up the design foundation before building components. Start from the example `index.css` and customize from there.
+
+Copy the base CSS into your project:
+
+```bash
+cp ~/github.com/hayeah/dotfiles/skills/webui/guides/index.css src/index.css
+```
+
+This gives you:
+
+- **Tailwind v4** with `tailwindcss-animate` plugin
+- **shadcn-compatible `@theme inline`** block — maps CSS variables to Tailwind color/radius utilities (`bg-primary`, `text-muted-foreground`, `rounded-lg`, etc.)
+- **OKLCh color tokens** in `:root` (light) and `.dark` (dark mode) — semantic names: `--background`, `--foreground`, `--primary`, `--secondary`, `--muted`, `--accent`, `--destructive`, `--border`, `--card`, `--popover`
+- **Font variables** — `--font-heading`, `--font-body`, `--font-mono`
+- **Base layer** — sets `bg-background text-foreground` on body, heading font on h1-h6, full-height root
+- **iOS Safari fix** — `position: fixed` on body prevents scroll-chaining behind Dynamic Island
+
+Customize for your project:
+
+- Replace the Google Fonts import and `--font-*` variables with your chosen fonts
+- Adjust OKLCh color values in `:root` and `.dark` to match your design
+- Set `--radius` base value
+- Remove sidebar/chart tokens if not needed
+
+Then build components using Tailwind semantic classes (`bg-background`, `text-primary`, `border-border`) so the entire palette can be swapped by editing `:root` variables.
+
 ## Browser Testing
 
 **TLDR**: Use the `browser` skill for E2E testing — screenshot, eval JS, inspect pages. Prefer `--open` one-shot mode for quick checks.
