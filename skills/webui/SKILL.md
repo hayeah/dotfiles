@@ -116,7 +116,22 @@ class Reader {
 
 ## Setup & Tooling
 
-**TLDR**: Use Vite+ (`vp`) as the unified toolchain — it replaces Vite, Vitest, ESLint, Prettier in one CLI.
+### New Project from Template
+
+Start from the webui-template for a pre-configured stack (Vite, React, TypeScript, Tailwind v4, MobX, wouter, framer-motion, shadcn-compatible theme tokens):
+
+```bash
+git-quick-clone github.com/hayeah/webui-template
+cd ~/github.com/hayeah/webui-template
+pnpm install
+pnpm dev --port 5173
+```
+
+The template includes a `/design` route with a design sampler page — screenshot it to verify typography, colors, and components are coherent after customizing the theme.
+
+### Vite+
+
+Use Vite+ (`vp`) as the unified toolchain — it replaces Vite, Vitest, ESLint, Prettier in one CLI.
 
 ```bash
 vp create       # scaffold new project
