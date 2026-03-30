@@ -114,81 +114,30 @@ class Reader {
 }
 ```
 
-## Setup & Tooling
+## New Project
 
-### New Project from Template
-
-Start from the webui-template for a pre-configured Vite+ stack (React, TypeScript, Tailwind v4, MobX, wouter, framer-motion, shadcn-compatible theme tokens):
+Start from the [webui-template](https://github.com/hayeah/webui-template) — Vite+, React, TypeScript, Tailwind v4, MobX, wouter, framer-motion, OKLCh design tokens with light/dark mode.
 
 ```bash
+# Clone
 git-quick-clone github.com/hayeah/webui-template
 cd ~/github.com/hayeah/webui-template
 pnpm install
 vp dev --port 5173
+
+# Or scaffold via Vite+
+vp create github:hayeah/webui-template
+cd webui-template
+vp dev --port 5173
 ```
 
-The template includes a `/design` route with a design sampler page — screenshot it to verify typography, colors, and components are coherent after customizing the theme.
+The template includes `/design` and `/design/dashboard` sample pages — screenshot them after customizing the theme to verify coherence.
 
-### Vite+
+Use `vp` for all tooling: `vp dev`, `vp check --fix`, `vp test`, `vp build`. Everything in one `vite.config.ts`.
 
-Use Vite+ (`vp`) as the unified toolchain — it replaces Vite, Vitest, ESLint, Prettier in one CLI.
+Use semantic design tokens everywhere (`bg-primary`, `text-muted-foreground`, `text-success`, `bg-destructive/10`) — never hardcode Tailwind colors like `text-red-500`. Customize the palette by editing OKLCh values in `src/index.css` `:root` and `.dark`.
 
-```bash
-vp create       # scaffold new project
-vp install      # install dependencies
-vp dev          # dev server
-vp check        # format + lint + type-check in one pass
-vp test         # run tests
-vp build        # production build
-```
-
-Everything lives in a single `vite.config.ts` — no separate vitest/eslint/prettier configs. Import from `'vite-plus'` and `'vite-plus/test'` instead of `'vite'`/`'vitest'`.
-
-Full reference: [Vite+ Guide](guides/viteplus.md)
-
-## Libraries
-
-**TLDR**: Tailwind v4 for styling, Radix for UI primitives, Framer Motion for animation, MobX for state, wouter for routing.
-
-- **Styling**: Tailwind CSS v4, clsx + tailwind-merge (`cn()`), cva for variants
-- **Icons**: lucide-react
-- **Animation**: framer-motion
-- **Interaction**: @dnd-kit (drag-drop), cmdk (command palette), embla-carousel-react
-- **Forms**: zod + react-hook-form
-- **Charts**: recharts
-- **UI primitives**: radix-ui, vaul (drawer), sonner (toasts)
-- **State**: mobx + mobx-react-lite
-- **Routing**: wouter
-
-Full reference: [Libraries Guide](guides/libraries.md)
-
-## Design Foundation
-
-Set up the design foundation before building components. Start from the example `index.css` and customize from there.
-
-Copy the base CSS into your project:
-
-```bash
-cp ~/github.com/hayeah/dotfiles/skills/webui/guides/index.css src/index.css
-```
-
-This gives you:
-
-- **Tailwind v4** with `tailwindcss-animate` plugin
-- **shadcn-compatible `@theme inline`** block — maps CSS variables to Tailwind color/radius utilities (`bg-primary`, `text-muted-foreground`, `rounded-lg`, etc.)
-- **OKLCh color tokens** in `:root` (light) and `.dark` (dark mode) — semantic names: `--background`, `--foreground`, `--primary`, `--secondary`, `--muted`, `--accent`, `--destructive`, `--border`, `--card`, `--popover`
-- **Font variables** — `--font-heading`, `--font-body`, `--font-mono`
-- **Base layer** — sets `bg-background text-foreground` on body, heading font on h1-h6, full-height root
-- **iOS Safari fix** — `position: fixed` on body prevents scroll-chaining behind Dynamic Island
-
-Customize for your project:
-
-- Replace the Google Fonts import and `--font-*` variables with your chosen fonts
-- Adjust OKLCh color values in `:root` and `.dark` to match your design
-- Set `--radius` base value
-- Remove sidebar/chart tokens if not needed
-
-Then build components using Tailwind semantic classes (`bg-background`, `text-primary`, `border-border`) so the entire palette can be swapped by editing `:root` variables.
+Full reference: [webui-template README](guides/webui-template.md) | [Vite+ Guide](guides/viteplus.md) | [Libraries](guides/libraries.md)
 
 ## Browser Testing
 
