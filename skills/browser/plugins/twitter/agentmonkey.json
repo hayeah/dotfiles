@@ -1,0 +1,21 @@
+{
+  "name": "twitter",
+  "description": "Extract tweets from Twitter/X timelines and lists",
+  "routes": [
+    {
+      "match": ["*://x.com/i/lists/*", "*://twitter.com/i/lists/*"],
+      "browser": "twitter.ts",
+      "node": "twitter.node.ts"
+    },
+    {
+      "match": ["*://x.com/*/status/*", "*://twitter.com/*/status/*"],
+      "browser": "twitter.ts",
+      "node": "twitter.node.ts"
+    },
+    {
+      "match": ["*://x.com/*", "*://twitter.com/*"],
+      "browser": "twitter.ts",
+      "node": "twitter.node.ts"
+    }
+  ]
+}
