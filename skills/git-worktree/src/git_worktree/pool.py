@@ -18,6 +18,7 @@ from pathlib import Path
 class SlotMeta:
     branch: str
     base: str
+    pid: int | None = None
 
 
 @dataclass
@@ -100,7 +101,7 @@ class WorktreePool:
         lock_file = self._acquire_lock(slot_info.lock_path)
 
         # Write metadata
-        meta = SlotMeta(branch=branch, base=base)
+        meta = SlotMeta(branch=branch, base=base, pid=os.getpid())
         self._write_meta(lock_file, meta)
 
         # Set up the worktree
@@ -148,6 +149,13 @@ class WorktreePool:
 
         # Delete the feature branch
         self._git(["branch", "-d", branch], cwd=self.repo_root)
+
+        # Kill the lease-holding process to release the slot
+        if info.meta.pid:
+            try:
+                os.kill(info.meta.pid, signal.SIGTERM)
+            except ProcessLookupError:
+                pass  # already dead
 
         print(f"merged {branch} into {merge_target}")
 
@@ -233,13 +241,13 @@ class WorktreePool:
             return None
         try:
             data = json.loads(lock_path.read_text())
-            return SlotMeta(branch=data["branch"], base=data["base"])
+            return SlotMeta(branch=data["branch"], base=data["base"], pid=data.get("pid"))
         except (json.JSONDecodeError, KeyError):
             return None
 
     def _write_meta(self, lock_file: io.FileIO, meta: SlotMeta) -> None:
         """Write JSON metadata to the lock file (which we hold the lock on)."""
-        content = json.dumps({"branch": meta.branch, "base": meta.base}) + "\n"
+        content = json.dumps({"branch": meta.branch, "base": meta.base, "pid": meta.pid}) + "\n"
         lock_file.seek(0)
         lock_file.truncate(0)
         lock_file.write(content.encode())

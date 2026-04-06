@@ -62,6 +62,7 @@ def list_cmd(
                 "path": str(s.path),
                 "leased": s.leased,
                 "branch": s.branch,
+                "pid": s.meta.pid if s.meta else None,
             }
             for s in slots
         ]
@@ -72,11 +73,12 @@ def list_cmd(
         print("no worktree slots")
         return
 
-    print(f"{'SLOT':<6}{'BRANCH':<24}{'STATUS'}")
+    print(f"{'SLOT':<6}{'BRANCH':<24}{'PID':<8}{'STATUS'}")
     for s in slots:
         branch = s.branch or "—"
+        pid = str(s.meta.pid) if s.meta and s.meta.pid else "—"
         status = "leased" if s.leased else "available"
-        print(f"{s.slot:<6}{branch:<24}{status}")
+        print(f"{s.slot:<6}{branch:<24}{pid:<8}{status}")
 
 
 @app.command()
