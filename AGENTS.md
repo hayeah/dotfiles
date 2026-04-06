@@ -26,8 +26,9 @@ Use /mdnote to create notes. See the mdnote SKILL.md for full conventions (front
 
 When you need temporary files or directories, prefer NOT to use /tmp.
 
+- `tmpfile` is for throwaway scratch files (ad-hoc scripts, one-off outputs).
+- For notes meant to be kept (design specs, research, docs), write to `$MDNOTES_ROOT/<date>/` — NOT `tmpfile`.
 - Naming convention: `$MDNOTES_ROOT/<date>/tmp/<HHMMSS>.<ms>-<title>`
-- Follow this convention whenever you need to produce output.
 - Use the `tmpfile` helper to generate paths:
   - `tmpfile foo.jpg` → `$MDNOTES_ROOT/2026-03-29/tmp/143052.283-foo.jpg`
   - Creates the date directory automatically
