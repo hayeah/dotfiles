@@ -126,16 +126,18 @@ Typical usage from an AI agent:
 ```bash
 # Lease a slot in the background
 git-worktree open my-feature --base origin/master &
-GWT_PID=$!
-# stdout: /path/to/.worktrees/001
 
-# Do work
+# IMPORTANT: cd into the worktree path printed to stdout
 cd .worktrees/001/
+
+# All work happens inside the worktree — edit files, run tests, commit
 # ... edit files, run tests, commit ...
 
 # When the human says lgtm — rebase, merge, and release the slot
 git-worktree lgtm
 ```
+
+**Important**: After `open`, you MUST `cd` into the printed worktree path before doing any work. All file edits, git commits, and test runs should happen inside the worktree, not the main repo.
 
 If the agent crashes, the OS releases the `flock()` automatically — no orphaned leases.
 
