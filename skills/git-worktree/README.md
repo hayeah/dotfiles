@@ -60,7 +60,7 @@ git-worktree lgtm 001
 - Rebases feature branch onto base
 - Fast-forward merges into the base branch (in the main repo)
 - Detaches the worktree and deletes the feature branch
-- Does NOT release the slot lease — kill the `open` process for that
+- Kills the lease-holding process (via PID in lock file) to release the slot
 
 ### `git-worktree list [--json]`
 
@@ -68,13 +68,13 @@ List worktree slots with status.
 
 ```bash
 git-worktree list
-# SLOT  BRANCH                  STATUS
-# 001   feature-auth            leased
-# 002   fix-typo                available
+# SLOT  BRANCH                  PID     STATUS
+# 001   feature-auth            12345   leased
+# 002   fix-typo                —       available
 
 # JSON output for scripting
 git-worktree list --json
-# [{"slot": "001", "path": "...", "leased": true, "branch": "feature-auth"}, ...]
+# [{"slot": "001", "path": "...", "leased": true, "branch": "feature-auth", "pid": 12345}, ...]
 ```
 
 ### `git-worktree clean`
@@ -103,10 +103,10 @@ myrepo/
 The `.lock` file serves two purposes:
 
 - **Lease**: held via `flock()` by the `open` process. Availability is checked by attempting a non-blocking `flock()`, not by file existence.
-- **Metadata**: contains JSON with branch and base ref
+- **Metadata**: contains JSON with branch, base ref, and PID of the lease-holding process
 
 ```json
-{"branch": "feature-auth", "base": "origin/master"}
+{"branch": "feature-auth", "base": "origin/master", "pid": 12345}
 ```
 
 ### Setup Hook
@@ -133,11 +133,8 @@ GWT_PID=$!
 cd .worktrees/001/
 # ... edit files, run tests, commit ...
 
-# When the human says lgtm — rebase and merge
+# When the human says lgtm — rebase, merge, and release the slot
 git-worktree lgtm
-
-# Release the lease
-kill $GWT_PID
 ```
 
 If the agent crashes, the OS releases the `flock()` automatically — no orphaned leases.
@@ -146,7 +143,7 @@ If the agent crashes, the OS releases the `flock()` automatically — no orphane
 
 - `open` blocks forever — run it in the background (`&`) or in a separate process
 - `lgtm` uses `--ff-only` — if the rebase produces conflicts, it fails and you must resolve manually
-- `lgtm` does not release the slot — you still need to kill the `open` process
+- `lgtm` kills the lease-holding process automatically via PID in the lock file
 - Lock files persist on disk after the lease is released; `clean` removes them along with the slot directory
 - Slot numbers are zero-padded 3-digit (`001`–`999`)
 - `clean` force-removes all unlocked slots regardless of merge status
