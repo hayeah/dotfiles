@@ -125,6 +125,31 @@ git-quick-clone github.com/user/repo
   - Prefer HTTPS auth.
 - Default to use "master" rather than "main".
 
+## iOS / Xcode
+
+- Default simulator: iPhone 17 Pro
+- Build with `xcodebuild -project <proj>.xcodeproj -scheme <scheme> -destination 'platform=iOS Simulator,name=iPhone 17 Pro' build`
+- Install and launch on sim: `xcrun simctl install booted <app-path> && xcrun simctl launch booted <bundle-id>`
+- Use `xcrun simctl list devices available` to find simulator UDIDs
+- Deployment target: iOS 26.0 (for liquid glass APIs)
+
+## Dev Ports
+
+Use `devport` to find free ports for one-off CLI testing (e.g. spinning up a dev server to verify a fix). When done, close the services — these are temporary, not long-running. Do NOT let tools like Vite pick their own ports — they may silently increment if their default is taken, making the port unpredictable for other tools (e.g. devport registration, Cloudflare tunnels).
+
+```bash
+# Assign a known free port to Vite
+VITE_PORT=$(devport) vite --port $VITE_PORT
+
+# Pass a free port to any server
+some-server --port $(devport)
+```
+
+- `devport` prints the first free port to stdout (for `$()` substitution) and all 3 to stderr.
+- `-r 20000-30000` — search within a specific range.
+- `-r 20000` — search starting from a port.
+- Always pass the port explicitly to the tool. Never rely on a tool's default port auto-selection.
+
 ## Env & Secrets
 
 - API keys are stored in `~/.env.secret`.
