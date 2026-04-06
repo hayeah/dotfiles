@@ -125,6 +125,7 @@ git-quick-clone github.com/user/repo
 - Use `gh` when you require authentication.
   - Prefer HTTPS auth.
 - Default to use "master" rather than "main".
+- When asked to work on a feature branch, use the `git-worktree` skill to lease an isolated worktree slot.
 
 ## iOS / Xcode
 
