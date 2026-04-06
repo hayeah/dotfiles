@@ -1,6 +1,6 @@
 ---
 name: git-worktree
-description: Git worktree pool management for AI agents — lease numbered worktree slots with flock-based locking for isolated branch work.
+description: Use when asked to develop on a feature branch. Leases a numbered worktree slot so you can work in isolation without touching the main working tree.
 ---
 
 # git-worktree
