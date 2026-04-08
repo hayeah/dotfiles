@@ -35,22 +35,22 @@ Corresponding `$MDNOTES_ROOT/boss/meta.json` after the boss has spawned subagent
 {
   "add-user-authentication": {
     "header": "Add user authentication",
-    "worklog": "2026-04-08/143052.283-add-user-authentication",
+    "worklog": "2026-04-08/143052_283-add-user-authentication",
     "session": "boss-a3f"
   },
   "wire-up-password-reset-email": {
     "header": "Wire up password reset email",
-    "worklog": "2026-04-08/144130.871-wire-up-password-reset-email",
+    "worklog": "2026-04-08/144130_871-wire-up-password-reset-email",
     "session": "boss-c14"
   },
   "refactor-config-loader": {
     "header": "Refactor config loader",
-    "worklog": "2026-04-08/091200.450-refactor-config-loader",
+    "worklog": "2026-04-08/091200_450-refactor-config-loader",
     "session": null
   }
 }
 ```
 
-The closed section's `session` is `null` (the agentboss session was killed on close), but the entry stays in `meta.json` so the worklog dir at `2026-04-08/091200.450-refactor-config-loader/` remains discoverable as history.
+The closed section's `session` is `null` (the agentboss session was killed on close), but the entry stays in `meta.json` so the worklog dir at `2026-04-08/091200_450-refactor-config-loader/` remains discoverable as history.
 
 The worktree for an open section is always at `<repo>/.worktrees/<slug>` and its branch is also `<slug>`. No lookup needed.

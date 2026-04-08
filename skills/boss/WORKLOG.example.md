@@ -1,9 +1,9 @@
 <!--
 This file lives at:
-  $MDNOTES_ROOT/boss/2026-04-08/143052.283-add-user-authentication/worklog.md
+  $MDNOTES_ROOT/boss/2026-04-08/143052_283-add-user-authentication/worklog.md
 
 Sibling artifacts (screenshots, transcripts, scratch files) live in the same dir:
-  $MDNOTES_ROOT/boss/2026-04-08/143052.283-add-user-authentication/
+  $MDNOTES_ROOT/boss/2026-04-08/143052_283-add-user-authentication/
     worklog.md
     01-signup-flow.png
     schema.sql

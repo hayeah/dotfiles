@@ -176,12 +176,12 @@ For scripts longer than ~10 lines, write to a temp file:
 ```bash
 # Get a path
 tmpfile scrape.js
-# => $MDNOTES_ROOT/2026-03-30/tmp/143052.283-scrape.js
+# => $MDNOTES_ROOT/2026-03-30/tmp/143052_283-scrape.js
 
 # Write your script to that path (use the Write tool)
 
 # Run it
-browser eval -s a3f2 $MDNOTES_ROOT/2026-03-30/tmp/143052.283-scrape.js
+browser eval -s a3f2 $MDNOTES_ROOT/2026-03-30/tmp/143052_283-scrape.js
 ```
 
 ### One-Shot Mode (`--open`)

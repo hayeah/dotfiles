@@ -8,7 +8,7 @@ The boss told you four things:
 
 - The path to **this file** (read it once, then refer back as needed).
 - Your **mode**: either `MAIN-REPO` (you're running directly in the project repo on the current branch — no isolation) or `WORKTREE` (you're running in a leased `.worktrees/NNN` on a fresh branch). This affects how lgtm works (see "On lgtm" below).
-- The path to your **section dir** under `$MDNOTES_ROOT/boss/<date>/<HHMMSS.ms>-<slug>/`. Your work log is `<section dir>/worklog.md`. Any artifacts you produce — screenshots, transcripts, scratch files — go in this same dir, not in your cwd.
+- The path to your **section dir** under `$MDNOTES_ROOT/boss/<date>/<HHMMSS>_<ms>-<slug>/`. Your work log is `<section dir>/worklog.md`. Any artifacts you produce — screenshots, transcripts, scratch files — go in this same dir, not in your cwd.
 - The **section** in the boss doc you are responsible for, and the path to the boss doc.
 
 ## First turn

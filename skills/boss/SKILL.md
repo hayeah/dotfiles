@@ -42,18 +42,18 @@ $MDNOTES_ROOT/boss/
   meta.json                       # per-section state, keyed by section slug
   friction.md                     # rolling, cross-section harvest (boss appends)
   2026-04-08/
-    143052.283-add-user-authentication/
+    143052_283-add-user-authentication/
       worklog.md                  # the communication channel
       01-signup-flow.png          # screenshots, transcripts, generated output, anything
       schema.sql
-    091200.450-fix-oauth-bug/
+    091200_450-fix-oauth-bug/
       worklog.md
       repro.sh
 ```
 
 Each section gets its own timestamped directory under today's date — same shape as the `tmpfile` / `/mdnote` convention. The directory IS the section: `worklog.md` is the communication file, and everything else (screenshots, test output, scratch files) goes in the same dir.
 
-The path `<date>/<HHMMSS.ms>-<slug>` is the section's section dir. `<slug>` is a kebab-case slug derived from the section header (strip `## `, strip `[x]` / `[ ]`, lowercase, non-alphanumerics → `-`). Generate the timestamp with the `tmpfile` helper or inline (`date +%Y-%m-%d` and `date +%H%M%S.%3N`).
+The path `<date>/<HHMMSS>_<ms>-<slug>` is the section's section dir. `<slug>` is a kebab-case slug derived from the section header (strip `## `, strip `[x]` / `[ ]`, lowercase, non-alphanumerics → `-`). Generate the timestamp with the `tmpfile` helper or the python one-liner shown below. The underscore between seconds and ms is deliberate — claude's project-id encoder rewrites `/` and `.` to `-`, so a literal `.` would muddle the encoded path.
 
 `meta.json` is the **note-keeping ledger**. It's deliberately minimal — only what isn't derivable from the slug + agentboss. Flat object keyed by section slug:
 
@@ -61,7 +61,7 @@ The path `<date>/<HHMMSS.ms>-<slug>` is the section's section dir. `<slug>` is a
 {
   "add-user-authentication": {
     "header": "Add user authentication",
-    "worklog": "2026-04-08/143052.283-add-user-authentication",
+    "worklog": "2026-04-08/143052_283-add-user-authentication",
     "session": "boss-a3f"
   }
 }
@@ -111,7 +111,7 @@ Mint the worklog dir. The relative form (`<date>/<prefix>-<slug>`) is what gets 
 
 ```bash
 DATE=$(date +%Y-%m-%d)
-PREFIX=$(python3 -c 'import time;print(time.strftime("%H%M%S")+f".{int((time.time()%1)*1000):03d}")')
+PREFIX=$(python3 -c 'import time;print(time.strftime("%H%M%S")+f"_{int((time.time()%1)*1000):03d}")')
 SLUG=add-user-authentication
 REPO=~/github.com/hayeah/myproject
 SECTION_DIR_REL="$DATE/$PREFIX-$SLUG"
@@ -119,7 +119,7 @@ SECTION_DIR="$MDNOTES_ROOT/boss/$SECTION_DIR_REL"
 mkdir -p "$SECTION_DIR"
 ```
 
-(Note: `date +%H%M%S.%3N` is GNU-only; on macOS BSD `date` it emits a literal `.3N`. Use the python one-liner above for portability.)
+(Note: BSD `date` on macOS doesn't support `%N` for sub-second precision, so use the python one-liner above for portability. The `_` separator between `HHMMSS` and `ms` is intentional — see the path-encoding caveat at the top of this section.)
 
 Create the worktree (worktree mode default). Refuse if it already exists — that's an orphan from a prior aborted run.
 
@@ -166,7 +166,7 @@ Write the section's entry into `$MDNOTES_ROOT/boss/meta.json` (read-modify-write
 {
   "add-user-authentication": {
     "header": "Add user authentication",
-    "worklog": "2026-04-08/143052.283-add-user-authentication",
+    "worklog": "2026-04-08/143052_283-add-user-authentication",
     "session": "boss-a3f"
   }
 }

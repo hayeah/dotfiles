@@ -28,9 +28,9 @@ When you need temporary files or directories, prefer NOT to use /tmp.
 
 - `tmpfile` is for throwaway scratch files (ad-hoc scripts, one-off outputs).
 - For notes meant to be kept (design specs, research, docs), write to `$MDNOTES_ROOT/<date>/` — NOT `tmpfile`.
-- Naming convention: `$MDNOTES_ROOT/<date>/tmp/<HHMMSS>.<ms>-<title>`
+- Naming convention: `$MDNOTES_ROOT/<date>/tmp/<HHMMSS>_<ms>-<title>` (underscore between seconds and ms — survives claude's project-id encoding, which rewrites `/` and `.` to `-`)
 - Use the `tmpfile` helper to generate paths:
-  - `tmpfile foo.jpg` → `$MDNOTES_ROOT/2026-03-29/tmp/143052.283-foo.jpg`
+  - `tmpfile foo.jpg` → `$MDNOTES_ROOT/2026-03-29/tmp/143052_283-foo.jpg`
   - Creates the date directory automatically
   - Use in shell expansion: `foocmd -o "$(tmpfile foo.jpg)"`
 
@@ -43,7 +43,7 @@ If writing more than ~15 lines:
   - Easier to tweak and fix
 - Put ad-hoc scripts in the day's tmp dir:
   - Run `tmpfile myscript.py` to get the path, then write your script there
-  - e.g. `tmpfile myscript.py` → `$MDNOTES_ROOT/2026-03-29/tmp/143052.283-myscript.py`
+  - e.g. `tmpfile myscript.py` → `$MDNOTES_ROOT/2026-03-29/tmp/143052_283-myscript.py`
   - To iterate on a variant, copy and edit the original
 - Use uv+python for ad-hoc scripting
   - `uv run --with cloudflare python`

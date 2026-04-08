@@ -133,12 +133,12 @@ Located at `$MDNOTES_ROOT/boss/meta.json`. Flat object keyed by slug, three fiel
 {
   "add-user-authentication": {
     "header": "Add user authentication",
-    "worklog": "2026-04-08/143052.283-add-user-authentication",
+    "worklog": "2026-04-08/143052_283-add-user-authentication",
     "session": "boss-a3f"
   },
   "refactor-config-loader": {
     "header": "Refactor config loader",
-    "worklog": "2026-04-08/091200.450-refactor-config-loader",
+    "worklog": "2026-04-08/091200_450-refactor-config-loader",
     "session": null
   }
 }
@@ -194,7 +194,7 @@ You do NOT need a cron at all when this pattern is in use. The event loop handle
 
 For each open section, look up its slug in `meta.json`:
 
-- **No entry, or `session: null`** → mint a new worklog dir under `$MDNOTES_ROOT/boss/<today>/<HHMMSS.ms>-<slug>/`, spawn a new subagent (see SKILL.md for the spawn commands), and write/update the entry in `meta.json` with fresh `worklog` and `session`.
+- **No entry, or `session: null`** → mint a new worklog dir under `$MDNOTES_ROOT/boss/<today>/<HHMMSS>_<ms>-<slug>/`, spawn a new subagent (see SKILL.md for the spawn commands), and write/update the entry in `meta.json` with fresh `worklog` and `session`.
 - **Entry exists with `session`, but `agentboss status <session> -q` says the window is gone** → the session died. Spawn a fresh one (new agentboss key) pointing at the **same** `worklog` dir. Update only the `session` field in `meta.json`; the new agent reads the existing `worklog.md` and resumes.
 - **Entry exists with a live `session`** → check in (next step).
 
