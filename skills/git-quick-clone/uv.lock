@@ -37,7 +37,7 @@ name = "git-quick-clone"
 version = "0.1.0"
 source = { editable = "." }
 dependencies = [
-    { name = "hayeah" },
+    { name = "hayeah-core" },
     { name = "typer" },
 ]
 
@@ -50,7 +50,7 @@ dev = [
 
 [package.metadata]
 requires-dist = [
-    { name = "hayeah", editable = "../../hayeah" },
+    { name = "hayeah-core", editable = "../../hayeah" },
     { name = "typer" },
 ]
 
@@ -62,7 +62,7 @@ dev = [
 ]
 
 [[package]]
-name = "hayeah"
+name = "hayeah-core"
 version = "0.1.0"
 source = { editable = "../../hayeah" }
 dependencies = [
@@ -71,6 +71,9 @@ dependencies = [
 
 [package.metadata]
 requires-dist = [{ name = "structlog", specifier = ">=24.0" }]
+
+[package.metadata.requires-dev]
+dev = [{ name = "pytest" }]
 
 [[package]]
 name = "iniconfig"
