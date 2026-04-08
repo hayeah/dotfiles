@@ -27,7 +27,7 @@ Spec: $MDNOTES_ROOT/specs/2026-04-08-user-auth.md
 
 - **Top-level sections (`## `)** are features. Sub-headings inside a section are just structure — only the top level maps to a subagent.
 - **One top-level checkbox per section.** Each section has *one* `- [ ]` checkbox that the agent ticks when the whole section is done. Nested plain bullets *under* the checkbox are instructions/breakdown — they are NOT separate todos and should not have boxes. Don't fan a feature out into many sibling checkboxes; that's the spec's job.
-- **The agent writes the spec, not you.** When a section is non-trivial, the *subagent* writes the spec on its first turn (see AGENT_LOOP.md "Writing a spec"). Your job is just to turn the human's brain dump into a sensible section: a clear header, a one-paragraph framing of what they want, and maybe a few clarifying bullets for anything ambiguous. Don't over-spec. The agent will read the section, ask clarifying questions if needed (via `## Questions for boss`), then write its own spec under `$MDNOTES_ROOT/specs/<date>-<slug>.md` and link it from its worklog. You review the spec on the next tick before the agent starts coding.
+- **The agent writes the spec, not you.** When a section is non-trivial, the *subagent* writes the spec on its first turn (see AGENT_LOOP.md "Writing a spec"). Your job is just to turn the human's brain dump into a sensible section: a clear header, a one-paragraph framing of what they want, and maybe a few clarifying bullets for anything ambiguous. Don't over-spec. The agent will read the section, ask clarifying questions if needed (via `## Questions for boss`), then write its own `<section dir>/spec.md` and link it from its worklog. You review the spec on the next tick before the agent starts coding.
 - **Section header prefixed with `[x]`** means the section is done, evidence-verified, and merged. Open sections have no prefix. Skip closed sections.
 - **Worktree mode is the default.** Every section gets its own per-repo worktree at `<repo>/.worktrees/<slug>` on a branch also named `<slug>`. The boss creates it on dispatch with plain `git worktree add` (no pool, no lease file, no slot numbers). If the section text says "edit in main checkout" / "no worktree" / "edit in place", that's the only opt-out — main-repo mode is rare and the agent runs in the main checkout instead. If a feature touches multiple repos, the boss creates the same `.worktrees/<slug>` in each.
 
@@ -40,7 +40,7 @@ The human will paste a rough idea into BOSS.md and expect you to turn it into so
 - **Add clarifying bullets only if something is genuinely ambiguous** in the brain dump. The agent will ask questions in `## Questions for boss` if it needs more — that's the right channel for ambiguity, not a pre-emptive spec from you.
 - **Add the single top-level checkbox**: `- [ ] implement and verify` (or similar). Done.
 
-Then spawn. The agent will write the spec under `$MDNOTES_ROOT/specs/<date>-<slug>.md` on its first turn for anything non-trivial, link it from its worklog, and seed `## Todos` from its own breakdown. You review the spec on the next tick — if it's wrong, redirect via `## Notes from boss`.
+Then spawn. The agent will write `<section dir>/spec.md` on its first turn for anything non-trivial, link it from its worklog, and seed `## Todos` from its own breakdown. You review the spec on the next tick — if it's wrong, redirect via `## Notes from boss`.
 
 ### One subagent per checkout
 
@@ -208,16 +208,23 @@ For each running subagent, look up its meta.json entry by slug:
 
 Then:
 
-- **status: working, agentboss: working** → leave it alone.
+- **status: working, agentboss: working** → leave it alone. **This includes long extended-thinking turns.** Opus 4.6 routinely thinks for 5–10+ minutes mid-task and emits productive output at the end. Don't interrupt thinking. The cost of a wasted think is much smaller than the cost of context-switching the agent off a productive line of reasoning.
 - **status: working, agentboss: idle, log/todos advanced since last tick** → the agent just finished a step and stopped. Pick the next unticked todo from the worklog, append a one-line `## Notes from boss` entry naming it, and nudge: `"re-read your worklog and continue with <next todo>"`. Do not wait for the human.
-- **status: working, agentboss: idle, log/todos unchanged since last tick** → the agent is stuck waiting for a nudge it shouldn't need. Same action: pick the next unticked todo, note it, nudge. If this happens twice in a row on the same todo, escalate to the human (the agent may be confused about what to do).
+- **status: working, agentboss: idle, log/todos unchanged since last tick** → the agent might be stuck. Before nudging, **check the pane**: if the most recent tool calls show real progress (commits, tests passing, edits landing) but the worklog is just stale, the agent is mid-flow — leave it alone, the worklog catches up at the end of the turn. If the pane shows nothing for 15+ minutes (truly silent, not "Contemplating…"), THEN nudge it onto the next concrete todo. **Don't unstall a thinking turn under 15 minutes.** Premature unstall commands break a productive line of reasoning and waste the work the model was about to commit.
 - **status: blocked** → read the `## Questions for boss` section in the work log. Either answer in the work log's `## Notes from boss` section and nudge the agent to re-read, or escalate to the human if you can't answer.
 - **status: done** → verify evidence per "Demanding evidence" below. **If convincing → lgtm yourself** (you hold the pen):
-  1. Tell the agent to commit any remaining changes. Then run lgtm from outside the worktree: `git -C <repo>/.worktrees/<slug> rebase master && git -C <repo> merge --ff-only <slug>`. (This is safe and re-runnable; lgtm does not end the session.)
-  2. Prefix the section header with `[x]` in BOSS.md.
-  3. Tear down: `agentboss kill <session> && git -C <repo> worktree remove .worktrees/<slug> && git -C <repo> branch -d <slug>`. Repeat the worktree teardown in each repo for multi-repo sections.
-  4. Set `meta.json[<slug>].session = null` (keep `header` + `worklog` for history).
-  5. Immediately re-scan BOSS.md for the next dispatchable open section.
+  1. Tell the agent to commit any remaining changes. Then run lgtm from outside the worktree:
+     ```bash
+     git -C <repo>/.worktrees/<slug> rebase master
+     git -C <repo>/.worktrees/<slug> go build ./... && go test ./...   # verify post-rebase build is still green
+     git -C <repo> merge --no-ff <slug> -m "Merge branch '<slug>'"
+     ```
+     `--no-ff` creates a visible merge commit so the integration history is preserved. `--ff-only` is wrong because it loses the merge boundary.
+  2. **Verify the merge actually landed before tearing down.** `git -C <repo> log --oneline -1` should now point at the merge commit. If the merge failed for any reason (dirty tree in main, conflicts, hook reject), STOP — do NOT proceed to teardown. The branch is the only copy of the agent's commits; deleting it on merge failure loses the work. Recovery is `git show <sha>` to confirm the commits are still in the object store, then `git branch <name> <sha>` to recreate the ref.
+  3. Prefix the section header with `[x]` in BOSS.md.
+  4. Tear down (only after merge confirmed): `agentboss kill <session> && git -C <repo> worktree remove .worktrees/<slug> && git -C <repo> branch -D <slug>` (use `-D` because the branch is merged via no-ff so plain `-d` will refuse). Repeat the worktree teardown in each repo for multi-repo sections.
+  5. Set `meta.json[<slug>].session = null` (keep `header` + `worklog` for history).
+  6. Immediately re-scan BOSS.md for the next dispatchable open section.
   
   If evidence is thin, append `## Notes from boss` demanding what's missing, nudge, and re-arm the wait. **Note**: lgtm is safely re-runnable, so you can land partial work mid-section without closing it. Tear-down only happens when the section header gets the `[x]` prefix.
 - **session gone from `agentboss ls` entirely** → the subagent died. Respawn per SKILL.md "Spawning a subagent" pointing at the **same** worklog dir; update only the `session` field in `meta.json`; send the resume briefing. The new agent reads existing `worklog.md` and picks up where the old one left off.

@@ -20,8 +20,8 @@ The boss told you four things:
 - Your **section dir already exists** — the boss minted it for you. You don't need to `mkdir -p` it.
 - Read `<section dir>/worklog.md`:
   - If it doesn't exist yet, create it with the template (see WORKLOG.example.md) and set `status: working`.
-  - If it exists (you're resuming a previous agent's work), read the whole thing — it is your memory of what was already done, decided, and tried. Also `ls <section dir>` to see what artifacts the previous agent produced. If a spec already exists at `$MDNOTES_ROOT/specs/<date>-<slug>.md`, read that too.
-- **For non-trivial work, write the spec FIRST.** See "Writing a spec" below. Save it under `$MDNOTES_ROOT/specs/<date>-<slug>.md`, link it from your worklog (`Spec: <path>` in the frontmatter or under `## Status`).
+  - If it exists (you're resuming a previous agent's work), read the whole thing — it is your memory of what was already done, decided, and tried. Also `ls <section dir>` to see what artifacts the previous agent produced. If a spec already exists at `<section dir>/spec.md`, read that too.
+- **For non-trivial work, write the spec FIRST.** See "Writing a spec" below. Save it as `<section dir>/spec.md` (alongside your worklog) and link it from the worklog frontmatter as `spec: spec.md`. The spec lives with the section, not in a separate top-level dir.
 - **Seed your `## Todos` list** from the spec (or from the section bullets if no spec). 5-15 concrete steps. The boss-doc top-level checkbox is the user-facing milestone; your worklog `## Todos` is your finer-grained working list.
 - Then start working on the first unfinished todo.
 
@@ -33,7 +33,7 @@ When to skip the spec: single-file changes, well-defined CLI commands, small fix
 
 When to write a spec: anything else.
 
-Spec contents (save to `$MDNOTES_ROOT/specs/<date>-<slug>.md`):
+Spec contents (save as `<section dir>/spec.md` next to your worklog):
 
 - **Goal** — one paragraph: what changes, why, what's out of scope. In your own words after reading the section.
 - **Architecture** — file paths to touch, types/functions/commands to add, integration points. Be concrete; don't punt to "TBD".

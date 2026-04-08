@@ -199,21 +199,27 @@ Look up the section in `meta.json` by slug to get its `session` and `worklog` fi
 The boss decides lgtm itself (the human is not in the loop — see BOSS_LOOP.md). When evidence is convincing:
 
 ```bash
-# 1. lgtm (rebase + ff-merge — non-destructive, re-runnable)
+# 1. lgtm: rebase, verify build, merge with --no-ff so the merge boundary is visible
 git -C "$REPO/.worktrees/$SLUG" rebase master
-git -C "$REPO" merge --ff-only "$SLUG"
+( cd "$REPO/.worktrees/$SLUG" && go build ./... && go test ./... )   # post-rebase verification
+git -C "$REPO" merge --no-ff "$SLUG" -m "Merge branch '$SLUG'"
 
-# 2. Prefix [x] in BOSS.md (triggers tear-down)
+# 2. VERIFY merge actually landed before any teardown — never chain past a failure
+git -C "$REPO" log --oneline -1   # should show the merge commit
+
+# 3. Prefix [x] in BOSS.md (triggers tear-down)
 # (edit the section header)
 
-# 3. Tear down (only after [x] prefix — lgtm alone does NOT close the section)
+# 4. Tear down — only after merge confirmed
 agentboss kill "$SESSION_KEY"
 git -C "$REPO" worktree remove ".worktrees/$SLUG"
-git -C "$REPO" branch -d "$SLUG"     # use -D if "not fully merged" — branch IS merged via ff
-# For multi-repo sections, repeat worktree remove + branch -d in each repo
+git -C "$REPO" branch -D "$SLUG"     # -D not -d: with --no-ff plain -d may refuse
+# For multi-repo sections, repeat worktree remove + branch -D in each repo
 
-# 4. Clear meta.json[<slug>].session to null (keep header + worklog for history)
+# 5. Clear meta.json[<slug>].session to null (keep header + worklog for history)
 ```
+
+**Recovery from a botched teardown:** if you delete a branch before confirming the merge, the commits live for ~2 weeks in the object store. `git show <sha>` confirms they're there; `git branch <name> <sha>` recreates the ref.
 
 Leave the worklog dir under `$MDNOTES_ROOT/boss/<worklog>/` in place — it's the section's frozen history.
 
