@@ -7,3 +7,5 @@ node_modules/
 .dmux/
 output/
 dotfiles/.config/devport/devport.toml
+.vite/
+BOSS.md

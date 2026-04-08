@@ -27,3 +27,24 @@ trust_level = "trusted"
 
 [projects."/Users/me/github.com/hayeah/vision-manga-reader"]
 trust_level = "trusted"
+
+[projects."/Users/me/magicpath/epub-reader-orange"]
+trust_level = "trusted"
+
+[projects."/Users/me/github.com/hayeah/epubdown"]
+trust_level = "trusted"
+
+[projects."/Users/me/github.com/hayeah/manga"]
+trust_level = "trusted"
+
+[projects."/Users/me/github.com/hayeah/iosfun"]
+trust_level = "trusted"
+
+[projects."/Users/me/github.com/hayeah/go-lstree"]
+trust_level = "trusted"
+
+[projects."/Users/me/Dropbox/notes/2026-04-08/tmp/144454.710-codex-watcher-smoke"]
+trust_level = "trusted"
+
+[plugins."github@openai-curated"]
+enabled = true
