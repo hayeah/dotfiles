@@ -18,6 +18,26 @@ cwd: .worktrees/001
 ## Status
 implementing the /login endpoint — schema and signup are in, working on session token generation now
 
+## Todos
+<!-- Finer-grained than the boss-doc checkboxes. Tick off as you go.
+     The boss-doc top-level checkboxes are user-facing milestones;
+     this list is your internal driver. Add new items as you discover them. -->
+
+- [x] design users + sessions schema (UUIDs per the section's nested note)
+- [x] write the migration
+- [x] add a unit test for the schema
+- [x] wire up POST /signup
+- [x] add test for /signup happy path
+- [ ] generate session tokens (HMAC over user_id + iat + nonce)
+- [ ] wire up POST /login
+- [ ] add test for /login happy path
+- [ ] add tests for bad password + missing user
+- [ ] confirm session cookie is HttpOnly + Secure (per boss notes)
+- [ ] tick off all four boss-doc checkboxes once implementation is in
+
+### Blocked
+- (none)
+
 ## Log
 - 14:01 read section, starting on schema design
 - 14:05 wrote migration for users + sessions tables, used UUIDs per the section's nested note
@@ -31,6 +51,7 @@ implementing the /login endpoint — schema and signup are in, working on sessio
 - (none right now)
 
 ## Notes from boss
+<!-- (none yet — boss appends timestamped lines here when it has new instructions; you re-read on every turn) -->
 - 14:18 the schema should use UUIDs not ints — confirmed, already done
 - 14:32 for /login add a test that asserts the session cookie is HttpOnly + Secure
 
