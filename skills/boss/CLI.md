@@ -28,50 +28,53 @@ Everything else in the workflow is already a one-liner against agentboss, `jq`, 
 ## The single command: `boss spawn`
 
 ```
-boss spawn <section-header> [--base <ref>] [--from <boss-doc>] [--project <dir>]
+boss spawn <section-header> [--worktree [<base>]] [--from <boss-doc>] [--project <dir>]
 ```
 
 Arguments:
 
 - `<section-header>` — the exact text of the `## ` header in the boss doc, e.g. `"Add user authentication"`. Used to derive the slug and to find the section in the boss doc.
-- `--base <ref>` — base ref for the worktree branch. Default: `origin/master`.
+- `--worktree [<base>]` — opt into worktree mode. Without a value, uses `origin/master` as the base. With a value, branches from that ref. **Absent → main-repo mode** (default): the agent runs in the project repo on the current branch, no `git-worktree open`.
 - `--from <boss-doc>` — path to BOSS.md. Default: `./BOSS.md`.
-- `--project <dir>` — main repo dir (where `.worktrees/` lives). Default: cwd. The worktree is leased relative to this dir.
+- `--project <dir>` — main repo dir. Default: cwd. In worktree mode, `.worktrees/` is leased relative to this dir; in main-repo mode, this is the agent's cwd.
+
+The boss Claude session decides whether to pass `--worktree` based on reading the section text. There is no in-doc directive — natural language only.
 
 What it does, in order:
 
-- Resolve the project dir, boss doc path, and base ref.
+- Resolve the project dir and boss doc path. Determine mode: `worktree` if `--worktree` was passed, else `main-repo`.
 - Compute `slug = kebab(strip_checkbox(section_header))`. Reject if no matching `## ` header in the boss doc.
 - Read `$MDNOTES_ROOT/boss/meta.json`. **Reject** if the slug already has an entry with a non-null `session` (the section is already running). Caller has to clear it first.
+- **Main-repo mode only**: refuse if any other meta.json entry with a live `session` is also in main-repo mode. (Detect by checking the agentboss cwd of each live session — if it equals the project dir, it's main-repo.) Two main-repo subagents would clobber each other.
 - Compute `prefix = HHMMSS.ms`, `date = YYYY-MM-DD`. The section dir is `$MDNOTES_ROOT/boss/$date/$prefix-$slug`.
 - `mkdir -p` the section dir.
-- Lease a worktree: `git-worktree open "$slug" --base "$base"` (in the background, capture printed worktree path).
-- Spawn the agent: `agentboss run --bg --detector claude --cwd "$worktree" -- claude --dangerously-skip-permissions`. Parse the JSON; capture `key` (the auto-generated `boss-XXX`).
+- **Worktree mode**: lease a worktree with `git-worktree open "$slug" --base "$base"` (background, capture printed worktree path). `AGENT_CWD = <worktree path>`. **Main-repo mode**: `AGENT_CWD = <project dir>`.
+- Spawn the agent: `agentboss run --bg --detector claude --cwd "$AGENT_CWD" -- claude --dangerously-skip-permissions`. Parse the JSON; capture `key` (the auto-generated `boss-XXX`).
 - Send the briefing prompt via `agentboss send "$key" "..."` — points the agent at AGENT_LOOP.md, the section dir, the worklog path, and the section header.
 - Read-modify-write `$MDNOTES_ROOT/boss/meta.json`: add or replace the slug's entry with:
   ```json
   {
     "<slug>": {
       "header": "<original header text>",
-      "dir": "<date>/<prefix>-<slug>",
-      "worktree": "<worktree path, relative to project dir>",
-      "session": "<agentboss key>",
-      "spawned_at": "<ISO timestamp>"
+      "worklog": "<date>/<prefix>-<slug>",
+      "session": "<agentboss key>"
     }
   }
   ```
-  Use a tempfile + atomic rename so a crash mid-write doesn't corrupt the file.
+  Three fields, no more. Worktree is derivable from `git-worktree list` (branch == slug); spawned-at and cwd are in agentboss. Use a tempfile + atomic rename so a crash mid-write doesn't corrupt the file.
 - Print a single JSON line to stdout summarizing what was done:
   ```json
   {
     "slug": "add-user-authentication",
-    "dir": "2026-04-08/143052.283-add-user-authentication",
-    "section_dir": "/Users/me/Dropbox/notes/boss/2026-04-08/143052.283-add-user-authentication",
-    "worktree": ".worktrees/001",
+    "mode": "worktree",
+    "worklog": "2026-04-08/143052.283-add-user-authentication",
+    "worklog_path": "/Users/me/Dropbox/notes/boss/2026-04-08/143052.283-add-user-authentication",
+    "cwd": ".worktrees/001",
     "session": "boss-a3f",
     "tmux_target": "__agent:boss-a3f"
   }
   ```
+  (`mode` is `worktree` or `main-repo`. `cwd` is the worktree path or the project dir. The stdout JSON includes derived fields for caller convenience; the meta.json on disk does not.)
 
 That's all `boss spawn` does. No other subcommands.
 

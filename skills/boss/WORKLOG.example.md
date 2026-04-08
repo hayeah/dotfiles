@@ -9,10 +9,10 @@ Sibling artifacts (screenshots, transcripts, scratch files) live in the same dir
     schema.sql
 -->
 ---
-status: working   # working | blocked | done
+status: working          # working | blocked | done
 section: Add user authentication
-worktree: .worktrees/001
-dir: 2026-04-08/143052.283-add-user-authentication
+mode: worktree           # main-repo | worktree
+cwd: .worktrees/001
 ---
 
 ## Status

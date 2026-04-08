@@ -4,9 +4,11 @@ This is a sample boss doc. Copy it to your project as `BOSS.md` and write your o
 
 Top-level `##` sections are features. Each gets a worktree and a subagent. Top-level `- [ ]` checkboxes are todos the boss tracks. Nested bullets are notes — do not mark them. When the human lgtms a section, the header gets prefixed with `[x]`.
 
-All per-section state (worktree, agentboss session key, section dir) lives in `$MDNOTES_ROOT/boss/meta.json`, keyed by section slug. Section headers must be unique by slug.
+All per-section state lives in `$MDNOTES_ROOT/boss/meta.json`, keyed by section slug. Section headers must be unique by slug. The meta entries are minimal — `header`, `worklog` (path to the notes dir), `session` (agentboss key) — everything else is derivable from agentboss + git-worktree.
 
 ## Add user authentication
+
+This is a chunky feature that touches a lot of files — please use a worktree off origin/master so it's isolated from other in-flight work.
 
 - [ ] design user + session schema
   - prefer UUIDs over auto-increment ints
@@ -17,6 +19,8 @@ All per-section state (worktree, agentboss session key, section dir) lives in `$
   - cover bad password, missing user
 
 ## Wire up password reset email
+
+(No worktree needed — small change, run in the main checkout.)
 
 - [ ] add reset token table
 - [ ] send email via Resend (see resend skill)
@@ -36,26 +40,22 @@ Corresponding `$MDNOTES_ROOT/boss/meta.json` after the boss has spawned subagent
 {
   "add-user-authentication": {
     "header": "Add user authentication",
-    "dir": "2026-04-08/143052.283-add-user-authentication",
-    "worktree": ".worktrees/001",
-    "session": "boss-a3f",
-    "spawned_at": "2026-04-08T14:30:52.283Z"
+    "worklog": "2026-04-08/143052.283-add-user-authentication",
+    "session": "boss-a3f"
   },
   "wire-up-password-reset-email": {
     "header": "Wire up password reset email",
-    "dir": "2026-04-08/144130.871-wire-up-password-reset-email",
-    "worktree": ".worktrees/002",
-    "session": "boss-c14",
-    "spawned_at": "2026-04-08T14:41:30.871Z"
+    "worklog": "2026-04-08/144130.871-wire-up-password-reset-email",
+    "session": "boss-c14"
   },
   "refactor-config-loader": {
     "header": "Refactor config loader",
-    "dir": "2026-04-08/091200.450-refactor-config-loader",
-    "worktree": ".worktrees/003",
-    "session": null,
-    "spawned_at": "2026-04-08T09:12:00.450Z"
+    "worklog": "2026-04-08/091200.450-refactor-config-loader",
+    "session": null
   }
 }
 ```
 
-Note that the closed section's `session` is `null` (the agentboss session is gone after `lgtm`), but the entry stays in `meta.json` so the section dir at `2026-04-08/091200.450-refactor-config-loader/` remains discoverable as history.
+The closed section's `session` is `null` (the agentboss session is gone after `lgtm`), but the entry stays in `meta.json` so the worklog dir at `2026-04-08/091200.450-refactor-config-loader/` remains discoverable as history.
+
+To find the worktree for an open section, query `git-worktree list --json` for the entry whose branch matches the slug — the branch name and the slug are the same by convention.

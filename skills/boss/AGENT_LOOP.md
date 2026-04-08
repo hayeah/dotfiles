@@ -4,15 +4,17 @@ You were spawned by a **boss** Claude session to work on one section of a boss d
 
 ## What you got on spawn
 
-The boss told you three things:
+The boss told you four things:
 
 - The path to **this file** (read it once, then refer back as needed).
-- The path to your **section dir** under `$MDNOTES_ROOT/boss/<date>/<HHMMSS.ms>-<slug>/`. Your work log is `<section dir>/worklog.md`. Any artifacts you produce — screenshots, transcripts, scratch files — go in this same dir, not in your worktree.
+- Your **mode**: either `MAIN-REPO` (you're running directly in the project repo on the current branch — no isolation) or `WORKTREE` (you're running in a leased `.worktrees/NNN` on a fresh branch). This affects how lgtm works (see "On lgtm" below).
+- The path to your **section dir** under `$MDNOTES_ROOT/boss/<date>/<HHMMSS.ms>-<slug>/`. Your work log is `<section dir>/worklog.md`. Any artifacts you produce — screenshots, transcripts, scratch files — go in this same dir, not in your cwd.
 - The **section** in the boss doc you are responsible for, and the path to the boss doc.
 
 ## First turn
 
-- `pwd` — confirm you're in your worktree (something like `.worktrees/001`).
+- `pwd` — confirm you're where the boss said. In WORKTREE mode this is `.worktrees/NNN`; in MAIN-REPO mode it's the project repo.
+- In MAIN-REPO mode, also `git status` and `git branch --show-current` so you know what branch you're working on and whether the tree is clean.
 - Read the boss doc and locate your section. Read the section in full, including all bullets.
 - Read `<section dir>/worklog.md`:
   - If it doesn't exist yet, create it with the template (see WORKLOG.example.md) and set `status: working`.
@@ -27,7 +29,7 @@ This file is **the** communication channel. The boss reads it to know what you'r
 
 See **WORKLOG.example.md** in this skill directory for a fully-worked example. The required sections in order:
 
-- YAML frontmatter: `status`, `section`, `worktree`, `dir` (your section dir)
+- YAML frontmatter: `status`, `section`, `mode` (`main-repo` or `worktree`), `cwd`
 - `## Status` — one-liner, what you are doing right now
 - `## Log` — timestamped append-only history; `#friction` tags inline
 - `## Questions for boss` — empty when you have none
@@ -88,7 +90,8 @@ If your project doesn't have a harness that can produce real e2e evidence (no in
 
 When the boss tells you the human lgtm'd:
 
+- Write a final entry in `## Log` and make sure `status: done`.
 - Make sure all changes are committed.
-- Push if the boss tells you to.
-- From inside your worktree, run `git-worktree lgtm`. This rebases, fast-forward merges, deletes the branch, and kills your lease — which will also end your Claude session.
-- Before running `lgtm`, write a final entry in `## Log` and set `status: done` if not already.
+- Push only if the boss explicitly tells you to. Never push on your own.
+- **WORKTREE mode**: from inside your worktree, run `git-worktree lgtm`. This rebases, fast-forward merges, deletes the branch, and kills your lease — which also ends your Claude session.
+- **MAIN-REPO mode**: there is nothing to merge. The work is already on the current branch. Just stop. The boss will close out your agentboss session.

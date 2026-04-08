@@ -27,6 +27,16 @@ A markdown file (default `BOSS.md` in cwd) with top-level sections. **No frontma
 - **Top-level checkboxes (`- [ ]` / `- [x]`)** are todo items the boss tracks. Nested bullets are notes/details — do NOT mark them.
 - **Section header prefixed with `[x]`** (e.g. `## [x] Refactor config loader`) means the section is done and verified by the human. Open sections have no prefix (or `[ ]` if you prefer to be explicit). Skip closed sections — never spawn a subagent for one.
 - The human may add new bullets to an existing (open) section at any time. Re-read the section on each tick and notice additions.
+- **Worktree is opt-in.** By default the subagent runs directly in the **main checkout** of the project repo on the current branch (no isolation). If the section text mentions wanting a worktree — phrases like "use a worktree", "in a worktree", "isolate in a worktree", "branch off origin/master" — lease one via `git-worktree open` and run the agent there. Use your judgment from the section text. When in doubt, do not use a worktree.
+
+### One subagent per checkout
+
+The rule is uniform: **at most one live subagent per checkout**. The main checkout is one of those checkouts; each leased worktree is another.
+
+- **Main-repo mode (default)**: cwd is the main checkout of the project repo. Only one main-repo subagent can be live at a time — if one is already running, refuse to spawn another (they would clobber each other on the same files).
+- **Worktree mode (opt-in)**: cwd is a freshly leased `.worktrees/NNN` on a branch named after the slug. Multiple worktree-mode sections run in parallel freely — each has its own checkout.
+
+In both modes, the worklog dir under `$MDNOTES_ROOT/boss/<worklog>/` exists and works the same way. The mode only affects where the agent's edits and commits happen, and how lgtm closes the section.
 
 ### Section identity: slug
 
@@ -45,23 +55,19 @@ Slug rules: strip leading `## `, strip leading `[x]` / `[ ]`, trim, lowercase, r
 
 ### meta.json
 
-Located at `$MDNOTES_ROOT/boss/meta.json`. Flat object keyed by slug:
+Located at `$MDNOTES_ROOT/boss/meta.json`. Flat object keyed by slug, three fields per entry:
 
 ```json
 {
   "add-user-authentication": {
     "header": "Add user authentication",
-    "dir": "2026-04-08/143052.283-add-user-authentication",
-    "worktree": ".worktrees/001",
-    "session": "boss-a3f",
-    "spawned_at": "2026-04-08T14:30:52.283Z"
+    "worklog": "2026-04-08/143052.283-add-user-authentication",
+    "session": "boss-a3f"
   },
   "refactor-config-loader": {
     "header": "Refactor config loader",
-    "dir": "2026-04-08/091200.450-refactor-config-loader",
-    "worktree": ".worktrees/002",
-    "session": "boss-7c2",
-    "spawned_at": "2026-04-08T09:12:00.450Z"
+    "worklog": "2026-04-08/091200.450-refactor-config-loader",
+    "session": null
   }
 }
 ```
@@ -69,10 +75,16 @@ Located at `$MDNOTES_ROOT/boss/meta.json`. Flat object keyed by slug:
 Fields:
 
 - `header` — original section header text (kept for human readability when reading the JSON).
-- `dir` — section dir, **relative to `$MDNOTES_ROOT/boss/`**. The full path is `$MDNOTES_ROOT/boss/<dir>`. The worklog is `$MDNOTES_ROOT/boss/<dir>/worklog.md`. Artifacts (screenshots, transcripts) live in the same dir.
-- `worktree` — git worktree path, relative to the project repo root.
-- `session` — the **agentboss-generated key** (e.g. `boss-a3f`). Don't invent your own — pass `--bg` to `agentboss run` without `--key` and capture the `key` field from the JSON it prints.
-- `spawned_at` — ISO timestamp.
+- `worklog` — path to the section's notes dir, **relative to `$MDNOTES_ROOT/boss/`**. The full path is `$MDNOTES_ROOT/boss/<worklog>`. The worklog file is `$MDNOTES_ROOT/boss/<worklog>/worklog.md`. Artifacts (screenshots, transcripts) live in the same dir.
+- `session` — the **agentboss-generated key** (e.g. `boss-a3f`), or `null` after the section is closed. Don't invent your own — pass `--bg` to `agentboss run` without `--key` and capture the `key` field from the JSON it prints.
+
+That's it. Everything else is derivable:
+
+- **Worktree path** → `git-worktree list --json` and find the entry whose `branch` matches the slug. (Convention: the worktree branch name IS the slug — `git-worktree open "$slug"` is how spawn does it. This is load-bearing.)
+- **Tmux target** → `__agent:<session>` by agentboss convention.
+- **Worklog file** → `$MDNOTES_ROOT/boss/<worklog>/worklog.md`.
+- **Artifacts** → `ls $MDNOTES_ROOT/boss/<worklog>/`.
+- **Cwd, command, spawned-at, short_id** → ask agentboss.
 
 Read-modify-write with care: when adding a new section's entry, preserve existing entries. Don't blow the file away. The boss CLI (see CLI.md) will eventually do this safely; until then, do it by hand carefully via `jq` or by reading + editing the file.
 
@@ -93,15 +105,15 @@ On each tick:
 
 For each open section, look up its slug in `meta.json`:
 
-- **No entry yet** → mint a new section dir under `$MDNOTES_ROOT/boss/<today>/<HHMMSS.ms>-<slug>/`, spawn a new subagent (see SKILL.md for the spawn commands), and write the entry into `meta.json`.
-- **Entry exists, `agentboss status <session> -q` says the window is gone** → the session died. Spawn a fresh one (new agentboss key, same `dir`). Update `session` and `worktree` in `meta.json`; the new agent reads the existing `worklog.md` from the same `dir` and resumes.
-- **Entry exists, session is live** → check in (next step).
+- **No entry, or `session: null`** → mint a new worklog dir under `$MDNOTES_ROOT/boss/<today>/<HHMMSS.ms>-<slug>/`, spawn a new subagent (see SKILL.md for the spawn commands), and write/update the entry in `meta.json` with fresh `worklog` and `session`.
+- **Entry exists with `session`, but `agentboss status <session> -q` says the window is gone** → the session died. Spawn a fresh one (new agentboss key) pointing at the **same** `worklog` dir. Update only the `session` field in `meta.json`; the new agent reads the existing `worklog.md` and resumes.
+- **Entry exists with a live `session`** → check in (next step).
 
 ### Check in
 
 For each running subagent, look up its meta.json entry by slug:
 
-- Read its work log: `cat $MDNOTES_ROOT/boss/<dir>/worklog.md`.
+- Read its work log: `cat $MDNOTES_ROOT/boss/<worklog>/worklog.md`.
 - Note its `status:` field (`working` / `blocked` / `done`).
 - Check `agentboss status <session> -q` to confirm it's actually idle vs. mid-turn.
 
@@ -132,8 +144,8 @@ When the human lgtms a section:
 - Tell the subagent: `"commit your changes, push if needed, then run git-worktree lgtm from your worktree"`.
 - Wait for the subagent to finish. Confirm the worktree is gone (`git-worktree list`).
 - Prefix the section header with `[x]` in the boss doc (e.g. `## Add user authentication` → `## [x] Add user authentication`).
-- Leave the `meta.json` entry in place (it's history) but clear the `session` field — the agentboss key is no longer valid. The `dir` is preserved so anyone reading meta.json later can find the section's frozen record.
-- Leave the section dir at `$MDNOTES_ROOT/boss/<dir>/` in place. It's the section's frozen record.
+- Set `meta.json[<slug>].session = null`. Leave `header` and `worklog` in place — they still point at the frozen history.
+- Leave the worklog dir at `$MDNOTES_ROOT/boss/<worklog>/` in place. It's the section's frozen record.
 
 ## Demanding evidence
 

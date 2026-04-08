@@ -56,21 +56,33 @@ Each section gets its own timestamped directory under today's date — same shap
 
 The path `<date>/<HHMMSS.ms>-<slug>` is the section's section dir. `<slug>` is a kebab-case slug derived from the section header (strip `## `, strip `[x]` / `[ ]`, lowercase, non-alphanumerics → `-`). Generate the timestamp with the `tmpfile` helper or inline (`date +%Y-%m-%d` and `date +%H%M%S.%3N`).
 
-`meta.json` is the **single source of truth** for per-section state. It's a flat object keyed by section slug:
+`meta.json` is the **note-keeping ledger**. It's deliberately minimal — only what agentboss and git-worktree don't already know. Flat object keyed by section slug:
 
 ```json
 {
   "add-user-authentication": {
     "header": "Add user authentication",
-    "dir": "2026-04-08/143052.283-add-user-authentication",
-    "worktree": ".worktrees/001",
-    "session": "boss-a3f",
-    "spawned_at": "2026-04-08T14:30:52.283Z"
+    "worklog": "2026-04-08/143052.283-add-user-authentication",
+    "session": "boss-a3f"
   }
 }
 ```
 
-The boss doc itself stays clean — just headers and `[ ]` todos. All metadata lives in `meta.json`. The slug is the join key between the boss doc, the section dir, and the meta entry.
+Three fields:
+
+- `header` — original section header text (for human readability when reading the JSON).
+- `worklog` — path to the section dir (containing `worklog.md` and any artifacts), relative to `$MDNOTES_ROOT/boss/`.
+- `session` — the agentboss-generated key (e.g. `boss-a3f`).
+
+Everything else is derivable:
+
+- **Worktree** → `git-worktree list --json` (find the entry whose `branch` matches the slug).
+- **Tmux target** → `__agent:<session>` by agentboss convention.
+- **Worklog file** → `$MDNOTES_ROOT/boss/<worklog>/worklog.md`.
+- **Artifacts** → `ls $MDNOTES_ROOT/boss/<worklog>/`.
+- **Spawned-at, cwd, command** → `agentboss` knows.
+
+The boss doc itself stays clean — just headers and `[ ]` todos. All persistent state lives in `meta.json`. The slug is the join key between the boss doc, the worklog dir, the worktree (by branch name), and the agentboss session.
 
 ### Slug rules
 
@@ -92,11 +104,11 @@ Create the section dir on spawn: `mkdir -p "$MDNOTES_ROOT/boss/<date>/<prefix>-<
 
 ## Spawning a subagent
 
-Subagents run as Claude Code sessions inside tmux windows managed by [agentboss](https://github.com/hayeah/agentboss), in their own git worktrees managed by the `git-worktree` skill.
+Subagents run as Claude Code sessions inside tmux windows managed by [agentboss](https://github.com/hayeah/agentboss). By default they run **directly in the project repo** on the current branch. If the section text indicates the work should be isolated (e.g. "use a worktree", "in a worktree", "branch off origin/master"), lease a git worktree via the `git-worktree` skill and run the agent there instead. See BOSS_LOOP.md "Worktree mode vs. main-repo mode".
 
 ### Steps
 
-Mint the section dir and remember its path. The relative form (`<date>/<prefix>-<slug>`) is what gets recorded in BOSS.md as the section's `dir:` line.
+Mint the worklog dir and remember its path. The relative form (`<date>/<prefix>-<slug>`) is what gets recorded in `meta.json` as the section's `worklog` field.
 
 ```bash
 DATE=$(date +%Y-%m-%d)
@@ -107,20 +119,27 @@ SECTION_DIR="$MDNOTES_ROOT/boss/$SECTION_DIR_REL"
 mkdir -p "$SECTION_DIR"
 ```
 
-Lease a worktree (background — `open` blocks):
+Decide the agent's cwd. **Default**: the project repo. **If the section asked for a worktree**: lease one (background — `open` blocks):
 
 ```bash
-cd <main repo>
+# Default — main-repo mode
+AGENT_CWD=<project repo>
+
+# OR — worktree mode (only if the section asked for it)
+cd <project repo>
 git-worktree open "$SLUG" --base origin/master &
 # capture the printed worktree path, e.g. .worktrees/001
+AGENT_CWD=<worktree path>
 ```
 
-Spawn the Claude session in that worktree. **Do not pass `--key`** — let agentboss auto-generate one. Capture the JSON it prints:
+In main-repo mode, **first check that no other section is already running in main-repo mode**. Two subagents editing the same files at once will clobber each other. If one is already live, refuse and tell the human.
+
+Spawn the Claude session at `$AGENT_CWD`. **Do not pass `--key`** — let agentboss auto-generate one. Capture the JSON it prints:
 
 ```bash
 SPAWN_JSON=$(agentboss run --bg \
   --detector claude \
-  --cwd <worktree path> \
+  --cwd "$AGENT_CWD" \
   -- claude --dangerously-skip-permissions)
 
 # Extract the auto-generated key (looks like "boss-a3f")
@@ -133,28 +152,31 @@ SESSION_KEY=$(echo "$SPAWN_JSON" | jq -r .key)
 {
   "add-user-authentication": {
     "header": "Add user authentication",
-    "dir": "2026-04-08/143052.283-add-user-authentication",
-    "worktree": ".worktrees/001",
-    "session": "boss-a3f",
-    "spawned_at": "2026-04-08T14:30:52.283Z"
+    "worklog": "2026-04-08/143052.283-add-user-authentication",
+    "session": "boss-a3f"
   }
 }
 ```
 
-Send the initial briefing — use `$SESSION_KEY`, point the subagent at `AGENT_LOOP.md`, its section dir, and the section it's working on:
+Send the initial briefing. Tell the subagent which mode it's in so it knows whether to expect a worktree and how to handle lgtm later:
 
 ```bash
-agentboss send "$SESSION_KEY" "Read ~/github.com/hayeah/dotfiles/skills/boss/AGENT_LOOP.md. Your section dir is $SECTION_DIR. Your work log is at \$SECTION_DIR/worklog.md. Your section in the boss doc is '<section header>' at <boss doc path>. Create worklog.md if it doesn't exist, then begin."
+# In main-repo mode — say so explicitly
+agentboss send "$SESSION_KEY" "Read ~/github.com/hayeah/dotfiles/skills/boss/AGENT_LOOP.md. You are running in MAIN-REPO mode (no worktree). Your section dir is $SECTION_DIR. Your work log is at \$SECTION_DIR/worklog.md. Your section in the boss doc is '<section header>' at <boss doc path>. Create worklog.md if it doesn't exist, then begin."
+
+# In worktree mode
+agentboss send "$SESSION_KEY" "Read ~/github.com/hayeah/dotfiles/skills/boss/AGENT_LOOP.md. You are running in WORKTREE mode at $AGENT_CWD. Your section dir is $SECTION_DIR. Your work log is at \$SECTION_DIR/worklog.md. Your section in the boss doc is '<section header>' at <boss doc path>. Create worklog.md if it doesn't exist, then begin."
 ```
 
 ### Talking to a running subagent
 
-Look up the session in `meta.json` by slug, then use the `session` value (the agentboss-generated key) for all of these:
+Look up the section in `meta.json` by slug to get its `session` and `worklog` fields. Then:
 
 - **Inspect state**: `agentboss status <session> -q` — returns `idle` / `working` / `waiting` / `unknown`.
 - **Read pane**: `agentboss output <session> -n 80` — last 80 lines of terminal.
-- **Read work log**: `cat $MDNOTES_ROOT/boss/<dir>/worklog.md` — the durable channel.
-- **List artifacts**: `ls $MDNOTES_ROOT/boss/<dir>/` — see screenshots, transcripts, etc. the agent has produced.
+- **Read work log**: `cat $MDNOTES_ROOT/boss/<worklog>/worklog.md` — the durable channel.
+- **List artifacts**: `ls $MDNOTES_ROOT/boss/<worklog>/` — see screenshots, transcripts, etc.
+- **Find the worktree**: `git-worktree list --json | jq '.[] | select(.branch=="<slug>")'`. The branch name is the slug by convention.
 - **Send a nudge**: `agentboss send <session> "<message>"` — typically just "re-read your worklog and continue".
 - **Attach interactively**: `agentboss attach <session>` — for the human to take over.
 
@@ -163,9 +185,10 @@ Look up the session in `meta.json` by slug, then use the `session` value (the ag
 When the human says lgtm on a section:
 
 - Mark the section header in the boss doc as done by prefixing it with `[x]` (e.g. `## [x] Add user authentication`).
-- Tell the subagent to commit, then run `git-worktree lgtm` from inside the worktree.
-  - `lgtm` rebases, fast-forward merges, deletes the branch, and kills the lease holder.
-- Leave the section dir under `$MDNOTES_ROOT/boss/<date>/<prefix>-<slug>/` in place — it's the section's frozen history.
+- **Worktree mode**: tell the subagent to commit, then run `git-worktree lgtm` from inside the worktree. `lgtm` rebases, fast-forward merges, deletes the branch, and kills the lease holder (which ends the Claude session).
+- **Main-repo mode**: tell the subagent to commit on the current branch and stop. There's nothing to merge — the work is already on the branch. The subagent quits its session after the final log entry; the boss kills the agentboss window via `agentboss` if the subagent doesn't.
+- Leave the worklog dir under `$MDNOTES_ROOT/boss/<worklog>/` in place — it's the section's frozen history.
+- Clear the `session` field in the meta.json entry to `null` (the agentboss key is gone). Keep `header` and `worklog` so the entry still points at the frozen history.
 
 ## What the boss does, what the subagent does
 
