@@ -16,7 +16,6 @@ This is an MVP. Expect rough edges. When you hit them, append a note to the fric
 - **AGENT_LOOP.md** — instructions injected into each subagent on spawn
 - **BOSS.example.md** — example boss doc showing the format
 - **WORKLOG.example.md** — example subagent work log showing the required sections
-- **CLI.md** — design notes for the eventual `boss spawn` command (not yet implemented; until then, the spawn dance is inlined in BOSS_LOOP.md)
 
 ## When to use this skill
 
@@ -56,7 +55,7 @@ Each section gets its own timestamped directory under today's date — same shap
 
 The path `<date>/<HHMMSS.ms>-<slug>` is the section's section dir. `<slug>` is a kebab-case slug derived from the section header (strip `## `, strip `[x]` / `[ ]`, lowercase, non-alphanumerics → `-`). Generate the timestamp with the `tmpfile` helper or inline (`date +%Y-%m-%d` and `date +%H%M%S.%3N`).
 
-`meta.json` is the **note-keeping ledger**. It's deliberately minimal — only what agentboss and git-worktree don't already know. Flat object keyed by section slug:
+`meta.json` is the **note-keeping ledger**. It's deliberately minimal — only what isn't derivable from the slug + agentboss. Flat object keyed by section slug:
 
 ```json
 {
@@ -76,7 +75,7 @@ Three fields:
 
 Everything else is derivable:
 
-- **Worktree** → `git-worktree list --json` (find the entry whose `branch` matches the slug).
+- **Worktree path** → `<repo>/.worktrees/<slug>` (the slug IS the dir name; the slug IS the branch name).
 - **Tmux target** → `__agent:<session>` by agentboss convention.
 - **Worklog file** → `$MDNOTES_ROOT/boss/<worklog>/worklog.md`.
 - **Artifacts** → `ls $MDNOTES_ROOT/boss/<worklog>/`.
@@ -104,49 +103,64 @@ Create the section dir on spawn: `mkdir -p "$MDNOTES_ROOT/boss/<date>/<prefix>-<
 
 ## Spawning a subagent
 
-Subagents run as Claude Code sessions inside tmux windows managed by [agentboss](https://github.com/hayeah/agentboss). By default they run **directly in the project repo** on the current branch. If the section text indicates the work should be isolated (e.g. "use a worktree", "in a worktree", "branch off origin/master"), lease a git worktree via the `git-worktree` skill and run the agent there instead. See BOSS_LOOP.md "Worktree mode vs. main-repo mode".
+Subagents run as Claude Code sessions inside tmux windows managed by [agentboss](https://github.com/hayeah/agentboss). **Worktree mode is the default** — every section gets its own per-repo worktree at `<repo>/.worktrees/<slug>` on a branch named `<slug>`. Main-repo mode is the rare opt-out (when the section text says "edit in place" / "no worktree"). See BOSS_LOOP.md "Worktree lifecycle" for the full lifecycle rules.
 
 ### Steps
 
-Mint the worklog dir and remember its path. The relative form (`<date>/<prefix>-<slug>`) is what gets recorded in `meta.json` as the section's `worklog` field.
+Mint the worklog dir. The relative form (`<date>/<prefix>-<slug>`) is what gets recorded in `meta.json` as the section's `worklog` field.
 
 ```bash
 DATE=$(date +%Y-%m-%d)
-PREFIX=$(date +%H%M%S.%3N)
+PREFIX=$(python3 -c 'import time;print(time.strftime("%H%M%S")+f".{int((time.time()%1)*1000):03d}")')
 SLUG=add-user-authentication
+REPO=~/github.com/hayeah/myproject
 SECTION_DIR_REL="$DATE/$PREFIX-$SLUG"
 SECTION_DIR="$MDNOTES_ROOT/boss/$SECTION_DIR_REL"
 mkdir -p "$SECTION_DIR"
 ```
 
-Decide the agent's cwd. **Default**: the project repo. **If the section asked for a worktree**: lease one (background — `open` blocks):
+(Note: `date +%H%M%S.%3N` is GNU-only; on macOS BSD `date` it emits a literal `.3N`. Use the python one-liner above for portability.)
+
+Create the worktree (worktree mode default). Refuse if it already exists — that's an orphan from a prior aborted run.
 
 ```bash
-# Default — main-repo mode
-AGENT_CWD=<project repo>
+# Worktree mode (default)
+if [ -e "$REPO/.worktrees/$SLUG" ]; then
+  echo "error: orphan worktree at $REPO/.worktrees/$SLUG — surface to human, do not auto-clean"
+  exit 1
+fi
 
-# OR — worktree mode (only if the section asked for it)
-cd <project repo>
-git-worktree open "$SLUG" --base origin/master &
-# capture the printed worktree path, e.g. .worktrees/001
-AGENT_CWD=<worktree path>
+git -C "$REPO" worktree add ".worktrees/$SLUG" -b "$SLUG" master
+
+# Run the project's setup hook if present (optional executable)
+if [ -x "$REPO/.worktrees.setup" ]; then
+  ( cd "$REPO/.worktrees/$SLUG" && "$REPO/.worktrees.setup" )
+fi
+
+AGENT_CWD="$REPO/.worktrees/$SLUG"
 ```
 
-In main-repo mode, **first check that no other section is already running in main-repo mode**. Two subagents editing the same files at once will clobber each other. If one is already live, refuse and tell the human.
+For multi-repo sections, repeat the `worktree add` + setup hook in each repo (same slug everywhere). The agent's `--cwd` is the primary repo's worktree; other repos are listed in the briefing for the agent to navigate to.
 
-Spawn the Claude session at `$AGENT_CWD`. **Do not pass `--key`** — let agentboss auto-generate one. Capture the JSON it prints:
+Main-repo mode (rare opt-out — only when the section says so):
 
 ```bash
-SPAWN_JSON=$(agentboss run --bg \
+# Refuse if another main-repo session is already live in this repo (clobber risk)
+AGENT_CWD="$REPO"
+```
+
+Spawn the Claude session. **Do not pass `--key`** — let agentboss auto-generate one. **Do not pass `--bg`** (removed; `agentboss run` is the spawner now).
+
+```bash
+SPAWN_JSON=$(agentboss run \
   --detector claude \
   --cwd "$AGENT_CWD" \
   -- claude --dangerously-skip-permissions)
 
-# Extract the auto-generated key (looks like "boss-a3f")
 SESSION_KEY=$(echo "$SPAWN_JSON" | jq -r .key)
 ```
 
-`--bg` waits for Claude to reach idle and prints a JSON descriptor with `key`, `short_id`, `tmux_target`, etc. Then write the section's entry into `$MDNOTES_ROOT/boss/meta.json` (read-modify-write, keyed by slug):
+Write the section's entry into `$MDNOTES_ROOT/boss/meta.json` (read-modify-write, keyed by slug):
 
 ```json
 {
@@ -158,37 +172,50 @@ SESSION_KEY=$(echo "$SPAWN_JSON" | jq -r .key)
 }
 ```
 
-Send the initial briefing. Tell the subagent which mode it's in so it knows whether to expect a worktree and how to handle lgtm later:
+Send the initial briefing. Tell the subagent which mode it's in and where things are:
 
 ```bash
-# In main-repo mode — say so explicitly
-agentboss send "$SESSION_KEY" "Read ~/github.com/hayeah/dotfiles/skills/boss/AGENT_LOOP.md. You are running in MAIN-REPO mode (no worktree). Your section dir is $SECTION_DIR. Your work log is at \$SECTION_DIR/worklog.md. Your section in the boss doc is '<section header>' at <boss doc path>. Create worklog.md if it doesn't exist, then begin."
-
-# In worktree mode
-agentboss send "$SESSION_KEY" "Read ~/github.com/hayeah/dotfiles/skills/boss/AGENT_LOOP.md. You are running in WORKTREE mode at $AGENT_CWD. Your section dir is $SECTION_DIR. Your work log is at \$SECTION_DIR/worklog.md. Your section in the boss doc is '<section header>' at <boss doc path>. Create worklog.md if it doesn't exist, then begin."
+agentboss send "$SESSION_KEY" "Read ~/github.com/hayeah/dotfiles/skills/boss/AGENT_LOOP.md. You are running in WORKTREE mode at $AGENT_CWD on branch $SLUG. Your section dir is $SECTION_DIR. Your work log is at $SECTION_DIR/worklog.md. Your section in the boss doc is '<section header>' at <boss doc path>. Create worklog.md if it doesn't exist, then begin."
 ```
+
+Then arm the wait loop: `agentboss wait $SESSION_KEY --timeout 600 &` so the boss is notified the moment the agent goes idle (or the 10-min timeout fires).
+
+**Long briefings:** if the briefing is multi-paragraph, `agentboss send` may paste the message into the input buffer without submitting. After a long send, follow up with `agentboss send <key> "begin"` to flush.
 
 ### Talking to a running subagent
 
 Look up the section in `meta.json` by slug to get its `session` and `worklog` fields. Then:
 
-- **Inspect state**: `agentboss status <session> -q` — returns `idle` / `working` / `waiting` / `unknown`.
+- **Inspect state**: `agentboss <session> status -q` — returns `idle` / `working` / `waiting` / `unknown`.
 - **Read pane**: `agentboss output <session> -n 80` — last 80 lines of terminal.
 - **Read work log**: `cat $MDNOTES_ROOT/boss/<worklog>/worklog.md` — the durable channel.
 - **List artifacts**: `ls $MDNOTES_ROOT/boss/<worklog>/` — see screenshots, transcripts, etc.
-- **Find the worktree**: `git-worktree list --json | jq '.[] | select(.branch=="<slug>")'`. The branch name is the slug by convention.
+- **Find the worktree**: it's `<repo>/.worktrees/<slug>`. The branch is also `<slug>`. No lookup needed.
 - **Send a nudge**: `agentboss send <session> "<message>"` — typically just "re-read your worklog and continue".
 - **Attach interactively**: `agentboss attach <session>` — for the human to take over.
 
 ### Closing a section
 
-When the human says lgtm on a section:
+The boss decides lgtm itself (the human is not in the loop — see BOSS_LOOP.md). When evidence is convincing:
 
-- Mark the section header in the boss doc as done by prefixing it with `[x]` (e.g. `## [x] Add user authentication`).
-- **Worktree mode**: tell the subagent to commit, then run `git-worktree lgtm` from inside the worktree. `lgtm` rebases, fast-forward merges, deletes the branch, and kills the lease holder (which ends the Claude session).
-- **Main-repo mode**: tell the subagent to commit on the current branch and stop. There's nothing to merge — the work is already on the branch. The subagent quits its session after the final log entry; the boss kills the agentboss window via `agentboss` if the subagent doesn't.
-- Leave the worklog dir under `$MDNOTES_ROOT/boss/<worklog>/` in place — it's the section's frozen history.
-- Clear the `session` field in the meta.json entry to `null` (the agentboss key is gone). Keep `header` and `worklog` so the entry still points at the frozen history.
+```bash
+# 1. lgtm (rebase + ff-merge — non-destructive, re-runnable)
+git -C "$REPO/.worktrees/$SLUG" rebase master
+git -C "$REPO" merge --ff-only "$SLUG"
+
+# 2. Prefix [x] in BOSS.md (triggers tear-down)
+# (edit the section header)
+
+# 3. Tear down (only after [x] prefix — lgtm alone does NOT close the section)
+agentboss kill "$SESSION_KEY"
+git -C "$REPO" worktree remove ".worktrees/$SLUG"
+git -C "$REPO" branch -d "$SLUG"     # use -D if "not fully merged" — branch IS merged via ff
+# For multi-repo sections, repeat worktree remove + branch -d in each repo
+
+# 4. Clear meta.json[<slug>].session to null (keep header + worklog for history)
+```
+
+Leave the worklog dir under `$MDNOTES_ROOT/boss/<worklog>/` in place — it's the section's frozen history.
 
 ## What the boss does, what the subagent does
 

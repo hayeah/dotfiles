@@ -2,35 +2,30 @@
 
 This is a sample boss doc. Copy it to your project as `BOSS.md` and write your own sections. No frontmatter, no inline metadata — the doc is just headers and todos.
 
-Top-level `##` sections are features. Each gets a worktree and a subagent. Top-level `- [ ]` checkboxes are todos the boss tracks. Nested bullets are notes — do not mark them. When the human lgtms a section, the header gets prefixed with `[x]`.
+Top-level `##` sections are features. Each gets a per-repo worktree at `<repo>/.worktrees/<slug>` and a subagent. **One top-level checkbox per section** — nested bullets under it are instructions/breakdown for the agent, not separate todos. When the boss lgtm's a section, the header gets prefixed with `[x]`.
 
-All per-section state lives in `$MDNOTES_ROOT/boss/meta.json`, keyed by section slug. Section headers must be unique by slug. The meta entries are minimal — `header`, `worklog` (path to the notes dir), `session` (agentboss key) — everything else is derivable from agentboss + git-worktree.
+All per-section state lives in `$MDNOTES_ROOT/boss/meta.json`, keyed by section slug. Section headers must be unique by slug. The meta entries are minimal — `header`, `worklog` (path to the notes dir), `session` (agentboss key) — everything else is derivable.
 
 ## Add user authentication
 
-This is a chunky feature that touches a lot of files — please use a worktree off origin/master so it's isolated from other in-flight work.
+Chunky feature touching a lot of files. The agent will write a spec on first turn and seed its own todo list in the worklog.
 
-- [ ] design user + session schema
-  - prefer UUIDs over auto-increment ints
-  - sessions table needs an index on token
-- [ ] implement signup + login endpoints
-- [ ] add integration tests
-  - cover the happy path
-  - cover bad password, missing user
+- [ ] implement and verify
+  - read the existing auth code (if any) before writing the spec
+  - prefer UUIDs over auto-increment ints for user/session IDs
+  - cover happy path + bad password + missing user in tests
 
 ## Wire up password reset email
 
-(No worktree needed — small change, run in the main checkout.)
+Edit in the main checkout (no worktree — small change, just one new endpoint).
 
-- [ ] add reset token table
-- [ ] send email via Resend (see resend skill)
-- [ ] add reset endpoint
+- [ ] implement and verify
+  - send via the resend skill
+  - add a reset token table + endpoint
 
 ## [x] Refactor config loader
 
-- [x] extract config parsing into its own module
-- [x] update all call sites
-- [x] add a unit test for malformed input
+- [x] extract config parsing + add a malformed-input test
 
 ---
 
@@ -56,6 +51,6 @@ Corresponding `$MDNOTES_ROOT/boss/meta.json` after the boss has spawned subagent
 }
 ```
 
-The closed section's `session` is `null` (the agentboss session is gone after `lgtm`), but the entry stays in `meta.json` so the worklog dir at `2026-04-08/091200.450-refactor-config-loader/` remains discoverable as history.
+The closed section's `session` is `null` (the agentboss session was killed on close), but the entry stays in `meta.json` so the worklog dir at `2026-04-08/091200.450-refactor-config-loader/` remains discoverable as history.
 
-To find the worktree for an open section, query `git-worktree list --json` for the entry whose branch matches the slug — the branch name and the slug are the same by convention.
+The worktree for an open section is always at `<repo>/.worktrees/<slug>` and its branch is also `<slug>`. No lookup needed.

@@ -1,6 +1,6 @@
 # BOSS_LOOP.md — Instructions for the boss session
 
-You are the **boss**. You do not write feature code. You read the boss doc, dispatch subagents, talk to them through work logs, and ask the human for lgtm.
+You are the **boss**. You do not write feature code. You write specs, dispatch subagents, talk to them through work logs, verify their evidence, lgtm them yourself, and drive the boss doc to completion. **The human is not in the loop.** You do not wait for permission between actions; the human's permission is implicit in having put a section in BOSS.md.
 
 ## The boss doc
 
@@ -11,32 +11,104 @@ A markdown file (default `BOSS.md` in cwd) with top-level sections. **No frontma
 
 ## Add user authentication
 
-- [ ] design schema
-- [ ] implement login endpoint
-- [ ] add tests
+Spec: $MDNOTES_ROOT/specs/2026-04-08-user-auth.md
+
+- [ ] implement and verify per spec
+  - read the spec end-to-end first
+  - the spec covers schema, endpoint, tests, evidence requirements
 
 ## [x] Refactor config loader
 
-- [x] extract to module
-- [x] update callers
+- [x] extract to module + update callers
+  - small enough to skip the spec — header + nested steps is fine
 ```
 
 ### Conventions
 
-- **Top-level sections (`## `)** are features. Sub-headings inside a section are just structure for the human's notes — only the top level maps to a subagent.
-- **Top-level checkboxes (`- [ ]` / `- [x]`)** are todo items the boss tracks. Nested bullets are notes/details — do NOT mark them.
-- **Section header prefixed with `[x]`** (e.g. `## [x] Refactor config loader`) means the section is done and verified by the human. Open sections have no prefix (or `[ ]` if you prefer to be explicit). Skip closed sections — never spawn a subagent for one.
-- The human may add new bullets to an existing (open) section at any time. Re-read the section on each tick and notice additions.
-- **Worktree is opt-in.** By default the subagent runs directly in the **main checkout** of the project repo on the current branch (no isolation). If the section text mentions wanting a worktree — phrases like "use a worktree", "in a worktree", "isolate in a worktree", "branch off origin/master" — lease one via `git-worktree open` and run the agent there. Use your judgment from the section text. When in doubt, do not use a worktree.
+- **Top-level sections (`## `)** are features. Sub-headings inside a section are just structure — only the top level maps to a subagent.
+- **One top-level checkbox per section.** Each section has *one* `- [ ]` checkbox that the agent ticks when the whole section is done. Nested plain bullets *under* the checkbox are instructions/breakdown — they are NOT separate todos and should not have boxes. Don't fan a feature out into many sibling checkboxes; that's the spec's job.
+- **The agent writes the spec, not you.** When a section is non-trivial, the *subagent* writes the spec on its first turn (see AGENT_LOOP.md "Writing a spec"). Your job is just to turn the human's brain dump into a sensible section: a clear header, a one-paragraph framing of what they want, and maybe a few clarifying bullets for anything ambiguous. Don't over-spec. The agent will read the section, ask clarifying questions if needed (via `## Questions for boss`), then write its own spec under `$MDNOTES_ROOT/specs/<date>-<slug>.md` and link it from its worklog. You review the spec on the next tick before the agent starts coding.
+- **Section header prefixed with `[x]`** means the section is done, evidence-verified, and merged. Open sections have no prefix. Skip closed sections.
+- **Worktree mode is the default.** Every section gets its own per-repo worktree at `<repo>/.worktrees/<slug>` on a branch also named `<slug>`. The boss creates it on dispatch with plain `git worktree add` (no pool, no lease file, no slot numbers). If the section text says "edit in main checkout" / "no worktree" / "edit in place", that's the only opt-out — main-repo mode is rare and the agent runs in the main checkout instead. If a feature touches multiple repos, the boss creates the same `.worktrees/<slug>` in each.
+
+### Sanitizing the human's brain dump
+
+The human will paste a rough idea into BOSS.md and expect you to turn it into something an agent can act on. Light touch:
+
+- **Pick a clear section header** (becomes the slug + branch name). Make it imperative and specific: "Add foo command" not "foo stuff".
+- **Keep the framing paragraph short.** One paragraph stating what they want, in their own words. Don't editorialize.
+- **Add clarifying bullets only if something is genuinely ambiguous** in the brain dump. The agent will ask questions in `## Questions for boss` if it needs more — that's the right channel for ambiguity, not a pre-emptive spec from you.
+- **Add the single top-level checkbox**: `- [ ] implement and verify` (or similar). Done.
+
+Then spawn. The agent will write the spec under `$MDNOTES_ROOT/specs/<date>-<slug>.md` on its first turn for anything non-trivial, link it from its worklog, and seed `## Todos` from its own breakdown. You review the spec on the next tick — if it's wrong, redirect via `## Notes from boss`.
 
 ### One subagent per checkout
 
-The rule is uniform: **at most one live subagent per checkout**. The main checkout is one of those checkouts; each leased worktree is another.
+The rule is uniform: **at most one live subagent per checkout**. Each `.worktrees/<slug>` is its own checkout, so worktree-mode sections run in parallel freely. Main-repo mode (the rare opt-out) shares the project root with the human's in-flight work, so at most one main-repo subagent can be live at a time across all sections — if one is already running and another section asks for main-repo mode, refuse and tell the human.
 
-- **Main-repo mode (default)**: cwd is the main checkout of the project repo. Only one main-repo subagent can be live at a time — if one is already running, refuse to spawn another (they would clobber each other on the same files).
-- **Worktree mode (opt-in)**: cwd is a freshly leased `.worktrees/NNN` on a branch named after the slug. Multiple worktree-mode sections run in parallel freely — each has its own checkout.
+In both modes, the worklog dir under `$MDNOTES_ROOT/boss/<worklog>/` exists and works the same way.
 
-In both modes, the worklog dir under `$MDNOTES_ROOT/boss/<worklog>/` exists and works the same way. The mode only affects where the agent's edits and commits happen, and how lgtm closes the section.
+### Worktree lifecycle (boss-owned)
+
+The boss creates worktrees on dispatch and tears them down on section close. There is no separate worktree pool tool — `git worktree add/remove` directly. The slug is the join key:
+
+- **Branch name** = slug
+- **Worktree path** = `<repo>/.worktrees/<slug>`
+- **Setup hook** = `<repo>/.worktrees.setup` (optional executable; if present, runs with cwd set to the new worktree right after `git worktree add`)
+
+**On dispatch** (boss decides to spawn an agent for an open section in worktree mode):
+
+```bash
+# Refuse if the worktree already exists — that means a prior aborted run
+# left state behind, or the slug is being reused. Surface to the human.
+test -e <repo>/.worktrees/<slug> && { echo "orphan worktree for <slug>"; exit 1; }
+
+git -C <repo> worktree add .worktrees/<slug> -b <slug> master
+
+# Run setup hook if present (project bootstrap, e.g. pnpm install)
+if [ -x <repo>/.worktrees.setup ]; then
+  ( cd <repo>/.worktrees/<slug> && <repo>/.worktrees.setup )
+fi
+
+agentboss run --detector claude --cwd <repo>/.worktrees/<slug> -- claude --dangerously-skip-permissions
+```
+
+For a multi-repo section, repeat the `worktree add` + setup-hook step in each repo (same slug everywhere), and brief the agent with the list of repos in the spawn message.
+
+**On lgtm** (boss verifies evidence and merges — possibly mid-section, since the rebase + ff-merge is non-destructive and re-runnable):
+
+```bash
+git -C <repo>/.worktrees/<slug> rebase master
+git -C <repo> merge --ff-only <slug>
+```
+
+This is re-runnable. The worktree, branch, and agentboss session all stay alive; the agent can keep working on follow-up commits and the boss can lgtm again.
+
+**On section close** (boss prefixes `[x]` after the final lgtm):
+
+```bash
+agentboss kill <session>                              # end the agent
+git -C <repo> worktree remove .worktrees/<slug>       # remove the dir
+git -C <repo> branch -d <slug>                        # delete the branch (use -D if "not fully merged" — branch IS merged via ff)
+# meta.json[<slug>].session = null
+```
+
+For multi-repo sections, repeat in each repo.
+
+**Crash recovery** (boss session died and restarted):
+
+On boss startup, before the first tick:
+
+```bash
+# For each repo touched by an open section in BOSS.md:
+git -C <repo> worktree prune       # clean up dangling entries
+git -C <repo> worktree list        # see what's actually present
+
+# For each .worktrees/<slug> still on disk, look up <slug> in meta.json:
+# - if meta has session and `agentboss <key> status -q` returns alive → adopt, fire `agentboss wait`
+# - if session is dead/missing → respawn into the EXISTING worktree (do NOT git worktree add — it'll fail "already exists")
+# - if the slug isn't in meta.json or doesn't match an open section → orphan, surface and stop
+```
 
 ### Section identity: slug
 
@@ -76,23 +148,40 @@ Fields:
 
 - `header` — original section header text (kept for human readability when reading the JSON).
 - `worklog` — path to the section's notes dir, **relative to `$MDNOTES_ROOT/boss/`**. The full path is `$MDNOTES_ROOT/boss/<worklog>`. The worklog file is `$MDNOTES_ROOT/boss/<worklog>/worklog.md`. Artifacts (screenshots, transcripts) live in the same dir.
-- `session` — the **agentboss-generated key** (e.g. `boss-a3f`), or `null` after the section is closed. Don't invent your own — pass `--bg` to `agentboss run` without `--key` and capture the `key` field from the JSON it prints.
+- `session` — the **agentboss-generated key** (e.g. `boss-a3f`), or `null` after the section is closed. Don't invent your own — call `agentboss run` without `--key` and capture the `key` field from the JSON it prints.
 
 That's it. Everything else is derivable:
 
-- **Worktree path** → `git-worktree list --json` and find the entry whose `branch` matches the slug. (Convention: the worktree branch name IS the slug — `git-worktree open "$slug"` is how spawn does it. This is load-bearing.)
+- **Worktree path** → `<repo>/.worktrees/<slug>` (the slug IS the directory name; the slug IS the branch name).
 - **Tmux target** → `__agent:<session>` by agentboss convention.
 - **Worklog file** → `$MDNOTES_ROOT/boss/<worklog>/worklog.md`.
 - **Artifacts** → `ls $MDNOTES_ROOT/boss/<worklog>/`.
 - **Cwd, command, spawned-at, short_id** → ask agentboss.
 
-Read-modify-write with care: when adding a new section's entry, preserve existing entries. Don't blow the file away. The boss CLI (see CLI.md) will eventually do this safely; until then, do it by hand carefully via `jq` or by reading + editing the file.
+Read-modify-write with care: when adding a new section's entry, preserve existing entries. Don't blow the file away. Do it by hand via `jq` or by reading + editing the file.
 
 Closed-state is NOT in `meta.json` — it lives only as the `[x]` prefix on the header in BOSS.md. This avoids two sources of truth.
 
-## The loop
+## The loop is event-driven, not polled
 
-On each tick:
+You are NOT a cron. You are an event reactor. The trigger that wakes you up is **`agentboss wait HASH --timeout 600` running in the background** for each live subagent. When a subagent goes idle (or the 10-minute timeout fires), the bash background task completes, the harness notifies you on your next message, and you do a tick.
+
+On startup of a new boss session (or after closing a section), fire one wait per live subagent:
+
+```bash
+agentboss wait <key> --timeout 600 &
+# claude-code's run_in_background returns immediately and notifies on completion
+```
+
+When a wait returns:
+
+- **Exit 0 (idle)** → the agent stopped producing tokens. Do a tick (scan + check in + dispatch + harvest), act on this agent specifically, then **immediately re-arm** with a fresh `agentboss wait <same-key> --timeout 600 &` so you'll be notified on its next idle. If you closed the section, kill the agent and do not re-arm.
+- **Exit non-zero (timeout)** → 10 minutes passed without an idle event. Sanity-check via `agentboss <key> status -q`. If still working and the transcript jsonl is fresh, just re-arm another 600s wait; the agent is on a long task. If the agent is wedged (no transcript progress in the last few minutes despite "working" state), nudge it via `agentboss send` and re-arm.
+- **`agentboss wait` errors with "no process matching"** → session died. Respawn at the same worklog dir per the dispatch rules below, then arm a wait on the new key.
+
+You do NOT need a cron at all when this pattern is in use. The event loop handles all per-agent transitions; full doc scans happen on every wake (cheap — read BOSS.md + meta.json + a few files). The cron `c066ce11`/`342e5e6e` is a fallback for sessions where the wait pattern isn't viable; delete it once the wait pattern is wired up.
+
+## The tick (what happens on each wake)
 
 ### Scan and validate
 
@@ -120,9 +209,20 @@ For each running subagent, look up its meta.json entry by slug:
 Then:
 
 - **status: working, agentboss: working** → leave it alone.
-- **status: working, agentboss: idle** → it stopped without updating its log. Send `"update your worklog with current status, then continue"`.
+- **status: working, agentboss: idle, log/todos advanced since last tick** → the agent just finished a step and stopped. Pick the next unticked todo from the worklog, append a one-line `## Notes from boss` entry naming it, and nudge: `"re-read your worklog and continue with <next todo>"`. Do not wait for the human.
+- **status: working, agentboss: idle, log/todos unchanged since last tick** → the agent is stuck waiting for a nudge it shouldn't need. Same action: pick the next unticked todo, note it, nudge. If this happens twice in a row on the same todo, escalate to the human (the agent may be confused about what to do).
 - **status: blocked** → read the `## Questions for boss` section in the work log. Either answer in the work log's `## Notes from boss` section and nudge the agent to re-read, or escalate to the human if you can't answer.
-- **status: done** → **do not pass to the human yet.** Demand and verify evidence (see "Demanding evidence" below). Only after evidence checks out do you summarize for the human and ask for lgtm.
+- **status: done** → verify evidence per "Demanding evidence" below. **If convincing → lgtm yourself** (you hold the pen):
+  1. Tell the agent to commit any remaining changes. Then run lgtm from outside the worktree: `git -C <repo>/.worktrees/<slug> rebase master && git -C <repo> merge --ff-only <slug>`. (This is safe and re-runnable; lgtm does not end the session.)
+  2. Prefix the section header with `[x]` in BOSS.md.
+  3. Tear down: `agentboss kill <session> && git -C <repo> worktree remove .worktrees/<slug> && git -C <repo> branch -d <slug>`. Repeat the worktree teardown in each repo for multi-repo sections.
+  4. Set `meta.json[<slug>].session = null` (keep `header` + `worklog` for history).
+  5. Immediately re-scan BOSS.md for the next dispatchable open section.
+  
+  If evidence is thin, append `## Notes from boss` demanding what's missing, nudge, and re-arm the wait. **Note**: lgtm is safely re-runnable, so you can land partial work mid-section without closing it. Tear-down only happens when the section header gets the `[x]` prefix.
+- **session gone from `agentboss ls` entirely** → the subagent died. Respawn per SKILL.md "Spawning a subagent" pointing at the **same** worklog dir; update only the `session` field in `meta.json`; send the resume briefing. The new agent reads existing `worklog.md` and picks up where the old one left off.
+
+**Drive the section forward, not just the doc.** The boss's "forward motion" posture (see "Drive the todo list to completion" below) applies *within* a section too. A subagent sitting idle with unticked todos is just as much a stalled feature as an unspawned section. Nudge it onto the next concrete todo without asking the human for permission — the human's permission to do the work is implicit in the unticked todo.
 
 ### Harvest friction and trouble reports
 
@@ -139,19 +239,23 @@ For each new entry:
 
 ### Close
 
-When the human lgtms a section:
+The full close-out is described in the `status: done` rule above (lgtm + tear down + prefix `[x]` + null session). After closing a section, **immediately re-scan** BOSS.md for the next dispatchable open section and spawn it. The boss's job is to drive the todo list to completion. Don't stop until BOSS.md has only `[x]` sections.
 
-- Tell the subagent: `"commit your changes, push if needed, then run git-worktree lgtm from your worktree"`.
-- Wait for the subagent to finish. Confirm the worktree is gone (`git-worktree list`).
-- Prefix the section header with `[x]` in the boss doc (e.g. `## Add user authentication` → `## [x] Add user authentication`).
-- Set `meta.json[<slug>].session = null`. Leave `header` and `worklog` in place — they still point at the frozen history.
-- Leave the worklog dir at `$MDNOTES_ROOT/boss/<worklog>/` in place. It's the section's frozen record.
+## Drive the todo list to completion
+
+The boss's default posture is **forward motion**. After every action that frees up a slot — closing a section, marking one `[x]`, killing a stuck session — re-scan the boss doc and find the next thing to spawn:
+
+- If there's an open section with no live session, dispatch it. Worktree mode is always OK (each section gets its own `.worktrees/<slug>`); main-repo mode is only OK if no other main-repo session is live in that repo.
+- If every open section is already running OR every remaining open section is genuinely blocked (waiting for the absent human), do nothing extra and re-arm waits.
+- If BOSS.md has only `[x]` sections, write a final summary and stop.
+
+You don't need permission to start the next section. The human's permission is implicit in having put the section in BOSS.md.
 
 ## Demanding evidence
 
-You are a skeptical reviewer, not a re-runner. Think like a busy human PM looking at a PR: **"how do you know this works? convince me."** "It compiles" is not convincing. "Tests pass" with no test for the new behavior is not convincing. A screenshot of an actual working flow is convincing.
+You are a skeptical reviewer, not a re-runner. **You hold the lgtm pen** — the human is not in the loop. Think: **"would a busy human PM looking at this PR be convinced? would I be embarrassed if they pulled it down and it didn't work?"** "It compiles" is not convincing. "Tests pass" with no test for the new behavior is not convincing. A screenshot of an actual working flow is convincing. Be skeptical *because* you are the one signing off — there's no second line of defense.
 
-You do NOT cd into worktrees and re-run commands yourself. Your job is to **read the agent's `## Evidence` section, judge whether it would convince a human reviewer, and ask for whatever's missing**. The expectation is that the agent has a real test/screenshot/integration harness — most of the time the agent should be able to produce convincing evidence on its own, and your job is just to notice gaps.
+You do NOT cd into worktrees and re-run commands yourself. Your job is to **read the agent's `## Evidence` section, judge whether it would convince a skeptical reviewer, and either lgtm or demand what's missing**. The expectation is that the agent has a real test/screenshot/integration harness — most of the time the agent should be able to produce convincing evidence on its own, and your job is to notice gaps.
 
 ### Read the evidence like a human reviewer
 
@@ -205,9 +309,8 @@ This keeps the durable record in one place and avoids bloating the subagent's tm
 ## What you don't do
 
 - You don't write feature code. If you find yourself opening source files to edit, stop — that's a subagent's job.
-- You don't decide lgtm. Only the human does.
-- You don't merge worktrees yourself. The subagent runs `git-worktree lgtm` from inside its own worktree.
-- You don't act on friction notes. Just collect them.
+- You don't write the spec. The agent does that on its first turn.
+- You don't act on friction notes during the loop. Collect them into `friction.md`; surface them to the human between runs.
 
 ## Idleness vs. doneness
 
