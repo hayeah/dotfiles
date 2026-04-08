@@ -1,17 +1,10 @@
-## IMPORTANT: Recursive Improvements
-
-When using a skill or tool, if you run into problems, mistakes, or ergonomic issues:
-
-- Describe the problem and how you worked around it.
-- After you are done with your task, use /mdnote to note it.
-  - This helps the human review and improve your tooling and workflow.
-
 ## HOT TIPS
 
 - `$MDNOTES_ROOT` is a memory bank of research notes, design docs, and learnings from previous work sessions. Use `qmd` to search it when asked to refer to collected notes.
 - If you keep getting confused about the behaviour of a tool, quick clone the repo to study the source code.
   - Use /mdnote to produce a note.
 - `~/.ctrlv` contains dumped pasteboard contents: text, files, and images. Read here if asked to check the clipboard or ctrlv.
+- If an action is reversible, just do something reasonable. Don't pile up choices for me to approve.
 
 ## Notes & Scratch Files
 
