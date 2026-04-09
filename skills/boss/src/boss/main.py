@@ -115,7 +115,7 @@ def spawn(
         slug=s.slug, header=s.header, section_body=s.body, mode=mode
     )
     try:
-        agentboss.submit(key, msg)
+        agentboss.send(key, msg)
     except agentboss.AgentbossError as e:
         typer.echo(f"warning: spawned agent {key} but briefing submit failed: {e}", err=True)
 
