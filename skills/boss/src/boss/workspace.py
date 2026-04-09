@@ -16,10 +16,11 @@ from __future__ import annotations
 
 import json
 import os
-import subprocess
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
+
+from .util import sh
 
 
 def boss_root() -> Path:
@@ -190,16 +191,8 @@ def _diff_one(repo: Path) -> dict[str, int]:
     if not repo.exists():
         return stats
     try:
-        # `git diff master --shortstat` shows committed + staged + unstaged
-        # changes against the master tip — exactly what we want.
-        proc = subprocess.run(
-            ["git", "-C", str(repo), "diff", "master", "--shortstat", "--no-renames"],
-            capture_output=True,
-            text=True,
-            check=False,
-        )
+        proc = sh("git", "-C", repo, "diff", "master", "--shortstat", "--no-renames", check=False)
         line = proc.stdout.strip()
-        # Format: " 6 files changed, 45 insertions(+), 10 deletions(-)"
         if line:
             for part in line.split(","):
                 part = part.strip()
@@ -209,12 +202,7 @@ def _diff_one(repo: Path) -> dict[str, int]:
                     stats["added"] = int(part.split()[0])
                 elif "deletion" in part:
                     stats["removed"] = int(part.split()[0])
-        utproc = subprocess.run(
-            ["git", "-C", str(repo), "ls-files", "--others", "--exclude-standard"],
-            capture_output=True,
-            text=True,
-            check=False,
-        )
+        utproc = sh("git", "-C", repo, "ls-files", "--others", "--exclude-standard", check=False)
         if utproc.returncode == 0 and utproc.stdout:
             stats["untracked"] = sum(1 for _ in utproc.stdout.splitlines())
     except (OSError, ValueError):

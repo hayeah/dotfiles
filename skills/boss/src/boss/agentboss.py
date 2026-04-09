@@ -24,10 +24,11 @@ from __future__ import annotations
 import json
 import os
 import shutil
-import subprocess
 import tempfile
 from pathlib import Path
 from typing import Any
+
+from .util import sh
 
 
 CANONICAL_SOURCE = Path.home() / "github.com" / "hayeah" / "agentboss" / "cli" / "agentboss"
@@ -84,12 +85,7 @@ def _resolve_binary() -> str:
 
     if not GOBIN_BIN_CACHE.exists():
         # Force the shim to do its first build so the cache exists, then snapshot.
-        proc = subprocess.run(
-            [str(shim), "--version"],
-            capture_output=True,
-            text=True,
-            check=False,
-        )
+        proc = sh(shim, "--version", check=False)
         if not GOBIN_BIN_CACHE.exists():
             raise AgentbossError(
                 f"failed to build agentboss cache at {GOBIN_BIN_CACHE}: "
@@ -116,13 +112,8 @@ def binary() -> str:
     return _BINARY
 
 
-def _run(args: list[str], check: bool = True) -> subprocess.CompletedProcess:
-    return subprocess.run(
-        [binary(), *args],
-        capture_output=True,
-        text=True,
-        check=check,
-    )
+def _run(args: list[str], check: bool = True):
+    return sh(binary(), *args, check=check)
 
 
 def ls_all() -> list[dict[str, Any]]:

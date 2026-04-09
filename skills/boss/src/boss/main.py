@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import json
-import subprocess
 import sys
 from pathlib import Path
 
@@ -19,6 +18,7 @@ from . import (
     pool,
     workspace,
 )
+from .util import sh
 
 app = typer.Typer(
     add_completion=False,
@@ -331,10 +331,7 @@ def lgtm(
         bj = json.loads((lay.root / ".boss.json").read_text())
         agent_id = bj.get("agent_id", "")
         if agent_id:
-            subprocess.run(
-                [agentboss.binary(), "kill", agent_id],
-                capture_output=True, text=True, check=True,
-            )
+            sh(agentboss.binary(), "kill", agent_id)
             typer.echo(f"killed agent {agent_id}")
 
 

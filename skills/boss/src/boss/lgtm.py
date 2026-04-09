@@ -19,11 +19,11 @@ that look mid-flight.
 
 from __future__ import annotations
 
-import subprocess
 from dataclasses import dataclass
 from pathlib import Path
 
 from . import pool, workspace
+from .util import sh
 
 
 class LgtmError(Exception):
@@ -40,18 +40,9 @@ class RepoResult:
     message: str
 
 
-def _git(repo: Path, *args: str, check: bool = True) -> str:
-    proc = subprocess.run(
-        ["git", "-C", str(repo), *args],
-        capture_output=True,
-        text=True,
-        check=False,
-    )
-    if check and proc.returncode != 0:
-        raise LgtmError(
-            f"git {' '.join(args)} in {repo} failed (rc={proc.returncode}):\n{proc.stderr.strip()}"
-        )
-    return proc.stdout.strip()
+def _git(repo: Path, *args: str) -> str:
+    """Run a git command, return stdout. Raises on failure."""
+    return sh("git", "-C", repo, *args).stdout.strip()
 
 
 def _is_worktree(target: Path) -> tuple[bool, Path | None]:
@@ -67,12 +58,7 @@ def _is_worktree(target: Path) -> tuple[bool, Path | None]:
 
 
 def _files_changed(repo: Path, branch: str, base: str = "master") -> set[str]:
-    proc = subprocess.run(
-        ["git", "-C", str(repo), "diff", "--name-only", f"{base}...{branch}"],
-        capture_output=True,
-        text=True,
-        check=False,
-    )
+    proc = sh("git", "-C", repo, "diff", "--name-only", f"{base}...{branch}", check=False)
     if proc.returncode != 0:
         return set()
     return {line for line in proc.stdout.splitlines() if line}
@@ -80,17 +66,11 @@ def _files_changed(repo: Path, branch: str, base: str = "master") -> set[str]:
 
 def _dirty_files(repo: Path) -> set[str]:
     """Files with uncommitted changes (staged + unstaged + untracked) in `repo`."""
-    proc = subprocess.run(
-        ["git", "-C", str(repo), "status", "--porcelain"],
-        capture_output=True,
-        text=True,
-        check=False,
-    )
+    proc = sh("git", "-C", repo, "status", "--porcelain", check=False)
     if proc.returncode != 0:
         return set()
     out: set[str] = set()
     for line in proc.stdout.splitlines():
-        # `XY path` — path starts at column 3
         if len(line) > 3:
             out.add(line[3:].strip())
     return out
@@ -102,13 +82,7 @@ def _verify_hook(worktree: Path, main_repo: Path) -> None:
         return
     if not hook.is_file() or not (hook.stat().st_mode & 0o111):
         return
-    proc = subprocess.run(
-        [str(hook)],
-        cwd=str(worktree),
-        check=False,
-    )
-    if proc.returncode != 0:
-        raise LgtmError(f".worktrees.verify hook failed in {worktree} (rc={proc.returncode})")
+    sh(hook, cwd=worktree)
 
 
 def lgtm(slug: str) -> list[RepoResult]:
@@ -159,22 +133,14 @@ def _lgtm_one(label: str, target: Path, slug: str) -> RepoResult:
     # baseline), don't try to merge again — `git merge --no-ff` of an
     # ancestor is a no-op that won't create a commit, and the verification
     # check below would fail noisily.
-    ancestor = subprocess.run(
-        ["git", "-C", str(main_repo), "merge-base", "--is-ancestor", branch, "master"],
-        capture_output=True,
-        text=True,
-        check=False,
-    )
+    ancestor = sh("git", "-C", main_repo, "merge-base", "--is-ancestor", branch, "master", check=False)
     if ancestor.returncode == 0:
         already_sha = _git(main_repo, "log", "--pretty=%H", "-1", branch)
         # Release pool lease for already-merged branches too.
         if pool._is_pool_slot(target.name):
             pool.release_slot(target, slug=branch)
         else:
-            subprocess.run(
-                ["git", "-C", str(main_repo), "branch", "-d", branch],
-                capture_output=True, text=True, check=False,
-            )
+            sh("git", "-C", main_repo, "branch", "-d", branch, check=False)
         return RepoResult(
             label=label,
             repo=target,

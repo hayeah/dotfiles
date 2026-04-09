@@ -17,10 +17,10 @@ from __future__ import annotations
 
 import json
 import re
-import subprocess
 from pathlib import Path
 
 from . import agentboss
+from .util import sh
 
 
 SLOT_RE = re.compile(r"^\d{3}$")
@@ -57,34 +57,14 @@ def _read_lease(slot: Path) -> dict | None:
 
 def _is_agent_alive(agent_id: str) -> bool:
     """Check if an agentboss session is still alive."""
-    try:
-        proc = subprocess.run(
-            [agentboss.binary(), "state", agent_id],
-            capture_output=True,
-            text=True,
-            check=False,
-        )
-    except OSError:
-        return False
+    proc = sh(agentboss.binary(), "state", agent_id, check=False)
     if proc.returncode != 0:
         return False
-    # agentboss state prints "<state> [detail] <age>" — alive states are
-    # things like "idle", "waiting_for_input", "running". Dead states:
-    # "child_exited", "dead", or empty/unknown output.
     line = proc.stdout.strip().lower()
     if not line:
         return False
     dead_markers = ("child_exited", "dead", "unknown", "not found")
     return not any(m in line for m in dead_markers)
-
-
-def _git(repo: Path, *args: str, check: bool = True) -> subprocess.CompletedProcess:
-    return subprocess.run(
-        ["git", "-C", str(repo), *args],
-        capture_output=True,
-        text=True,
-        check=check,
-    )
 
 
 def gc_slots(repo: Path) -> list[str]:
@@ -136,33 +116,20 @@ def grow_pool(repo: Path) -> Path:
     wt_path = repo / ".worktrees" / slot_name
 
     # Create a detached worktree (no branch yet — lease_slot sets the branch)
-    proc = _git(
-        repo, "worktree", "add", "--detach",
-        f".worktrees/{slot_name}", "master",
-        check=False,
-    )
-    if proc.returncode != 0:
-        raise PoolError(
-            f"git worktree add failed for slot {slot_name}:\n{proc.stderr.strip()}"
-        )
+    sh("git", "-C", repo, "worktree", "add", "--detach",
+       f".worktrees/{slot_name}", "master")
 
     # Run setup hook from the worktree's own copy (not the main checkout's).
     hook = wt_path / ".worktrees.setup"
     if hook.is_file() and (hook.stat().st_mode & 0o111):
-        subprocess.run([str(hook)], cwd=str(wt_path), check=False)
+        sh(hook, cwd=wt_path, check=False)
 
     # Also try pymake worktree_setup
     makefile_py = wt_path / "Makefile.py"
     if not makefile_py.exists():
         makefile_py = repo / "Makefile.py"
     if makefile_py.exists():
-        subprocess.run(
-            ["pymake", "worktree_setup"],
-            cwd=str(wt_path),
-            capture_output=True,
-            text=True,
-            check=False,
-        )
+        sh("pymake", "worktree_setup", cwd=wt_path, check=False)
 
     return wt_path
 
@@ -170,8 +137,8 @@ def grow_pool(repo: Path) -> Path:
 def lease_slot(slot: Path, slug: str, agent_id: str) -> None:
     """Reset a slot to master, create branch, write .lease.json."""
     # Reset tracked files — build artifacts (gitignored) survive
-    _git(slot, "reset", "--hard", "master")
-    _git(slot, "checkout", "-B", slug, "master")
+    sh("git", "-C", slot, "reset", "--hard", "master")
+    sh("git", "-C", slot, "checkout", "-B", slug, "master")
 
     # Write lease
     lease_path = slot / ".lease.json"
@@ -199,9 +166,8 @@ def _release_slot_internal(slot: Path, slug: str | None) -> None:
         lease_path.unlink()
 
     # Detach HEAD so the branch ref is free
-    _git(slot, "checkout", "--detach", check=False)
+    sh("git", "-C", slot, "checkout", "--detach", check=False)
 
     # Delete the branch (best-effort — may already be deleted or unmerged)
     if slug:
-        # Use -D since the branch may not be merged yet (abandoned work)
-        _git(slot, "branch", "-D", slug, check=False)
+        sh("git", "-C", slot, "branch", "-D", slug, check=False)
