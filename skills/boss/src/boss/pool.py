@@ -122,14 +122,20 @@ def grow_pool(repo: Path) -> Path:
     # Run setup hook from the worktree's own copy (not the main checkout's).
     hook = wt_path / ".worktrees.setup"
     if hook.is_file() and (hook.stat().st_mode & 0o111):
-        sh(hook, cwd=wt_path, check=False)
+        try:
+            sh(hook, cwd=wt_path)
+        except Exception:
+            pass  # flaky hook shouldn't block pool creation
 
     # Also try pymake worktree_setup
     makefile_py = wt_path / "Makefile.py"
     if not makefile_py.exists():
         makefile_py = repo / "Makefile.py"
     if makefile_py.exists():
-        sh("pymake", "worktree_setup", cwd=wt_path, check=False)
+        try:
+            sh("pymake", "worktree_setup", cwd=wt_path)
+        except Exception:
+            pass  # task may not exist
 
     return wt_path
 
@@ -166,8 +172,14 @@ def _release_slot_internal(slot: Path, slug: str | None) -> None:
         lease_path.unlink()
 
     # Detach HEAD so the branch ref is free
-    sh("git", "-C", slot, "checkout", "--detach", check=False)
+    try:
+        sh("git", "-C", slot, "checkout", "--detach")
+    except Exception:
+        pass
 
     # Delete the branch (best-effort — may already be deleted or unmerged)
     if slug:
-        sh("git", "-C", slot, "branch", "-D", slug, check=False)
+        try:
+            sh("git", "-C", slot, "branch", "-D", slug)
+        except Exception:
+            pass

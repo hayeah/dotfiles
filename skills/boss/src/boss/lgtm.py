@@ -136,7 +136,10 @@ def _lgtm_one(label: str, target: Path, slug: str) -> RepoResult:
         if pool._is_pool_slot(target.name):
             pool.release_slot(target, slug=branch)
         else:
-            sh("git", "-C", main_repo, "branch", "-d", branch, check=False)
+            try:
+                sh("git", "-C", main_repo, "branch", "-d", branch)
+            except Exception:
+                pass  # branch may already be deleted
         return RepoResult(
             label=label,
             repo=target,
@@ -175,11 +178,10 @@ def _lgtm_one(label: str, target: Path, slug: str) -> RepoResult:
     if pool._is_pool_slot(target.name):
         pool.release_slot(target, slug=branch)
     else:
-        # Non-pool worktree: delete the merged branch (best-effort).
-        subprocess.run(
-            ["git", "-C", str(main_repo), "branch", "-d", branch],
-            capture_output=True, text=True, check=False,
-        )
+        try:
+            sh("git", "-C", main_repo, "branch", "-d", branch)
+        except Exception:
+            pass  # branch may already be deleted
 
     return RepoResult(
         label=label,
