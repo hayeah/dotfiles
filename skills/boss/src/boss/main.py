@@ -328,21 +328,14 @@ def lgtm(
     # Kill the agent session after a successful merge.
     if all_ok:
         lay = workspace.layout(s.slug)
-        boss_json_path = lay.root / ".boss.json"
-        try:
-            bj = json.loads(boss_json_path.read_text())
-            agent_id = bj.get("agent_id", "")
-        except (json.JSONDecodeError, OSError):
-            agent_id = ""
+        bj = json.loads((lay.root / ".boss.json").read_text())
+        agent_id = bj.get("agent_id", "")
         if agent_id:
-            try:
-                subprocess.run(
-                    [agentboss.binary(), "kill", agent_id],
-                    capture_output=True, text=True, check=True,
-                )
-                typer.echo(f"killed agent {agent_id}")
-            except (subprocess.CalledProcessError, OSError):
-                typer.echo(f"warning: could not kill agent {agent_id}", err=True)
+            subprocess.run(
+                [agentboss.binary(), "kill", agent_id],
+                capture_output=True, text=True, check=True,
+            )
+            typer.echo(f"killed agent {agent_id}")
 
 
 @app.command(name="doctor")
