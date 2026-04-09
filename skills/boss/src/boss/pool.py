@@ -146,8 +146,8 @@ def grow_pool(repo: Path) -> Path:
             f"git worktree add failed for slot {slot_name}:\n{proc.stderr.strip()}"
         )
 
-    # Run setup hooks
-    hook = repo / ".worktrees.setup"
+    # Run setup hook from the worktree's own copy (not the main checkout's).
+    hook = wt_path / ".worktrees.setup"
     if hook.is_file() and (hook.stat().st_mode & 0o111):
         subprocess.run([str(hook)], cwd=str(wt_path), check=False)
 
