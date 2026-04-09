@@ -58,17 +58,13 @@ def _is_worktree(target: Path) -> tuple[bool, Path | None]:
 
 
 def _files_changed(repo: Path, branch: str, base: str = "master") -> set[str]:
-    proc = sh("git", "-C", repo, "diff", "--name-only", f"{base}...{branch}", check=False)
-    if proc.returncode != 0:
-        return set()
+    proc = sh("git", "-C", repo, "diff", "--name-only", f"{base}...{branch}")
     return {line for line in proc.stdout.splitlines() if line}
 
 
 def _dirty_files(repo: Path) -> set[str]:
     """Files with uncommitted changes (staged + unstaged + untracked) in `repo`."""
-    proc = sh("git", "-C", repo, "status", "--porcelain", check=False)
-    if proc.returncode != 0:
-        return set()
+    proc = sh("git", "-C", repo, "status", "--porcelain")
     out: set[str] = set()
     for line in proc.stdout.splitlines():
         if len(line) > 3:
