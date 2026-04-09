@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import subprocess
 import sys
 from pathlib import Path
 
@@ -317,9 +318,31 @@ def lgtm(
         typer.echo(f"error: {e}", err=True)
         raise typer.Exit(1)
 
+    all_ok = True
     for r in results:
         marker = "OK" if r.ok else "FAIL"
         typer.echo(f"{marker}  {r.label}: {r.message}")
+        if not r.ok:
+            all_ok = False
+
+    # Kill the agent session after a successful merge.
+    if all_ok:
+        lay = workspace.layout(s.slug)
+        boss_json_path = lay.root / ".boss.json"
+        try:
+            bj = json.loads(boss_json_path.read_text())
+            agent_id = bj.get("agent_id", "")
+        except (json.JSONDecodeError, OSError):
+            agent_id = ""
+        if agent_id:
+            try:
+                subprocess.run(
+                    [agentboss.binary(), "kill", agent_id],
+                    capture_output=True, text=True, check=True,
+                )
+                typer.echo(f"killed agent {agent_id}")
+            except (subprocess.CalledProcessError, OSError):
+                typer.echo(f"warning: could not kill agent {agent_id}", err=True)
 
 
 @app.command(name="doctor")
