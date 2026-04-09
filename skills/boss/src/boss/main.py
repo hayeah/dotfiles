@@ -122,6 +122,121 @@ def spawn(
     typer.echo(f"spawned: slug={s.slug} key={key} workspace={lay.root}")
 
 
+@app.command()
+def checkout(
+    repo: Path = typer.Argument(..., help="Path to the repo (e.g. ~/github.com/hayeah/myapp)."),
+    no_tree: bool = typer.Option(
+        False,
+        "--no-tree",
+        help="Main-repo mode: symlink the repo directly instead of creating a worktree.",
+    ),
+) -> None:
+    """Check out a repo into the current workspace's repos/ tree.
+
+    Meant to be called by the agent from inside a workspace. Reads
+    `.boss.json` (written by `boss spawn`) to discover the slug and mode.
+
+    In worktree mode (default): creates a git worktree at
+    <repo>/.worktrees/<slug>, runs .worktrees.setup if present, and
+    symlinks it under repos/<host>/<user>/<name>.
+
+    With --no-tree: symlinks the repo directly (main-repo mode).
+    """
+    result = workspace.find_workspace()
+    if result is None:
+        typer.echo(
+            "error: not inside a boss workspace (no .boss.json found walking up from cwd)",
+            err=True,
+        )
+        raise typer.Exit(1)
+
+    ws_root, boss_json = result
+    slug = boss_json.get("slug", "")
+    if not slug:
+        typer.echo("error: .boss.json has no slug field", err=True)
+        raise typer.Exit(1)
+
+    mode = "main-repo" if no_tree else boss_json.get("mode", "worktree")
+    if mode == "main-repo":
+        no_tree = True
+
+    repo_path = repo.expanduser().resolve()
+    if not repo_path.is_dir():
+        typer.echo(f"error: repo not found at {repo_path}", err=True)
+        raise typer.Exit(1)
+
+    # Derive the symlink label from the repo path: github.com/user/name
+    # by looking for the github.com/<user>/<name> pattern.
+    parts = repo_path.parts
+    try:
+        gh_idx = parts.index("github.com")
+        label = "/".join(parts[gh_idx : gh_idx + 3])
+    except (ValueError, IndexError):
+        # Fallback: just use the last component.
+        label = repo_path.name
+
+    repos_dir = ws_root / "repos"
+    link_parent = repos_dir / Path(label).parent
+    link_path = repos_dir / label
+
+    if link_path.exists() or link_path.is_symlink():
+        typer.echo(f"already checked out: {label} -> {os.readlink(link_path)}")
+        return
+
+    if no_tree:
+        # Main-repo mode: symlink straight at the repo.
+        link_parent.mkdir(parents=True, exist_ok=True)
+        link_path.symlink_to(repo_path)
+        typer.echo(f"linked (main-repo): {label} -> {repo_path}")
+        return
+
+    # Worktree mode.
+    wt_path = repo_path / ".worktrees" / slug
+    if wt_path.exists():
+        typer.echo(f"worktree already exists at {wt_path} — reusing")
+    else:
+        # Create worktree + branch.
+        try:
+            subprocess.run(
+                ["git", "-C", str(repo_path), "worktree", "add",
+                 f".worktrees/{slug}", "-b", slug, "master"],
+                check=True,
+                capture_output=True,
+                text=True,
+            )
+        except subprocess.CalledProcessError as e:
+            typer.echo(f"error: git worktree add failed:\n{e.stderr.strip()}", err=True)
+            raise typer.Exit(1)
+
+        # Run setup hooks if present.
+        hook = repo_path / ".worktrees.setup"
+        if hook.is_file() and (hook.stat().st_mode & 0o111):
+            typer.echo(f"running .worktrees.setup in {wt_path}...")
+            subprocess.run([str(hook)], cwd=str(wt_path), check=False)
+
+        # Also try pymake worktree_setup if Makefile.py exists.
+        makefile_py = wt_path / "Makefile.py"
+        if not makefile_py.exists():
+            makefile_py = repo_path / "Makefile.py"
+        if makefile_py.exists():
+            typer.echo(f"running pymake worktree_setup in {wt_path}...")
+            result = subprocess.run(
+                ["pymake", "worktree_setup"],
+                cwd=str(wt_path),
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+            if result.returncode == 0:
+                typer.echo("pymake worktree_setup: ok")
+            # Silently ignore if the task doesn't exist.
+
+    # Symlink into the workspace repos/ tree.
+    link_parent.mkdir(parents=True, exist_ok=True)
+    link_path.symlink_to(wt_path)
+    typer.echo(f"checked out: {label} -> {wt_path}")
+
+
 @app.command(name="ls")
 def ls_cmd(
     boss_doc: Path = typer.Option(Path("BOSS.md"), "--boss-doc"),

@@ -14,6 +14,7 @@ on its first turn (worktree create + symlink) — see AGENT_LOOP.md.
 
 from __future__ import annotations
 
+import json
 import os
 import subprocess
 from dataclasses import dataclass
@@ -103,7 +104,40 @@ def create(slug: str, header: str, mode: str) -> WorkspaceLayout:
                 created=datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
             )
         )
+    # .boss.json — workspace context for `boss checkout` and other
+    # agent-facing subcommands. Always rewritten (mode might change).
+    boss_json = lay.root / ".boss.json"
+    boss_json.write_text(
+        json.dumps(
+            {"slug": slug, "mode": mode, "workspace": str(lay.root)},
+            indent=2,
+        )
+        + "\n"
+    )
     return lay
+
+
+def find_workspace(start: Path | None = None) -> tuple[Path, dict] | None:
+    """Walk up from `start` (default cwd) looking for `.boss.json`.
+
+    Returns `(workspace_root, boss_json_dict)` or None if not found.
+    Stops at filesystem root or $BOSS_ROOT's parent.
+    """
+    if start is None:
+        start = Path.cwd()
+    cur = start.resolve()
+    stop = boss_root().parent.resolve()
+    while True:
+        candidate = cur / ".boss.json"
+        if candidate.is_file():
+            try:
+                data = json.loads(candidate.read_text())
+                return cur, data
+            except (json.JSONDecodeError, OSError):
+                return None
+        if cur == cur.parent or cur == stop:
+            return None
+        cur = cur.parent
 
 
 def list_repo_symlinks(slug: str) -> dict[str, Path]:
