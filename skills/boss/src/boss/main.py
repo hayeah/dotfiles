@@ -81,7 +81,7 @@ def spawn(
         live = agentboss.session_for_cwd(lay.root)
 
     if live is not None:
-        key = live.get("key") or live.get("short_id") or "?"
+        key = live.get("id") or "?"
         resume_msg = briefing.render_resume(
             slug=s.slug, header=s.header, section_body=s.body
         )
@@ -109,7 +109,7 @@ def spawn(
         typer.echo(f"error: {e}", err=True)
         raise typer.Exit(1)
 
-    key = descriptor.get("key") or descriptor.get("short_id") or "?"
+    key = descriptor.get("id") or "?"
 
     msg = briefing.render(
         slug=s.slug, header=s.header, section_body=s.body, mode=mode
