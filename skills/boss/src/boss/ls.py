@@ -51,7 +51,11 @@ def bucket(row: Row) -> str:
         return "running"
     if row.has_pending_todos and row.agentboss is None:
         return "pending"
-    return "weird"  # pending todos false + live agent
+    # pending todos false + live agent: section's top-level boxes are all
+    # ticked but the agent is still parked in tmux. Reusable for follow-up
+    # work — `boss spawn` is idempotent and will re-engage with a fresh
+    # briefing if the human adds new boxes.
+    return "idle"
 
 
 def format_diff_cell(diff: dict[str, dict[str, int]] | None) -> str:

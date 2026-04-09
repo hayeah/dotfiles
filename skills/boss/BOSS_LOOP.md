@@ -79,7 +79,7 @@ Three buckets you read off this shape:
 | `false`             | `null`       | **done**          | skip                                            |
 | `true`              | non-`null`   | **running**       | leave alone (someone is on it)                  |
 | `true`              | `null`       | **pending**       | dispatch (`boss spawn <slug>`)                  |
-| `false`             | non-`null`   | weird             | investigate (agent alive but nothing to do)     |
+| `false`             | non-`null`   | **idle**          | parked, reusable — `boss spawn` re-engages it if new work is added |
 
 ## Shell recipes (the gaps the CLI doesn't fill)
 
