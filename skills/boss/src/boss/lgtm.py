@@ -154,6 +154,28 @@ def _lgtm_one(label: str, target: Path, slug: str) -> RepoResult:
             f"in {main_repo} and re-run."
         )
 
+    # Already-merged short-circuit. If the branch is already an ancestor of
+    # master (typically because another section's agent merged it in as a
+    # baseline), don't try to merge again — `git merge --no-ff` of an
+    # ancestor is a no-op that won't create a commit, and the verification
+    # check below would fail noisily.
+    ancestor = subprocess.run(
+        ["git", "-C", str(main_repo), "merge-base", "--is-ancestor", branch, "master"],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    if ancestor.returncode == 0:
+        already_sha = _git(main_repo, "log", "--pretty=%H", "-1", branch)
+        return RepoResult(
+            label=label,
+            repo=target,
+            branch=branch,
+            merge_sha=already_sha,
+            ok=True,
+            message=f"already merged into master (branch tip: {already_sha[:12]})",
+        )
+
     # Rebase
     _git(target, "rebase", "master")
 

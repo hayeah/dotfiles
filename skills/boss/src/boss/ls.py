@@ -73,7 +73,11 @@ def format_table(rows: list[Row]) -> str:
     headers = ("BUCKET", "SLUG", "HEADER", "AGENT", "DIFF")
     table_rows = []
     for r in rows:
-        agent_key = r.agentboss.get("key", "-") if r.agentboss else "-"
+        # New agentboss schema uses `id`; legacy supervisors still publishing
+        # `key` are tolerated as a fallback.
+        agent_key = "-"
+        if r.agentboss:
+            agent_key = r.agentboss.get("id") or r.agentboss.get("key") or "-"
         table_rows.append(
             (
                 bucket(r),
