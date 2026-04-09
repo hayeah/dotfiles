@@ -143,17 +143,17 @@ Your workspace at `$BOSS_ROOT/<slug>/` is where the worklog, specs, and tmp arti
 
 ### Worktree path trap (WORKTREE mode)
 
-The symlink under `repos/<host>/<user>/<name>` resolves to `<repo>/.worktrees/<slug>` — a physically separate directory from the main checkout at `<repo>`. Edits to one do NOT appear in the other.
+The symlink under `repos/<host>/<user>/<name>` resolves to a numbered pool slot at `<repo>/.worktrees/NNN` (e.g. `000`, `001`) — a physically separate directory from the main checkout at `<repo>`. Edits to one do NOT appear in the other.
 
 **The trap**: it's easy to grep with absolute paths to the main checkout (e.g. `/Users/me/github.com/hayeah/foo/file.go`) and then `Edit` that same path. The edit lands on master in the main checkout, your branch never sees it, the change is invisible to your commits, and the section ships broken. Caught in real boss-loop sessions.
 
-**The rule**: never use absolute paths under `<repo>/...` that don't include `.worktrees/<slug>/...`. Use one of:
+**The rule**: never use absolute paths under `<repo>/...` that don't include `.worktrees/NNN/...`. Use one of:
 
 - Relative paths from inside your repo cwd (e.g. `file.go`, `cli/agentboss/wait.go`)
 - Paths via the workspace symlink (e.g. `repos/github.com/hayeah/foo/cli/agentboss/wait.go`)
-- Absolute paths that include your worktree segment (e.g. `<repo>/.worktrees/<slug>/cli/agentboss/wait.go`)
+- Absolute paths that include your worktree segment (e.g. `<repo>/.worktrees/000/cli/agentboss/wait.go`)
 
-**Quick check before any `Edit` / `Write`**: if you're in a worktree but the path you're about to edit doesn't contain `.worktrees/<slug>`, stop and rewrite the path. After any edit, `git status` should show the file as modified — if it doesn't, you edited the wrong tree.
+**Quick check before any `Edit` / `Write`**: if you're in a worktree but the path you're about to edit doesn't contain `.worktrees/NNN`, stop and rewrite the path. After any edit, `git status` should show the file as modified — if it doesn't, you edited the wrong tree.
 
 ## What you do
 

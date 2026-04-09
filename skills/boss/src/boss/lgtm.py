@@ -23,7 +23,7 @@ import subprocess
 from dataclasses import dataclass
 from pathlib import Path
 
-from . import workspace
+from . import pool, workspace
 
 
 class LgtmError(Exception):
@@ -55,7 +55,7 @@ def _git(repo: Path, *args: str, check: bool = True) -> str:
 
 
 def _is_worktree(target: Path) -> tuple[bool, Path | None]:
-    """If `target` is a worktree under `<repo>/.worktrees/<slug>`, return
+    """If `target` is a worktree under `<repo>/.worktrees/<slot>`, return
     `(True, main_repo_path)`. Otherwise `(False, None)`.
     """
     parts = target.parts
@@ -167,6 +167,9 @@ def _lgtm_one(label: str, target: Path, slug: str) -> RepoResult:
     )
     if ancestor.returncode == 0:
         already_sha = _git(main_repo, "log", "--pretty=%H", "-1", branch)
+        # Release pool lease for already-merged branches too.
+        if pool._is_pool_slot(target.name):
+            pool.release_slot(target, slug=branch)
         return RepoResult(
             label=label,
             repo=target,
@@ -200,6 +203,10 @@ def _lgtm_one(label: str, target: Path, slug: str) -> RepoResult:
             f"{label}: merge looked successful but HEAD subject does not mention "
             f"branch {branch!r} (got: {head_msg!r}). Investigate."
         )
+
+    # Release pool lease if this is a numbered slot.
+    if pool._is_pool_slot(target.name):
+        pool.release_slot(target, slug=branch)
 
     return RepoResult(
         label=label,
