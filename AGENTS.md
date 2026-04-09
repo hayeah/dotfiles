@@ -87,7 +87,7 @@ DO NOT add `Co-Authored-By: Claude Opus 4.6 (1M context) <noreply@anthropic.com>
 - For npm/TypeScript, use `bunx` to install packages and run CLI tools.
   - Fall back to pnpm if bunx doesn't work.
 - If working with a CLI tool that we have a repo for, prefer installing in editable mode so that source changes take effect immediately.
-  - Go CLI: `gobin install .` (use the `gobin` skill)
+  - Go CLI: `gobin install ./cli/foo` from the repo's **main checkout** — see the `gobin` skill TL;DR. **Never `gobin install` from a worktree** (it repoints the global shim at a feature branch); inside a worktree use `go run ./cli/foo` or `go build -o /tmp/foo-test ./cli/foo` instead.
   - Python CLI: `uv tool install -e .`
   - TypeScript CLI: `pnpm link`
 

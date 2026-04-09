@@ -11,6 +11,12 @@ Binaries are installed to `~/.gobin/shims`.
 
 > If you just need a binary, use `go install`. `gobin` is for when you care about the source.
 
+## TL;DR
+
+- `gobin install ./cli/foo` **once** from the **main checkout** of the repo. The shim then `go build`s from that source on every invocation, so any subsequent edits, pulls, or merges to main are picked up automatically — no reinstall needed.
+- **Never `gobin install` from a worktree** — the shim embeds the source path, so you'd be repointing the global binary at a feature branch and breaking every other process that uses it. See "Never `gobin install` from a worktree" below.
+- Inside a worktree, use `go run ./cli/foo` (one-off) or `go build -o /tmp/foo-test ./cli/foo` (throwaway) to test your changes without touching the global shim.
+
 ## Install
 
 ```sh
@@ -100,9 +106,28 @@ Set `GITHUB_REPOS=~` to reuse your normal dev layout (`~/github.com/user/repo`).
 
 If the repo already exists locally, it is reused as-is — no re-clone or pull.
 
+## Never `gobin install` from a worktree
+
+The shim embeds an absolute path to the source dir at install time. If you run `gobin install ./cli/foo` from inside `<repo>/.worktrees/<slug>/`, the shim now rebuilds from that worktree on every invocation — until you reinstall from somewhere else. **This silently breaks any other process that depends on the same binary**, including sibling agents working in parallel branches and the parent shell that spawned them.
+
+Concretely: a feature branch's worktree usually lacks the latest changes from main (or *has* in-progress changes that aren't ready for callers). Pointing the global shim at a worktree means every `foocmd` call across the system sees that branch's view until the install is reverted. Caught live three times in one boss-loop session: a sibling agent merged a new subcommand to main, the boss session tried to use it, and got "unknown command" because the shim was still pointing at an older worktree.
+
+**Rule: gobin shims always point at the main checkout. Never reinstall from a worktree.**
+
+When you need to test a binary from inside a worktree (e.g. you've made changes you want to exercise without polluting the global shim), use `go run` explicitly:
+
+```sh
+# inside <repo>/.worktrees/<slug>
+go run ./cli/foo --help                # one-off invocation
+go build -o /tmp/foo-test ./cli/foo    # local binary, doesn't touch ~/.gobin
+/tmp/foo-test --help
+```
+
+If the shim is already pointing at the main checkout, you don't need to do anything after a merge — the next invocation rebuilds from main automatically. Reinstall is **only** needed to repoint the shim, e.g. to recover from an earlier `gobin install` that mistakenly ran inside a worktree. In that recovery case: `cd` to the main checkout and `gobin install ./cli/foo` to point the shim back at main.
+
 ## Quirks
 
 - `gobin ls` only shows shims that contain the `# gobin:` comment. Plain shell scripts in `~/.gobin/shims/` not created by gobin are silently ignored.
 - The binary name defaults to the **last path segment** of the package path (same as `go install`). Use `--name` to override.
 - gobin never updates an existing clone. To get the latest code, `cd` into the repo and `git pull` yourself.
-- Shim paths embed the absolute local path at install time. If you move the repo, reinstall the shim.
+- Shim paths embed the absolute local path at install time. If you move the repo, reinstall the shim. (See "Never `gobin install` from a worktree" above for why this matters.)
