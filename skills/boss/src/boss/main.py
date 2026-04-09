@@ -69,15 +69,31 @@ def spawn(
     s = matches[0]
 
     lay = workspace.layout(s.slug)
+
+    # Idempotent spawn: if a live session already owns this workspace,
+    # re-engage it instead of refusing. This handles two real flows:
+    #   1. Section was previously done, human added a new top-level
+    #      checkbox, agent is still hanging around idle in tmux.
+    #   2. Boss session was killed and restarted; we want to resume
+    #      driving the same agent without spawning a duplicate.
+    live = None
     if lay.root.is_dir():
         live = agentboss.session_for_cwd(lay.root)
-        if live is not None:
+
+    if live is not None:
+        key = live.get("key") or live.get("short_id") or "?"
+        resume_msg = briefing.render_resume(
+            slug=s.slug, header=s.header, section_body=s.body
+        )
+        try:
+            agentboss.submit(key, resume_msg)
+        except agentboss.AgentbossError as e:
             typer.echo(
-                f"error: workspace {s.slug!r} already has a live agentboss session "
-                f"(key={live.get('key', '?')}). refusing to spawn a duplicate.",
+                f"warning: re-engaged existing session {key} but resume briefing failed: {e}",
                 err=True,
             )
-            raise typer.Exit(1)
+        typer.echo(f"re-engaged: slug={s.slug} key={key} workspace={lay.root}")
+        return
 
     workspace.create(s.slug, s.header, mode)
 
@@ -95,7 +111,9 @@ def spawn(
 
     key = descriptor.get("key") or descriptor.get("short_id") or "?"
 
-    msg = briefing.render(slug=s.slug, header=s.header, mode=mode, boss_doc=doc)
+    msg = briefing.render(
+        slug=s.slug, header=s.header, section_body=s.body, mode=mode
+    )
     try:
         agentboss.submit(key, msg)
     except agentboss.AgentbossError as e:
@@ -108,8 +126,20 @@ def spawn(
 def ls_cmd(
     boss_doc: Path = typer.Option(Path("BOSS.md"), "--boss-doc"),
     json_out: bool = typer.Option(False, "--json", help="Emit machine-readable JSON."),
+    show_all: bool = typer.Option(
+        False,
+        "--all",
+        "-a",
+        help="Include sections with no pending todos (done + parked-but-alive sessions). "
+        "Default hides them so the table only shows actionable work.",
+    ),
 ) -> None:
-    """Wide read: BOSS.md ↔ workspace ↔ agentboss join."""
+    """Wide read: BOSS.md ↔ workspace ↔ agentboss join.
+
+    By default only sections with at least one unticked top-level checkbox
+    are listed (the dispatch-able + running buckets). Use --all to also
+    see done sections and post-lgtm sessions still hanging in tmux.
+    """
     doc = _resolve_boss_doc(boss_doc)
     try:
         rows = ls_mod.collect(doc)
@@ -117,12 +147,18 @@ def ls_cmd(
         typer.echo(f"error: {e}", err=True)
         raise typer.Exit(1)
 
+    if not show_all:
+        rows = [r for r in rows if r.has_pending_todos]
+
     if json_out:
         typer.echo(json.dumps([r.to_json() for r in rows], indent=2))
         return
 
     if not rows:
-        typer.echo("(no sections in BOSS.md)")
+        if show_all:
+            typer.echo("(no sections in BOSS.md)")
+        else:
+            typer.echo("(nothing pending — try `boss ls --all` to see everything)")
         return
     typer.echo(ls_mod.format_table(rows))
 

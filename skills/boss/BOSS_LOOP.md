@@ -198,7 +198,9 @@ This walks every repo linked under `$BOSS_ROOT/<slug>/repos/`, and for each:
 
 It does NOT tear down. The workspace + worktrees + agentboss session stay alive — the agent can keep going on follow-up commits and you can `boss lgtm` again. This is intentional: lgtm is the merge action, not the close action.
 
-If the agent has more pending boxes after the lgtm, leave it running. If all boxes are now ticked, the section is "done" and you stop nudging. The workspace stays around as frozen history; the human deletes it whenever.
+**After a successful lgtm, YOU tick the section's top-level checkboxes in BOSS.md.** The agent doesn't have access to BOSS.md and can't tick them itself (this is intentional — single writer to BOSS.md, and it's you). Edit BOSS.md and flip the relevant `- [ ]` lines under the section header to `- [x]`. For multi-phase sections (multiple top-level boxes), tick only the boxes corresponding to the work that just landed; leave the rest pending so the section stays in the "running" or "pending" bucket and the loop continues.
+
+If all top-level boxes are now ticked, the section moves to the "done" bucket on the next `boss ls`. The workspace + agent session stay alive in case the human adds a new top-level box later — `boss spawn <slug>` is idempotent and re-engages the existing session by re-sending the briefing with the latest section text.
 
 ## Demanding evidence
 
@@ -237,6 +239,6 @@ Be concrete about what would convince you. Then `agentboss send <key> "re-read y
 ## Idleness vs. doneness
 
 - **Idle** (process state, from `agentboss state` or `boss ls --json`'s `agentboss.state` field) means the Claude prompt is at the input — not currently producing tokens. Does NOT mean the work is done.
-- **Done** (semantic state) is two things, and you need both: `status: done` in the agent's WORKLOG.md frontmatter AND all top-level boxes ticked in BOSS.md. Boxes-ticked + status-done is the convergent definition.
+- **Done** (semantic state) is two things, and you need both: `status: done` in the agent's WORKLOG.md frontmatter AND all top-level boxes ticked in BOSS.md. The agent reports the first; you (the boss) tick the second after lgtm. Boxes-ticked + status-done is the convergent definition.
 
 Always combine both: act on a subagent only when it's both `agent: idle` AND has updated its work log. If it's idle but the log is stale, the subagent forgot to update — nudge it.

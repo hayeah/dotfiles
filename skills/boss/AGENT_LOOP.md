@@ -1,6 +1,14 @@
 # AGENT_LOOP.md — Instructions for a boss subagent
 
-You were spawned by a **boss** Claude session to work on one section of a boss doc. You work inside a per-section **feature workspace** at `$BOSS_ROOT/<slug>/`. You communicate with the boss by editing `WORKLOG.md` in that workspace.
+You were spawned by a **boss** Claude session to work on one section of work. You work inside a per-section **feature workspace** at `$BOSS_ROOT/<slug>/`. You communicate with the boss by editing `WORKLOG.md` in that workspace.
+
+## You do not know where the boss doc is
+
+There is a markdown todo doc somewhere on the human's machine that lists feature sections and tracks which are done. **You do not know where it is, you do not look for it, and you do not modify it.** That doc is the boss's working file — the boss is the only writer.
+
+The boss has handed you the text of your section inline in your spawn briefing (and again in any "boss is re-engaging" briefing). That embedded text IS your section. If you need to re-read it, scroll back in your tmux pane to find the most recent `----- SECTION TEXT -----` block, OR ask the boss to re-send via `## Questions for boss`.
+
+When the boss decides your work is convincing and merges it, the boss ticks any top-level checkboxes in the boss doc. **You never tick those.** Your job is to drive your own `## Todos` in WORKLOG.md and to declare `status: done` when you've produced evidence — the boss does the rest.
 
 ## What you got on spawn
 
@@ -9,14 +17,15 @@ The boss told you, via the templated briefing:
 - The path to **this file** (read it once, then refer back as needed).
 - Your **mode**: `WORKTREE` (default — you create per-repo worktrees and symlink them under `repos/`) or `MAIN-REPO` (you symlink the main checkout directly under `repos/` and edit it in place).
 - Your **workspace** path at `$BOSS_ROOT/<slug>/`. Your worklog is `<workspace>/WORKLOG.md`.
-- The **section header + slug** in the boss doc you are responsible for, and the path to the boss doc.
+- Your **section title and slug**.
+- The **section body text** embedded in the briefing between `----- SECTION TEXT -----` markers.
 
 **Your cwd is the workspace root, NOT a repo.** Any repo you need to touch lives under `repos/<host>/<user>/<name>` as a symlink that *you* create.
 
 ## First turn
 
 - `pwd` — confirm you're in the workspace root the boss told you about.
-- Read the boss doc and locate your section by slug.
+- Read the section text in your briefing.
 - Read `WORKLOG.md` in your workspace:
   - It has been minted from the template by `boss spawn`. Set `status: working`.
   - If you're resuming a previous agent's work, read the whole thing — it is your memory of what was already done, decided, and tried. Also `ls specs/` and `ls tmp/` to see what artifacts the previous agent produced.
@@ -37,7 +46,7 @@ The boss told you, via the templated briefing:
     ```
   - You can do this for one repo on the first turn (before you know the full set), and add more symlinks the same way as you discover them. **No coordination with the boss required.**
 - **For non-trivial work, write the spec FIRST.** See "Writing a spec" below. Save it as `specs/main.md` in your workspace and link it from the worklog frontmatter as `spec: specs/main.md`.
-- **Seed your `## Todos` list** from the spec (or from the section bullets if no spec). 5-15 concrete steps. The boss-doc top-level checkbox(es) are the user-facing milestones; your worklog `## Todos` is your finer-grained working list.
+- **Seed your `## Todos` list** from the spec (or from the section bullets in your briefing if no spec). 5-15 concrete steps. Top-level checkboxes in the boss doc (which you can't see and don't manage) are user-facing milestones; your worklog `## Todos` is your finer-grained working list.
 - Then `cd repos/github.com/hayeah/myapp` (or similar) and start working on the first unfinished todo. Navigate freely between repos via the `repos/` tree.
 
 ## Writing a spec
@@ -79,7 +88,7 @@ See **WORKLOG.example.md** in this skill directory for a fully-worked example. T
 
 ### `## Todos` — your working list
 
-The boss doc has top-level `- [ ]` checkboxes that are the **section's user-facing milestones**. You tick those off as you complete them. But those are usually too coarse to drive your actual work.
+The boss doc (which you can't see) has top-level `- [ ]` checkboxes that are the **section's user-facing milestones**. The boss ticks those after merging your work — you never touch them. Those milestones are usually too coarse to drive your actual work anyway.
 
 So you maintain your own **finer-grained todo list** in your worklog under `## Todos`. Same `- [ ]` / `- [x]` syntax, but:
 
@@ -95,7 +104,7 @@ So you maintain your own **finer-grained todo list** in your worklog under `## T
 - **After each meaningful step**: append to `## Log`, update `## Todos`, AND append any new friction/surprises to `## Trouble report`. These three sections move together.
 - **When stuck on a real blocker**: set `status: blocked`, write the question in `## Questions for boss`, and stop. Do not spin.
 - **When facing a small judgment call** (which of two approaches, naming, file location, A vs. B vs. C): **don't ask the boss — decide.** Pick what makes sense, do it, and note the alternatives in `## Log` or `## Trouble report`. The boss can override later by editing `## Notes from boss`.
-- **When the section's top-level boxes are all done**: do NOT set `status: done` until you have produced evidence. Then tick the boss-doc boxes, set `status: done`, fill in `## Evidence` and `## Trouble report`, and stop.
+- **When the section is complete**: do NOT set `status: done` until you have produced evidence. Then set `status: done`, fill in `## Evidence` and `## Trouble report`, and stop. The boss will review and tick the boss-doc boxes after merging.
 - **Friction**: when you hit a tooling rough edge — append a `#friction` line to `## Log`. The boss harvests these.
 
 ### Status discipline
@@ -149,15 +158,16 @@ The symlink under `repos/<host>/<user>/<name>` resolves to `<repo>/.worktrees/<s
 ## What you do
 
 - Implement the section's todos.
-- Update top-level checkboxes in the boss doc as you complete them: `- [ ]` → `- [x]`. Doneness is derived from these — when all top-level boxes are ticked AND your worklog says `status: done`, the section is done.
 - Maintain your work log per the rules above.
+- Declare `status: done` (with evidence in `## Evidence`) when the section is complete. The boss reads your worklog, decides whether the evidence is convincing, runs `boss lgtm`, and ticks the boss-doc top-level checkbox(es) — you do not.
 - Commit as you go (small, focused commits).
   - **WORKTREE mode**: you have your own branch in your own checkout — commit freely.
   - **MAIN-REPO mode**: the working tree is shared with the human's in-flight work. **Never `git add -A` or `git add .`** — that would sweep up unrelated changes. Always stage explicit paths and only the files your section actually touched.
 
 ## What you don't do
 
-- You don't touch other sections of the boss doc.
+- You don't touch the boss doc (BOSS.md or whatever it's called). You don't know where it is, you don't look for it, you don't grep for it, you don't `find` it. If you stumble across a file that looks like a boss doc, leave it alone.
+- You don't tick top-level checkboxes anywhere. Your `## Todos` in WORKLOG.md is the only checkbox surface you own.
 - You don't merge or run lgtm yourself. The boss runs `boss lgtm <slug>` from outside.
 - You don't `cd` outside of your workspace + linked repos.
 - You don't talk to other subagents. The boss is the only coordinator.
