@@ -13,6 +13,7 @@ from .editor import _default_preview, _fzf_select, _print_which
 from .editor import app as editor_app
 from .mdnote import app as mdnote_app
 from .project import github_url as project_github_url
+from .tmpfile import main as tmpfile_main
 from .project import name as project_name
 from .project import resolve
 from .project import root as project_root
@@ -118,6 +119,10 @@ app.add_typer(tmux_app, name="tm")
 # -- mdnote subcommand group --------------------------------------------------
 
 app.add_typer(mdnote_app, name="mdnote")
+
+# -- tmpfile command ----------------------------------------------------------
+
+app.command("tmpfile")(tmpfile_main)
 
 
 def run() -> None:
