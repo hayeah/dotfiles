@@ -1,25 +1,32 @@
 <!--
 This file lives at:
-  $MDNOTES_ROOT/boss/2026-04-08/143052_283-add-user-authentication/worklog.md
+  $BOSS_ROOT/add-user-authentication/WORKLOG.md
 
-Sibling artifacts (screenshots, transcripts, scratch files) live in the same dir:
-  $MDNOTES_ROOT/boss/2026-04-08/143052_283-add-user-authentication/
-    worklog.md
-    01-signup-flow.png
-    schema.sql
+Sibling files in the same workspace:
+  $BOSS_ROOT/add-user-authentication/
+    WORKLOG.md
+    specs/
+      main.md                       # primary spec, written by the agent on first turn
+      schema-alternatives.md        # ad-hoc supporting design notes (optional)
+    repos/
+      github.com/hayeah/myapp -> ~/github.com/hayeah/myapp/.worktrees/add-user-authentication
+    tmp/
+      143052_283-signup-flow.png    # screenshots, transcripts, scratch scripts
+      143205_117-schema-dump.sql
 -->
 ---
 status: working          # working | blocked | done
 section: Add user authentication
-mode: worktree           # main-repo | worktree
-cwd: .worktrees/001
+slug: add-user-authentication
+mode: worktree           # worktree | main-repo
+spec: specs/main.md
 ---
 
 ## Status
 implementing the /login endpoint — schema and signup are in, working on session token generation now
 
 ## Todos
-<!-- Finer-grained than the boss-doc checkboxes. Tick off as you go.
+<!-- Finer-grained than the boss-doc top-level checkboxes. Tick off as you go.
      The boss-doc top-level checkboxes are user-facing milestones;
      this list is your internal driver. Add new items as you discover them. -->
 
@@ -33,14 +40,14 @@ implementing the /login endpoint — schema and signup are in, working on sessio
 - [ ] add test for /login happy path
 - [ ] add tests for bad password + missing user
 - [ ] confirm session cookie is HttpOnly + Secure (per boss notes)
-- [ ] tick off all four boss-doc checkboxes once implementation is in
+- [ ] tick off the two boss-doc checkboxes once implementation is in
 
 ### Blocked
 - (none)
 
 ## Log
-- 14:01 read section, starting on schema design
-- 14:05 wrote migration for users + sessions tables, used UUIDs per the section's nested note
+- 14:01 read section + spec, starting on schema design
+- 14:05 wrote migration for users + sessions tables, used UUIDs per the spec
 - 14:08 ran `pytest tests/test_schema.py` — passes
 - 14:12 wired up signup endpoint
 - 14:15 hit a quirk: the test client fixture didn't auto-create the sessions table; had to add it to conftest.py  #friction
@@ -51,13 +58,13 @@ implementing the /login endpoint — schema and signup are in, working on sessio
 - (none right now)
 
 ## Notes from boss
-<!-- (none yet — boss appends timestamped lines here when it has new instructions; you re-read on every turn) -->
+<!-- (boss appends timestamped lines here when it has new instructions; you re-read on every turn) -->
 - 14:18 the schema should use UUIDs not ints — confirmed, already done
 - 14:32 for /login add a test that asserts the session cookie is HttpOnly + Secure
 
 ## Evidence
 <!--
-Filled in only when status: done. Boss will not accept the section without this.
+Filled in only when status: done. Boss will not lgtm without this.
 Example shape (replace with real evidence for your section):
 
 ### Backend tests
@@ -85,17 +92,17 @@ HTTP/1.1 200 OK
 set-cookie: session=abc123...; HttpOnly; Secure; Path=/
 ```
 
-Full transcript saved at `./signup-login-transcript.txt` (sibling to this file).
+Full transcript saved at `tmp/150421_004-signup-login-transcript.txt`.
 
 ### Screenshot
 
-![signup flow](./01-signup-flow.png)
+![signup flow](tmp/143052_283-signup-flow.png)
 -->
 
 ## Trouble report
 <!--
-Filled in when status: done. The commit log already says what was built —
-this section is for what the commit log won't tell you.
+ROLLING — update every time you tick a todo, not just at the end. The commit log
+already says what was built — this section is for what the commit log won't tell you.
 
 - **Friction**: tooling rough edges, missing harnesses, things that wasted time
 - **Bugs found along the way**: not necessarily fixed in this section — note them so the boss can spawn follow-up sections
@@ -105,9 +112,8 @@ this section is for what the commit log won't tell you.
 
 Example:
 
-- kludge: hardcoded the JWT secret in `auth/jwt.py:14` because there's no config loader for secrets yet. real fix: wire it through whatever config system the rest of the app uses (didn't want to invent one in this section).
-- detour: tried using `passlib` for password hashing first, but it pulled in a deprecated `bcrypt` API and threw warnings. switched to plain `bcrypt`. don't reach for passlib next time.
+- kludge: hardcoded the JWT secret in `auth/jwt.py:14` because there's no config loader for secrets yet. real fix: wire it through whatever config system the rest of the app uses.
+- detour: tried using `passlib` for password hashing first, but it pulled in a deprecated `bcrypt` API and threw warnings. switched to plain `bcrypt`.
 - bug: noticed that `/health` returns 500 if the DB is unreachable instead of a structured error. unrelated to this section but worth a follow-up.
 - friction: the test fixture didn't auto-create the sessions table. had to patch conftest.py. the project's test scaffolding could use a once-per-session migration helper.  #friction
 -->
-
