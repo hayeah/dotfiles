@@ -15,6 +15,7 @@ from . import (
     doctor as doctor_mod,
     lgtm as lgtm_mod,
     ls as ls_mod,
+    pool,
     workspace,
 )
 
@@ -111,6 +112,15 @@ def spawn(
 
     key = descriptor.get("id") or "?"
 
+    # Persist agent_id so `boss checkout` can write it into lease files.
+    boss_json_path = lay.root / ".boss.json"
+    try:
+        bj = json.loads(boss_json_path.read_text())
+    except (json.JSONDecodeError, OSError):
+        bj = {}
+    bj["agent_id"] = key
+    boss_json_path.write_text(json.dumps(bj, indent=2) + "\n")
+
     msg = briefing.render(
         slug=s.slug, header=s.header, section_body=s.body, mode=mode
     )
@@ -134,27 +144,31 @@ def checkout(
     """Check out a repo into the current workspace's repos/ tree.
 
     Meant to be called by the agent from inside a workspace. Reads
-    `.boss.json` (written by `boss spawn`) to discover the slug and mode.
+    `.boss.json` (written by `boss spawn`) to discover the slug, mode,
+    and agent_id.
 
-    In worktree mode (default): creates a git worktree at
-    <repo>/.worktrees/<slug>, runs .worktrees.setup if present, and
-    symlinks it under repos/<host>/<user>/<name>.
+    In worktree mode (default): leases a numbered pool slot at
+    <repo>/.worktrees/NNN — GCs dead leases first, reuses a free slot
+    or grows the pool, resets to master, checks out a branch, writes
+    .lease.json, and symlinks into repos/.
 
     With --no-tree: symlinks the repo directly (main-repo mode).
     """
-    result = workspace.find_workspace()
-    if result is None:
+    ws_result = workspace.find_workspace()
+    if ws_result is None:
         typer.echo(
             "error: not inside a boss workspace (no .boss.json found walking up from cwd)",
             err=True,
         )
         raise typer.Exit(1)
 
-    ws_root, boss_json = result
+    ws_root, boss_json = ws_result
     slug = boss_json.get("slug", "")
     if not slug:
         typer.echo("error: .boss.json has no slug field", err=True)
         raise typer.Exit(1)
+
+    agent_id = boss_json.get("agent_id", "")
 
     mode = "main-repo" if no_tree else boss_json.get("mode", "worktree")
     if mode == "main-repo":
@@ -166,13 +180,11 @@ def checkout(
         raise typer.Exit(1)
 
     # Derive the symlink label from the repo path: github.com/user/name
-    # by looking for the github.com/<user>/<name> pattern.
     parts = repo_path.parts
     try:
         gh_idx = parts.index("github.com")
         label = "/".join(parts[gh_idx : gh_idx + 3])
     except (ValueError, IndexError):
-        # Fallback: just use the last component.
         label = repo_path.name
 
     repos_dir = ws_root / "repos"
@@ -180,61 +192,55 @@ def checkout(
     link_path = repos_dir / label
 
     if link_path.exists() or link_path.is_symlink():
+        import os
         typer.echo(f"already checked out: {label} -> {os.readlink(link_path)}")
         return
 
     if no_tree:
-        # Main-repo mode: symlink straight at the repo.
         link_parent.mkdir(parents=True, exist_ok=True)
         link_path.symlink_to(repo_path)
         typer.echo(f"linked (main-repo): {label} -> {repo_path}")
         return
 
-    # Worktree mode.
-    wt_path = repo_path / ".worktrees" / slug
-    if wt_path.exists():
-        typer.echo(f"worktree already exists at {wt_path} — reusing")
+    # --- Pool/lease worktree mode ---
+
+    # GC dead leases first.
+    freed = pool.gc_slots(repo_path)
+    if freed:
+        typer.echo(f"gc: reaped {len(freed)} dead lease(s): {', '.join(freed)}")
+
+    # Check if this slug already has a lease (re-checkout — reuse without reset).
+    existing = pool.find_slot_by_slug(repo_path, slug)
+    if existing is not None:
+        typer.echo(f"reusing existing lease: slot {existing.name} for {slug}")
+        link_parent.mkdir(parents=True, exist_ok=True)
+        link_path.symlink_to(existing)
+        typer.echo(f"checked out: {label} -> {existing}")
+        return
+
+    # Find a free slot or grow the pool.
+    slot = pool.find_free_slot(repo_path)
+    if slot is not None:
+        typer.echo(f"leasing free slot {slot.name}")
     else:
-        # Create worktree + branch.
         try:
-            subprocess.run(
-                ["git", "-C", str(repo_path), "worktree", "add",
-                 f".worktrees/{slug}", "-b", slug, "master"],
-                check=True,
-                capture_output=True,
-                text=True,
-            )
-        except subprocess.CalledProcessError as e:
-            typer.echo(f"error: git worktree add failed:\n{e.stderr.strip()}", err=True)
+            slot = pool.grow_pool(repo_path)
+        except pool.PoolError as e:
+            typer.echo(f"error: {e}", err=True)
             raise typer.Exit(1)
+        typer.echo(f"created new pool slot {slot.name}")
 
-        # Run setup hooks if present.
-        hook = repo_path / ".worktrees.setup"
-        if hook.is_file() and (hook.stat().st_mode & 0o111):
-            typer.echo(f"running .worktrees.setup in {wt_path}...")
-            subprocess.run([str(hook)], cwd=str(wt_path), check=False)
-
-        # Also try pymake worktree_setup if Makefile.py exists.
-        makefile_py = wt_path / "Makefile.py"
-        if not makefile_py.exists():
-            makefile_py = repo_path / "Makefile.py"
-        if makefile_py.exists():
-            typer.echo(f"running pymake worktree_setup in {wt_path}...")
-            result = subprocess.run(
-                ["pymake", "worktree_setup"],
-                cwd=str(wt_path),
-                capture_output=True,
-                text=True,
-                check=False,
-            )
-            if result.returncode == 0:
-                typer.echo("pymake worktree_setup: ok")
-            # Silently ignore if the task doesn't exist.
+    # Lease the slot: reset to master, create branch, write .lease.json.
+    try:
+        pool.lease_slot(slot, slug, agent_id)
+    except pool.PoolError as e:
+        typer.echo(f"error: failed to lease slot {slot.name}: {e}", err=True)
+        raise typer.Exit(1)
 
     # Symlink into the workspace repos/ tree.
     link_parent.mkdir(parents=True, exist_ok=True)
-    link_path.symlink_to(wt_path)
-    typer.echo(f"checked out: {label} -> {wt_path}")
+    link_path.symlink_to(slot)
+    typer.echo(f"checked out: {label} -> {slot}")
 
 
 @app.command(name="ls")

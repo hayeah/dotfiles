@@ -52,8 +52,8 @@ $BOSS_ROOT/                          # default: ~/Dropbox/boss/
       main.md                        # primary spec (linked from WORKLOG.md frontmatter `spec:`)
       schema-alternatives.md         # ad-hoc supporting notes (optional)
     repos/                           # symlinks ONLY (excluded from Dropbox sync)
-      github.com/hayeah/myapp -> ~/github.com/hayeah/myapp/.worktrees/add-user-authentication
-      github.com/hayeah/myapp-shared -> ~/github.com/hayeah/myapp-shared/.worktrees/add-user-authentication
+      github.com/hayeah/myapp -> ~/github.com/hayeah/myapp/.worktrees/000
+      github.com/hayeah/myapp-shared -> ~/github.com/hayeah/myapp-shared/.worktrees/001
     tmp/                             # inspectable outputs (screenshots, transcripts, scratch scripts)
       143052_283-signup-flow.png     # use the tmpfile naming convention: HHMMSS_<ms>-<title>
       143205_117-schema-dump.sql
@@ -67,14 +67,14 @@ Key properties:
 - **The slug is the join key.** No timestamp prefix, no internal id, no `meta.json`. Workspace exists ↔ section is open.
 - **`specs/` is a directory.** The agent writes `specs/main.md` on first turn for non-trivial sections, may add supporting docs (`specs/schema-alternatives.md`, etc.). WORKLOG.md frontmatter `spec:` field points at the primary one.
 - **`tmp/` holds inspectable outputs** — screenshots, transcripts, repro scripts. Use the `tmpfile` naming convention: `<HHMMSS>_<ms>-<title>`. The underscore between seconds and ms survives claude's project-id encoding (which rewrites `/` and `.` to `-`).
-- **`repos/` contains only symbolic links.** Worktrees themselves live at `~/github.com/<user>/<repo>/.worktrees/<slug>/`. The workspace just has links into them.
+- **`repos/` contains only symbolic links.** Worktrees live in numbered pool slots at `~/github.com/<user>/<repo>/.worktrees/NNN/` (e.g. `000`, `001`). The workspace just has links into them.
 - **Why symlinks, not worktrees-in-place**: Dropbox would sync the worktree contents, which is wasteful and confusing. Symlinks are tiny and Dropbox follows them as files.
 - **Dropbox-sync exclusion**: add `repos/` to the Dropbox ignore list (or use the `.nosync` extension on macOS) so Dropbox doesn't follow the symlinks.
 - **No section-state ledger.** Section state is derived: `boss ls` parses BOSS.md, checks `$BOSS_ROOT/<slug>/`, and asks `agentboss` if a session exists with that cwd.
 
 ## Modes
 
-- **Worktree mode (default).** The agent creates a per-repo worktree at `<repo>/.worktrees/<slug>` on a new branch named `<slug>` from master, runs `<repo>/.worktrees.setup` if present, and symlinks it under `repos/<host>/<user>/<name>` in the workspace. Multi-repo sections add more symlinks the same way as the agent discovers what it needs.
+- **Worktree mode (default).** The agent runs `boss checkout <repo>` which leases a numbered pool slot at `<repo>/.worktrees/NNN`. The pool GCs dead leases first, then finds a free slot or grows a new one, resets tracked files to master (build artifacts survive), creates a branch named `<slug>`, writes `.lease.json`, and symlinks the slot under `repos/<host>/<user>/<name>`. Multi-repo sections add more symlinks the same way as the agent discovers what it needs.
 - **Main-repo mode** (rare; for serialized work where worktrees would be overhead). The agent symlinks the main checkout directly into `repos/`. Same restrictions as before: never `git add -A`, only stage explicit paths, the working tree is shared with the human's in-flight work.
 
 The boss tells the agent which mode in the spawn briefing. If the section text says "edit in place" / "no worktree", main-repo mode. Otherwise worktree mode. `boss spawn --mode <mode>` selects.
