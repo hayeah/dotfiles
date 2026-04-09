@@ -26,7 +26,7 @@ Spec: $MDNOTES_ROOT/specs/2026-04-08-user-auth.md
 ### Conventions
 
 - **Top-level sections (`## `)** are features. Sub-headings inside a section are just structure — only the top level maps to a subagent.
-- **One top-level checkbox per section.** Each section has *one* `- [ ]` checkbox that the agent ticks when the whole section is done. Nested plain bullets *under* the checkbox are instructions/breakdown — they are NOT separate todos and should not have boxes. Don't fan a feature out into many sibling checkboxes; that's the spec's job.
+- **Coarse top-level checkboxes.** A section usually has one `- [ ]` checkbox covering the whole feature, but two or three coarse checkboxes are fine when the section has genuinely distinct phases (e.g. "implement", "dogfood", "migrate docs"). Nested plain bullets *under* a checkbox are instructions/breakdown — they are NOT separate todos and should not have boxes. Don't fan a feature out into many sibling checkboxes; the agent's worklog `## Todos` is where fine-grained step tracking lives.
 - **The agent writes the spec, not you.** When a section is non-trivial, the *subagent* writes the spec on its first turn (see AGENT_LOOP.md "Writing a spec"). Your job is just to turn the human's brain dump into a sensible section: a clear header, a one-paragraph framing of what they want, and maybe a few clarifying bullets for anything ambiguous. Don't over-spec. The agent will read the section, ask clarifying questions if needed (via `## Questions for boss`), then write its own `<section dir>/spec.md` and link it from its worklog. You review the spec on the next tick before the agent starts coding.
 - **Section header prefixed with `[x]`** means the section is done, evidence-verified, and merged. Open sections have no prefix. Skip closed sections.
 - **Worktree mode is the default.** Every section gets its own per-repo worktree at `<repo>/.worktrees/<slug>` on a branch also named `<slug>`. The boss creates it on dispatch with plain `git worktree add` (no pool, no lease file, no slot numbers). If the section text says "edit in main checkout" / "no worktree" / "edit in place", that's the only opt-out — main-repo mode is rare and the agent runs in the main checkout instead. If a feature touches multiple repos, the boss creates the same `.worktrees/<slug>` in each.
@@ -105,7 +105,7 @@ git -C <repo> worktree prune       # clean up dangling entries
 git -C <repo> worktree list        # see what's actually present
 
 # For each .worktrees/<slug> still on disk, look up <slug> in meta.json:
-# - if meta has session and `agentboss <key> status -q` returns alive → adopt, fire `agentboss wait`
+# - if meta has session and `agentboss state <key>` returns a non-error state → adopt, fire `agentboss wait`
 # - if session is dead/missing → respawn into the EXISTING worktree (do NOT git worktree add — it'll fail "already exists")
 # - if the slug isn't in meta.json or doesn't match an open section → orphan, surface and stop
 ```
@@ -176,7 +176,7 @@ agentboss wait <key> --timeout 600 &
 When a wait returns:
 
 - **Exit 0 (idle)** → the agent stopped producing tokens. Do a tick (scan + check in + dispatch + harvest), act on this agent specifically, then **immediately re-arm** with a fresh `agentboss wait <same-key> --timeout 600 &` so you'll be notified on its next idle. If you closed the section, kill the agent and do not re-arm.
-- **Exit non-zero (timeout)** → 10 minutes passed without an idle event. Sanity-check via `agentboss <key> status -q`. If still working and the transcript jsonl is fresh, just re-arm another 600s wait; the agent is on a long task. If the agent is wedged (no transcript progress in the last few minutes despite "working" state), nudge it via `agentboss send` and re-arm.
+- **Exit non-zero (timeout)** → 10 minutes passed without an idle event. Sanity-check via `agentboss state <key>`. If still working and the transcript jsonl is fresh, just re-arm another 600s wait; the agent is on a long task. If the agent is wedged (no transcript progress in the last few minutes despite "working" state), nudge it via `agentboss send` and re-arm.
 - **`agentboss wait` errors with "no process matching"** → session died. Respawn at the same worklog dir per the dispatch rules below, then arm a wait on the new key.
 
 You do NOT need a cron at all when this pattern is in use. The event loop handles all per-agent transitions; full doc scans happen on every wake (cheap — read BOSS.md + meta.json + a few files). The cron `c066ce11`/`342e5e6e` is a fallback for sessions where the wait pattern isn't viable; delete it once the wait pattern is wired up.
@@ -195,7 +195,7 @@ You do NOT need a cron at all when this pattern is in use. The event loop handle
 For each open section, look up its slug in `meta.json`:
 
 - **No entry, or `session: null`** → mint a new worklog dir under `$MDNOTES_ROOT/boss/<today>/<HHMMSS>_<ms>-<slug>/`, spawn a new subagent (see SKILL.md for the spawn commands), and write/update the entry in `meta.json` with fresh `worklog` and `session`.
-- **Entry exists with `session`, but `agentboss status <session> -q` says the window is gone** → the session died. Spawn a fresh one (new agentboss key) pointing at the **same** `worklog` dir. Update only the `session` field in `meta.json`; the new agent reads the existing `worklog.md` and resumes.
+- **Entry exists with `session`, but `agentboss state <session>` errors with `no process matching` (or `agentboss ls` doesn't show the row)** → the session died. Spawn a fresh one (new agentboss key) pointing at the **same** `worklog` dir. Update only the `session` field in `meta.json`; the new agent reads the existing `worklog.md` and resumes.
 - **Entry exists with a live `session`** → check in (next step).
 
 ### Check in
@@ -204,7 +204,7 @@ For each running subagent, look up its meta.json entry by slug:
 
 - Read its work log: `cat $MDNOTES_ROOT/boss/<worklog>/worklog.md`.
 - Note its `status:` field (`working` / `blocked` / `done`).
-- Check `agentboss status <session> -q` to confirm it's actually idle vs. mid-turn.
+- Check `agentboss state <session>` to confirm it's actually idle vs. mid-turn.
 
 Then:
 
@@ -321,7 +321,7 @@ This keeps the durable record in one place and avoids bloating the subagent's tm
 
 ## Idleness vs. doneness
 
-- **Idle** (process state, from `agentboss status`) means the Claude prompt is at the input — it's not currently producing tokens. It does NOT mean the work is done.
+- **Idle** (process state, from `agentboss state <key>` or `agentboss ls`) means the Claude prompt is at the input — it's not currently producing tokens. It does NOT mean the work is done.
 - **Done** (semantic state, from work log frontmatter) means the subagent declared the section's todos complete.
 
 Always combine both: act on a subagent only when it's both `agentboss: idle` AND has updated its work log. If it's idle but the log is stale, the subagent forgot to update — nudge it.

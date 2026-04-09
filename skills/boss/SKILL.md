@@ -186,7 +186,7 @@ Then arm the wait loop: `agentboss wait $SESSION_KEY --timeout 600 &` so the bos
 
 Look up the section in `meta.json` by slug to get its `session` and `worklog` fields. Then:
 
-- **Inspect state**: `agentboss <session> status -q` — returns `idle` / `working` / `waiting` / `unknown`.
+- **Inspect state**: `agentboss state <session>` — returns one terse line `<state> [detail] <state-age>`. Add `--json` for the full state.json record. To see all sessions at once instead of one, use `agentboss ls`.
 - **Read pane**: `agentboss output <session> -n 80` — last 80 lines of terminal.
 - **Read work log**: `cat $MDNOTES_ROOT/boss/<worklog>/worklog.md` — the durable channel.
 - **List artifacts**: `ls $MDNOTES_ROOT/boss/<worklog>/` — see screenshots, transcripts, etc.

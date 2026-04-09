@@ -2,7 +2,7 @@
 
 This is a sample boss doc. Copy it to your project as `BOSS.md` and write your own sections. No frontmatter, no inline metadata — the doc is just headers and todos.
 
-Top-level `##` sections are features. Each gets a per-repo worktree at `<repo>/.worktrees/<slug>` and a subagent. **One top-level checkbox per section** — nested bullets under it are instructions/breakdown for the agent, not separate todos. When the boss lgtm's a section, the header gets prefixed with `[x]`.
+Top-level `##` sections are features. Each gets a per-repo worktree at `<repo>/.worktrees/<slug>` and a subagent. **Keep top-level checkboxes coarse** — usually one `- [ ]` per section, occasionally two or three for genuinely distinct phases. Nested bullets under a checkbox are instructions/breakdown for the agent, not separate todos. Fine-grained step tracking belongs in the agent's worklog `## Todos`, not the boss doc. When the boss lgtm's a section, the header gets prefixed with `[x]`.
 
 All per-section state lives in `$MDNOTES_ROOT/boss/meta.json`, keyed by section slug. Section headers must be unique by slug. The meta entries are minimal — `header`, `worklog` (path to the notes dir), `session` (agentboss key) — everything else is derivable.
 

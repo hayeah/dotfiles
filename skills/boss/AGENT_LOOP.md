@@ -117,6 +117,19 @@ If your project doesn't have a harness that can produce real e2e evidence (no in
   - **WORKTREE mode**: you have your own branch in your own checkout, commit freely.
   - **MAIN-REPO mode**: the working tree is shared with the human's in-flight work. **Never `git add -A` or `git add .`** — that would sweep up unrelated changes. Always stage explicit paths (`git add <file1> <file2>`) and only the files your section actually touched. If you're unsure whether a path is yours, leave it alone.
 
+### Worktree path discipline (WORKTREE mode)
+
+In WORKTREE mode, your cwd is `<repo>/.worktrees/<slug>`, NOT the main checkout at `<repo>`. They are two physically separate directories on disk. Edits to one do NOT appear in the other.
+
+**The trap**: it's easy to grep with absolute paths to the main checkout (e.g. `/Users/me/github.com/hayeah/foo/file.go`) and then `Edit` that same path. The edit lands on master in the main checkout, your branch never sees it, the change is invisible to your commits, and the section ships broken. Caught in real boss-loop sessions.
+
+**The rule**: never use absolute paths under `<repo>/...` that don't include `.worktrees/<slug>/...`. Use one of:
+
+- Relative paths from your cwd (e.g. `file.go`, `cli/agentboss/wait.go`)
+- Absolute paths that include your worktree segment (e.g. `<repo>/.worktrees/<slug>/cli/agentboss/wait.go`)
+
+**Quick check before any `Edit` / `Write`**: if `pwd` shows `.worktrees/<slug>` but the path you're about to edit doesn't contain `.worktrees/<slug>`, stop and rewrite the path. After any edit, `git -C <cwd> status` should show the file as modified — if it doesn't, you edited the wrong tree.
+
 ## What you don't do
 
 - You don't touch other sections of the boss doc.
