@@ -170,6 +170,11 @@ def _lgtm_one(label: str, target: Path, slug: str) -> RepoResult:
         # Release pool lease for already-merged branches too.
         if pool._is_pool_slot(target.name):
             pool.release_slot(target, slug=branch)
+        else:
+            subprocess.run(
+                ["git", "-C", str(main_repo), "branch", "-d", branch],
+                capture_output=True, text=True, check=False,
+            )
         return RepoResult(
             label=label,
             repo=target,
@@ -207,6 +212,12 @@ def _lgtm_one(label: str, target: Path, slug: str) -> RepoResult:
     # Release pool lease if this is a numbered slot.
     if pool._is_pool_slot(target.name):
         pool.release_slot(target, slug=branch)
+    else:
+        # Non-pool worktree: delete the merged branch (best-effort).
+        subprocess.run(
+            ["git", "-C", str(main_repo), "branch", "-d", branch],
+            capture_output=True, text=True, check=False,
+        )
 
     return RepoResult(
         label=label,
