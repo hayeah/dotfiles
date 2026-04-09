@@ -97,9 +97,9 @@ def spawn(
 
     msg = briefing.render(slug=s.slug, header=s.header, mode=mode, boss_doc=doc)
     try:
-        agentboss.send(key, msg)
+        agentboss.submit(key, msg)
     except agentboss.AgentbossError as e:
-        typer.echo(f"warning: spawned agent {key} but briefing send failed: {e}", err=True)
+        typer.echo(f"warning: spawned agent {key} but briefing submit failed: {e}", err=True)
 
     typer.echo(f"spawned: slug={s.slug} key={key} workspace={lay.root}")
 

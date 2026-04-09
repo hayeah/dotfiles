@@ -199,8 +199,88 @@ def run(cwd: Path, command: list[str], detector: str = "claude") -> dict[str, An
 
 
 def send(key: str, message: str) -> None:
+    """Send a one-line message to the agent and submit it.
+
+    For short / single-line messages this is fine, but for multi-line content
+    use `submit(...)` — `agentboss send` fires Enter only 100ms after the text,
+    which a long paste hasn't finished settling by.
+    """
     proc = _run(["send", key, message], check=False)
     if proc.returncode != 0:
         raise AgentbossError(
             f"agentboss send {key!r} failed (rc={proc.returncode}): {proc.stderr.strip()}"
         )
+
+
+def _capture_input_line(key: str) -> str:
+    """Return the bottom of the agent's pane (the input area)."""
+    proc = _run(["output", key, "-n", "8"], check=False)
+    if proc.returncode != 0:
+        return ""
+    return proc.stdout
+
+
+def _input_has_pending(pane: str) -> bool:
+    """True if the input area shows a paste placeholder or buffered text.
+
+    Claude's input prompt looks like `❯ ` when empty; `❯ [Pasted text #1 ...]`
+    when a paste is buffered; `❯ some literal text` when chars are buffered.
+    """
+    for line in pane.splitlines():
+        stripped = line.strip()
+        if not stripped.startswith("❯"):
+            continue
+        # Strip the prompt marker and surrounding whitespace.
+        rest = stripped[1:].strip()
+        if not rest:
+            return False
+        return True
+    return False
+
+
+def submit(key: str, message: str, attempts: int = 4) -> None:
+    """Send a (possibly multi-line) message and ensure it's actually submitted.
+
+    Strategy:
+      1. Send the text with `--no-enter`.
+      2. Poll the pane until the input area shows the buffered content
+         (paste placeholder or literal text) — confirms claude has finished
+         processing the paste.
+      3. Send Enter via `--keys`.
+      4. Re-check the pane: if the input is still non-empty, send Enter again
+         (up to `attempts` times). This handles the race where the Enter
+         arrives mid-paste-finalization and gets absorbed.
+
+    Raises AgentbossError if the input is still buffered after all attempts.
+    """
+    import time
+
+    text_proc = _run(["send", key, message, "--no-enter"], check=False)
+    if text_proc.returncode != 0:
+        raise AgentbossError(
+            f"agentboss send {key!r} (text) failed: {text_proc.stderr.strip()}"
+        )
+
+    # Wait for the paste to land in the input area.
+    deadline = time.monotonic() + 3.0
+    while time.monotonic() < deadline:
+        if _input_has_pending(_capture_input_line(key)):
+            break
+        time.sleep(0.1)
+
+    for attempt in range(attempts):
+        # Small settle delay before sending Enter, longer on later attempts.
+        time.sleep(0.2 + 0.2 * attempt)
+        enter_proc = _run(["send", key, "Enter", "--keys"], check=False)
+        if enter_proc.returncode != 0:
+            raise AgentbossError(
+                f"agentboss send {key!r} (Enter) failed: {enter_proc.stderr.strip()}"
+            )
+        # Verify the input was cleared.
+        time.sleep(0.3)
+        if not _input_has_pending(_capture_input_line(key)):
+            return
+
+    raise AgentbossError(
+        f"failed to submit message to {key!r}: input still buffered after {attempts} Enter presses"
+    )
