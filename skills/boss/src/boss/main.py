@@ -112,10 +112,6 @@ def spawn(
 
     workspace.create(s.slug, s.header, mode)
 
-    # Ensure the __agent tmux session exists (agentboss creates windows inside it).
-    sh("tmux", "has-session", "-t", "__agent", check=False).returncode != 0 and \
-        sh("tmux", "new-session", "-d", "-s", "__agent")
-
     preset = AGENT_PRESETS[agent]
     cmd = list(preset["cmd"])
     if claude_args:
