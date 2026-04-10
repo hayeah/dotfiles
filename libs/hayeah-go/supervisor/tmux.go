@@ -2,8 +2,11 @@ package supervisor
 
 import (
 	"fmt"
+	"io"
+	"os"
 	"os/exec"
 	"strings"
+	"syscall"
 )
 
 // TmuxSpawn describes how to create the tmux window and what to run in it.
@@ -27,16 +30,24 @@ func (s TmuxSpawn) Target() string {
 // Tmux is a thin wrapper over the tmux CLI.
 type Tmux struct{}
 
+// NewSession creates a new detached tmux session running cmd in cwd.
+func (t *Tmux) NewSession(name, cwd string, cmd []string) error {
+	return t.NewSessionOrWindow(TmuxSpawn{
+		Session: name,
+		Window:  "0",
+		CWD:     cwd,
+		Cmd:     cmd,
+	})
+}
+
 // HasSession checks if a tmux session exists.
 func (t *Tmux) HasSession(name string) bool {
-	err := exec.Command("tmux", "has-session", "-t", name).Run()
-	return err == nil
+	return t.runQuiet("has-session", "-t", name) == nil
 }
 
 // HasWindow checks if a tmux window exists.
 func (t *Tmux) HasWindow(target string) bool {
-	err := exec.Command("tmux", "list-windows", "-t", target, "-F", "#{window_name}").Run()
-	return err == nil
+	return t.runQuiet("list-panes", "-t", target) == nil
 }
 
 // NewSessionOrWindow creates the tmux session (if it doesn't exist) and
@@ -58,11 +69,7 @@ func (t *Tmux) NewSessionOrWindow(spawn TmuxSpawn) error {
 			args = append(args, "-c", spawn.CWD)
 		}
 		args = append(args, shellCmd)
-		cmd := exec.Command("tmux", args...)
-		if out, err := cmd.CombinedOutput(); err != nil {
-			return fmt.Errorf("tmux new-session: %s: %w", out, err)
-		}
-		return nil
+		return t.run(args...)
 	}
 
 	// Session exists — check if window already exists
@@ -75,47 +82,106 @@ func (t *Tmux) NewSessionOrWindow(spawn TmuxSpawn) error {
 		args = append(args, "-c", spawn.CWD)
 	}
 	args = append(args, shellCmd)
-	cmd := exec.Command("tmux", args...)
-	if out, err := cmd.CombinedOutput(); err != nil {
-		return fmt.Errorf("tmux new-window: %s: %w", out, err)
-	}
-	return nil
+	return t.run(args...)
+}
+
+// KillSession kills a tmux session.
+func (t *Tmux) KillSession(target string) error {
+	return t.run("kill-session", "-t", target)
 }
 
 // KillWindow kills a tmux window by target.
 func (t *Tmux) KillWindow(target string) error {
-	cmd := exec.Command("tmux", "kill-window", "-t", target)
-	if out, err := cmd.CombinedOutput(); err != nil {
-		return fmt.Errorf("tmux kill-window %q: %s: %w", target, out, err)
-	}
-	return nil
+	return t.run("kill-window", "-t", target)
 }
 
 // CapturePane captures content from a tmux pane.
 func (t *Tmux) CapturePane(target string, lines int) (string, error) {
 	startLine := -lines
-	cmd := exec.Command("tmux", "capture-pane", "-t", target, "-p",
+	return t.output("capture-pane", "-t", target, "-p",
 		"-S", fmt.Sprintf("%d", startLine))
-	out, err := cmd.Output()
+}
+
+// CapturePan is a compatibility alias for CapturePane.
+func (t *Tmux) CapturePan(target string, lines int) (string, error) {
+	return t.CapturePane(target, lines)
+}
+
+// CapturePaneEscapes captures pane content including ANSI escape sequences.
+func (t *Tmux) CapturePaneEscapes(target string, lines int) (string, error) {
+	startLine := -lines
+	out, err := t.output("capture-pane", "-t", target, "-p", "-e", "-S", fmt.Sprintf("%d", startLine))
 	if err != nil {
-		return "", fmt.Errorf("tmux capture-pane %q: %w", target, err)
+		return "", err
 	}
-	return string(out), nil
+	return out, nil
 }
 
 // SendKeys sends keys to a tmux window.
 func (t *Tmux) SendKeys(target string, keys ...string) error {
 	args := append([]string{"send-keys", "-t", target}, keys...)
+	return t.run(args...)
+}
+
+// SendText sends literal text to a tmux window without pressing Enter.
+func (t *Tmux) SendText(target string, text string) error {
+	return t.run("send-keys", "-t", target, "-l", text)
+}
+
+// PasteBuffer pastes text through a tmux buffer.
+func (t *Tmux) PasteBuffer(target, text string) error {
+	bufName := "supervisor-paste"
+	if err := t.run("set-buffer", "-b", bufName, "--", text); err != nil {
+		return err
+	}
+	return t.run("paste-buffer", "-b", bufName, "-d", "-t", target)
+}
+
+// CurrentTarget returns the current tmux session:window target.
+func (t *Tmux) CurrentTarget() (string, error) {
+	return t.output("display-message", "-p", "#S:#W")
+}
+
+// Attach replaces the current process with tmux attach/switch-client.
+func (t *Tmux) Attach(target string) error {
+	parts := strings.SplitN(target, ":", 2)
+	if len(parts) == 2 {
+		_ = t.runQuiet("select-window", "-t", target)
+	}
+	session := parts[0]
+
+	tmuxPath, err := exec.LookPath("tmux")
+	if err != nil {
+		return err
+	}
+	if os.Getenv("TMUX") != "" {
+		return syscall.Exec(tmuxPath, []string{"tmux", "switch-client", "-t", session}, os.Environ())
+	}
+	return syscall.Exec(tmuxPath, []string{"tmux", "attach-session", "-t", session}, os.Environ())
+}
+
+func (t *Tmux) run(args ...string) error {
 	cmd := exec.Command("tmux", args...)
 	if out, err := cmd.CombinedOutput(); err != nil {
-		return fmt.Errorf("tmux send-keys %q: %s: %w", target, out, err)
+		return fmt.Errorf("tmux %s: %s: %w", strings.Join(args, " "), out, err)
 	}
 	return nil
 }
 
-// SendText sends text followed by Enter to a tmux window.
-func (t *Tmux) SendText(target string, text string) error {
-	return t.SendKeys(target, text, "Enter")
+func (t *Tmux) runQuiet(args ...string) error {
+	cmd := exec.Command("tmux", args...)
+	cmd.Stdout = io.Discard
+	cmd.Stderr = io.Discard
+	return cmd.Run()
+}
+
+func (t *Tmux) output(args ...string) (string, error) {
+	cmd := exec.Command("tmux", args...)
+	out, err := cmd.Output()
+	if err != nil {
+		return "", fmt.Errorf("tmux %s: %w", strings.Join(args, " "), err)
+	}
+	return strings.TrimRight(string(out), "\n"), nil
 }
 
 func (t *Tmux) buildShellCmd(spawn TmuxSpawn) string {
