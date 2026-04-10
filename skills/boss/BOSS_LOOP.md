@@ -34,7 +34,35 @@ Spec: $BOSS_ROOT/add-user-authentication/specs/main.md
 - **The agent writes the spec, not you.** When a section is non-trivial, the *subagent* writes `specs/main.md` in its workspace on first turn. Your job is just to turn the human's brain dump into a sensible section: clear header, one-paragraph framing, maybe a few clarifying nested bullets.
 - **Worktree mode is the default.** Each section runs in a per-section workspace at `$BOSS_ROOT/<slug>/`; the agent populates `repos/` with worktree symlinks for the repos it needs to touch. Main-repo mode is the rare opt-out (when the section text says "edit in place" / "no worktree").
 
-### Sanitizing the human's brain dump
+### Trigger words
+
+The human uses these phrases to tell you what mode to operate in:
+
+- **"boss todo"** — create a BOSS.md section with `- [ ]` checkboxes and spawn an agent. Fast path for well-understood tasks. Sanitize the brain dump (see below), add to BOSS.md, `boss spawn`.
+- **"boss spec"** — enter spec mode. The task needs design discussion before implementation. You (the boss session) explore the codebase, read research notes, draft a spec at `$MDNOTES_ROOT/<date>/<slug>-spec.md`, and iterate with the human. Use internal subagents for heavy research — do NOT spawn an agentboss subagent. The BOSS.md section stays without checkboxes until the human says lgtm. Then add `- [ ]` items and spawn.
+- **"boss todo" with a file path** — read the referenced file (usually a spec or research note) and create the BOSS.md section from it.
+
+### Spec mode (`boss spec`)
+
+You do the speccing within this session. The human wants to think through the design interactively.
+
+- **Explore**: read code, research notes, prior worklogs, friction. Use internal subagents for deep research.
+- **Draft**: write a spec at `$MDNOTES_ROOT/<date>/<slug>-spec.md`. Cover: goal, architecture, steps, open questions.
+- **Iterate**: the human reviews, you revise. Back and forth until lgtm.
+- **Create section**: on lgtm, add a BOSS.md section linking the spec, with `- [ ]` checkboxes derived from the spec's steps.
+- **Spawn**: `boss spawn <slug>`.
+
+During spec mode, the BOSS.md section (if created early) has no checkboxes:
+
+```markdown
+## Add webview eval to SwiftUITap
+
+Spec: $MDNOTES_ROOT/2026-04-10/webview-eval-spec.md
+
+(speccing — not ready for agent)
+```
+
+### Sanitizing the human's brain dump (`boss todo`)
 
 Light touch:
 
