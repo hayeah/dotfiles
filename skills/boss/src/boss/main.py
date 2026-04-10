@@ -284,6 +284,8 @@ def checkout(
             typer.echo(f"error: {e}", err=True)
             raise typer.Exit(1)
 
+    workspace.ensure_bydate_link(slug)
+
     if ios_simulator:
         if not agent_id:
             typer.echo("error: .boss.json has no agent_id for simulator leasing", err=True)

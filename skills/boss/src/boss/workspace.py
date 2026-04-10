@@ -112,6 +112,7 @@ def create(slug: str, header: str, mode: str) -> WorkspaceLayout:
         {"slug": slug, "mode": mode, "workspace": str(lay.root)},
         preserve_existing=True,
     )
+    ensure_bydate_link(slug)
     return lay
 
 
@@ -165,6 +166,31 @@ def find_workspace(start: Path | None = None) -> tuple[Path, dict] | None:
         if cur == cur.parent or cur == stop:
             return None
         cur = cur.parent
+
+
+def ensure_bydate_link(slug: str) -> Path | None:
+    """Create a ``bydate/<YYYY-MM-DD>/<HHMMSS_ms>-<slug>`` symlink pointing
+    at the workspace.  Skips if a symlink for the same slug already exists
+    under today's date directory.  Returns the symlink path, or *None* if
+    one already existed.
+    """
+    root = boss_root()
+    today = datetime.now().strftime("%Y-%m-%d")
+    date_dir = root / "bydate" / today
+    date_dir.mkdir(parents=True, exist_ok=True)
+
+    # Check for an existing symlink with the same slug suffix.
+    for entry in date_dir.iterdir():
+        if entry.is_symlink() and entry.name.endswith(f"-{slug}"):
+            return None
+
+    ts = datetime.now().strftime("%H%M%S_%f")[:-3]  # HHMMSS_ms (truncate µs→ms)
+    link_name = f"{ts}-{slug}"
+    link_path = date_dir / link_name
+    # Relative symlink: ../../<slug>
+    target = Path("..") / ".." / slug
+    link_path.symlink_to(target)
+    return link_path
 
 
 def list_repo_symlinks(slug: str) -> dict[str, Path]:
