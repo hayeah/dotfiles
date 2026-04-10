@@ -38,7 +38,7 @@ Spec: $BOSS_ROOT/add-user-authentication/specs/main.md
 
 The human uses these phrases to tell you what mode to operate in:
 
-- **"boss todo"** — create a BOSS.md section with `- [ ]` checkboxes and spawn an agent. Fast path for well-understood tasks. Sanitize the brain dump (see below), add to BOSS.md, `boss spawn`.
+- **"boss todo"** — create a BOSS.md section with `- [ ]` checkboxes and spawn an agent. Fast path for well-understood tasks. Sanitize the brain dump (see below), use `boss add` to append to BOSS.md, then `boss spawn`.
 - **"boss spec"** — enter spec mode. The task needs design discussion before implementation. You (the boss session) explore the codebase, read research notes, draft a spec at `$MDNOTES_ROOT/<date>/<slug>-spec.md`, and iterate with the human. Use internal subagents for heavy research — do NOT spawn an agentboss subagent. The BOSS.md section stays without checkboxes until the human says lgtm. Then add `- [ ]` items and spawn.
 - **"boss todo" with a file path** — read the referenced file (usually a spec or research note) and create the BOSS.md section from it.
 
@@ -78,6 +78,7 @@ Then `boss spawn <slug>`. The agent will read the section, write `specs/main.md`
 Everything mechanizable runs through `boss <verb>`. Everything else is raw shell.
 
 ```
+boss add              # append a new section to BOSS.md (read from stdin), with date grouping
 boss ls               # wide read; the source of truth for "what should I do next"
 boss spawn <section>  # set up workspace + spawn agent + send templated briefing
 boss lgtm <section>   # rebase + verify + merge --no-ff with safety gating; re-runnable
