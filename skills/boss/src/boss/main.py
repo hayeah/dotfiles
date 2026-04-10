@@ -134,15 +134,11 @@ def spawn(
     bj["agent_id"] = key
     boss_json_path.write_text(json.dumps(bj, indent=2) + "\n")
 
-    # Wait for the agent to become idle before sending the briefing.
     # codex (bunx) takes several seconds to start; sending immediately
-    # hits a "can't find window" error.
-    import time
-    for _ in range(30):
-        probe = sh(agentboss.binary(), "state", key, check=False)
-        if probe.returncode == 0 and "idle" in probe.stdout.lower():
-            break
-        time.sleep(1)
+    # can hit a "can't find window" error. Sleep to let it initialize.
+    if agent != "claude":
+        import time
+        time.sleep(10)
 
     msg = briefing.render(
         slug=s.slug, header=s.header, section_body=s.body, mode=mode
