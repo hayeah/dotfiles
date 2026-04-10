@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import sys
+from datetime import date as date_type
 from pathlib import Path
 
 import typer
@@ -138,6 +139,44 @@ def spawn(
         typer.echo(f"warning: spawned agent {key} but briefing submit failed: {e}", err=True)
 
     typer.echo(f"spawned: slug={s.slug} key={key} workspace={lay.root}")
+
+
+@app.command()
+def add(
+    boss_doc: Path = typer.Option(Path("BOSS.md"), "--boss-doc", help="Path to BOSS.md."),
+    date: str = typer.Option("", "--date", help="Date group (YYYY-MM-DD). Defaults to today."),
+) -> None:
+    """Append a new section to the boss doc (read from stdin).
+
+    The section text must contain a `## Header` line and typically one or
+    more `- [ ]` checkboxes.  It is appended under a `# YYYY-MM-DD` date
+    group, creating one if it doesn't exist yet.
+
+    Example::
+
+        boss add <<'EOF'
+        ## Add user authentication
+
+        - [ ] design schema and write the spec
+        - [ ] implement and verify
+        EOF
+    """
+    if not date:
+        date = date_type.today().isoformat()
+
+    section_text = sys.stdin.read()
+    if not section_text.strip():
+        typer.echo("error: no section text on stdin", err=True)
+        raise typer.Exit(2)
+
+    doc = _resolve_boss_doc(boss_doc)
+    try:
+        slug = bossdoc.append_section(doc, section_text, date)
+    except bossdoc.BossDocError as e:
+        typer.echo(f"error: {e}", err=True)
+        raise typer.Exit(1)
+
+    typer.echo(f"added: {slug} (date group: {date})")
 
 
 @app.command()
