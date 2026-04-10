@@ -134,12 +134,6 @@ def spawn(
     bj["agent_id"] = key
     boss_json_path.write_text(json.dumps(bj, indent=2) + "\n")
 
-    # codex (bunx) takes several seconds to start; sending immediately
-    # can hit a "can't find window" error. Sleep to let it initialize.
-    if agent != "claude":
-        import time
-        time.sleep(10)
-
     msg = briefing.render(
         slug=s.slug, header=s.header, section_body=s.body, mode=mode
     )
