@@ -201,3 +201,63 @@ def send(key: str, message: str) -> None:
         raise AgentbossError(
             f"agentboss send {key!r} failed (rc={proc.returncode}): {proc.stderr.strip()}"
         )
+
+
+def lease(key: str, resource: str) -> None:
+    proc = _run(["lease", key, resource], check=False)
+    if proc.returncode != 0:
+        raise AgentbossError(
+            f"agentboss lease {key!r} {resource!r} failed "
+            f"(rc={proc.returncode}): {proc.stderr.strip()}"
+        )
+
+
+def lease_release(key: str, resource: str) -> None:
+    proc = _run(["lease-release", key, resource], check=False)
+    if proc.returncode != 0:
+        raise AgentbossError(
+            f"agentboss lease-release {key!r} {resource!r} failed "
+            f"(rc={proc.returncode}): {proc.stderr.strip()}"
+        )
+
+
+def lease_check(resource: str) -> str | None:
+    proc = _run(["lease-check", resource], check=False)
+    if proc.returncode == 0:
+        holder = proc.stdout.strip()
+        if holder:
+            return holder
+        raise AgentbossError(f"agentboss lease-check {resource!r} returned empty output")
+
+    combined = "\n".join(part for part in (proc.stderr.strip(), proc.stdout.strip()) if part)
+    if "unheld" in combined:
+        return None
+
+    raise AgentbossError(
+        f"agentboss lease-check {resource!r} failed "
+        f"(rc={proc.returncode}): {combined}"
+    )
+
+
+def lease_list(namespace: str | None = None) -> list[dict[str, Any]]:
+    args = ["lease-list", "--json"]
+    if namespace:
+        args.extend(["--namespace", namespace])
+    proc = _run(args, check=False)
+    if proc.returncode != 0:
+        raise AgentbossError(
+            f"agentboss lease-list failed (rc={proc.returncode}): {proc.stderr.strip()}"
+        )
+
+    out = proc.stdout.strip()
+    if not out:
+        return []
+    try:
+        data = json.loads(out)
+    except json.JSONDecodeError as e:
+        raise AgentbossError(f"agentboss lease-list returned non-JSON: {e}\n{out!r}")
+    if not isinstance(data, list):
+        raise AgentbossError(
+            f"agentboss lease-list expected array, got {type(data).__name__}"
+        )
+    return data
