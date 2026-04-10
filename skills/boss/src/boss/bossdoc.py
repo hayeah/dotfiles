@@ -3,17 +3,31 @@
 from __future__ import annotations
 
 import re
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 
 
-# Top-level checkbox at column zero. Nested (` ` indented) checkboxes are
-# intentionally NOT matched — see SKILL.md "Top-level checkboxes only".
-_TOP_CHECKBOX_RE = re.compile(r"^- \[([ xX])\]", re.MULTILINE)
-_TOP_CHECKBOX_LINE_RE = re.compile(r"^- \[([ xX])\] (.*)$", re.MULTILINE)
-_NESTED_CHECKBOX_RE = re.compile(r"^[ \t]+- \[[ xX]\]", re.MULTILINE)
 _HEADER_RE = re.compile(r"^## +(.*?)\s*$", re.MULTILINE)
 _LEADING_X_RE = re.compile(r"^\[[xX ]\]\s*")
+
+# Line-level patterns for body parsing.
+_TOP_CB_RE = re.compile(r"^- \[([ xX])\] (.*)$")
+_NESTED_RE = re.compile(r"^([ \t]+)- (.*)$")
+_NESTED_CB_RE = re.compile(r"^[ \t]+- \[[ xX]\]")
+
+
+@dataclass(slots=True)
+class Checkbox:
+    checked: bool
+    text: str
+    nested: list[str]
+    line: int
+
+
+@dataclass(slots=True)
+class Prose:
+    text: str
+    line: int
 
 
 @dataclass
@@ -21,6 +35,38 @@ class Section:
     header: str
     body: str
     slug: str
+    header_line: int = 0
+    items: list[Checkbox | Prose] = field(default_factory=list)
+
+    def has_pending(self) -> bool:
+        """True if any unticked top-level checkbox exists."""
+        found_any = False
+        for item in self.items:
+            if isinstance(item, Checkbox):
+                found_any = True
+                if not item.checked:
+                    return True
+        return False if found_any else False
+
+    def is_spec_only(self) -> bool:
+        """True if all pending checkboxes are spec:-prefixed."""
+        pending = [
+            item for item in self.items
+            if isinstance(item, Checkbox) and not item.checked
+        ]
+        if not pending:
+            return False
+        return all(t.text.lower().startswith("spec:") for t in pending)
+
+    def find_nested_checkboxes(self) -> list[str]:
+        """Return indented checkbox lines (which has_pending ignores)."""
+        lines: list[str] = []
+        for item in self.items:
+            if isinstance(item, Checkbox):
+                for n in item.nested:
+                    if _NESTED_CB_RE.match(n):
+                        lines.append(n)
+        return lines
 
 
 def slugify(header: str) -> str:
@@ -37,35 +83,95 @@ def slugify(header: str) -> str:
     return s
 
 
-def has_pending(section_body: str) -> bool:
-    """True if the section has any unticked top-level `- [ ]` checkbox.
+# --- Standalone wrappers (backward compat, accept section_body str) ---
 
-    A section with no top-level checkboxes is treated as done (pure prose).
-    Nested checkboxes are silently ignored — `boss doctor` warns about them.
-    """
-    boxes = _TOP_CHECKBOX_RE.findall(section_body)
-    if not boxes:
-        return False
-    return any(b == " " for b in boxes)
+def has_pending(section_body: str) -> bool:
+    """True if the section has any unticked top-level `- [ ]` checkbox."""
+    items = parse_body(section_body, base_line=0)
+    found_any = False
+    for item in items:
+        if isinstance(item, Checkbox):
+            found_any = True
+            if not item.checked:
+                return True
+    return False if found_any else False
 
 
 def is_spec_only(section_body: str) -> bool:
-    """True if all pending (unticked) top-level checkboxes are `spec:` prefixed.
-
-    Returns False if there are no pending checkboxes at all.
-    """
+    """True if all pending (unticked) top-level checkboxes are `spec:` prefixed."""
+    items = parse_body(section_body, base_line=0)
     pending = [
-        text for check, text in _TOP_CHECKBOX_LINE_RE.findall(section_body)
-        if check == " "
+        item for item in items
+        if isinstance(item, Checkbox) and not item.checked
     ]
     if not pending:
         return False
-    return all(t.lower().startswith("spec:") for t in pending)
+    return all(t.text.lower().startswith("spec:") for t in pending)
 
 
 def find_nested_checkboxes(section_body: str) -> list[str]:
     """Return any indented checkbox lines (which `has_pending` ignores)."""
-    return _NESTED_CHECKBOX_RE.findall(section_body)
+    items = parse_body(section_body, base_line=0)
+    lines: list[str] = []
+    for item in items:
+        if isinstance(item, Checkbox):
+            for n in item.nested:
+                if _NESTED_CB_RE.match(n):
+                    lines.append(n)
+    return lines
+
+
+def parse_body(text: str, base_line: int) -> list[Checkbox | Prose]:
+    """Parse section body text into a list of Checkbox and Prose items."""
+    items: list[Checkbox | Prose] = []
+    lines = text.split("\n")
+    i = 0
+    n = len(lines)
+    while i < n:
+        raw = lines[i]
+        m = _TOP_CB_RE.match(raw)
+        if m:
+            checked = m.group(1) != " "
+            cb_text = m.group(2)
+            nested: list[str] = []
+            j = i + 1
+            while j < n:
+                if _NESTED_RE.match(lines[j]):
+                    nested.append(lines[j])
+                    j += 1
+                else:
+                    break
+            items.append(Checkbox(
+                checked=checked,
+                text=cb_text,
+                nested=nested,
+                line=base_line + i,
+            ))
+            i = j
+        else:
+            # Skip blank lines between items; collect contiguous prose.
+            stripped = raw.strip()
+            if not stripped:
+                i += 1
+                continue
+            prose_start = i
+            prose_lines: list[str] = [raw]
+            j = i + 1
+            while j < n:
+                if _TOP_CB_RE.match(lines[j]):
+                    break
+                prose_lines.append(lines[j])
+                j += 1
+            # Trim trailing blank lines from prose block.
+            while prose_lines and not prose_lines[-1].strip():
+                prose_lines.pop()
+            if prose_lines:
+                items.append(Prose(
+                    text="\n".join(prose_lines),
+                    line=base_line + prose_start,
+                ))
+            i = j
+    return items
 
 
 def parse_sections(text: str) -> list[Section]:
@@ -75,14 +181,49 @@ def parse_sections(text: str) -> list[Section]:
     `# Title`). Each section's body extends to the next `## ` or EOF.
     """
     matches = list(_HEADER_RE.finditer(text))
+    # Pre-compute line number at each offset.
+    line_at = _build_line_index(text)
     sections: list[Section] = []
     for i, m in enumerate(matches):
         header = m.group(1).strip()
         start = m.end()
         end = matches[i + 1].start() if i + 1 < len(matches) else len(text)
         body = text[start:end]
-        sections.append(Section(header=header, body=body, slug=slugify(header)))
+        header_line = line_at(m.start())
+        # base_line for body items: header_line + 1 (body starts on line after header)
+        body_base = header_line + 1
+        items = parse_body(body, base_line=body_base)
+        sections.append(Section(
+            header=header,
+            body=body,
+            slug=slugify(header),
+            header_line=header_line,
+            items=items,
+        ))
     return sections
+
+
+def _build_line_index(text: str):
+    """Return a closure that maps byte offset → 1-based line number."""
+    # Build sorted list of line-start offsets.
+    starts = [0]
+    pos = 0
+    for ch in text:
+        pos += 1
+        if ch == "\n":
+            starts.append(pos)
+
+    def line_at(offset: int) -> int:
+        # Binary search for the line containing offset.
+        lo, hi = 0, len(starts) - 1
+        while lo < hi:
+            mid = (lo + hi + 1) >> 1
+            if starts[mid] <= offset:
+                lo = mid
+            else:
+                hi = mid - 1
+        return lo + 1  # 1-based
+    return line_at
 
 
 _DATE_HEADER_RE = re.compile(r"^# +(\d{4}-\d{2}-\d{2})\s*$", re.MULTILINE)
