@@ -2,6 +2,7 @@ package supervisor
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"log/slog"
 	"os"
@@ -13,11 +14,12 @@ import (
 
 // SupervisorConfig configures a Supervisor instance.
 type SupervisorConfig struct {
-	StateDir   string    // base dir (e.g. .devport/)
-	Key        string    // this service's key (e.g. "vite")
-	Spawn      TmuxSpawn // how to create the tmux window + what to run
-	Plugin     Plugin    // monitors the running service, reports state (optional)
-	KillOnExit bool      // kill tmux window when supervisor exits (default false)
+	StateDir       string    // base dir (e.g. .devport/)
+	Key            string    // this service's key (e.g. "vite")
+	Spawn          TmuxSpawn // how to create the tmux window + what to run
+	InitialService any       // optional initial value for the "service" section
+	Plugin         Plugin    // monitors the running service, reports state (optional)
+	KillOnExit     bool      // kill tmux window when supervisor exits (default false)
 }
 
 // Supervisor coordinates a single supervised process.
@@ -64,6 +66,13 @@ func (s *Supervisor) Run(ctx context.Context) error {
 			Spawn:     s.cfg.Spawn,
 			CreatedAt: time.Now(),
 		},
+	}
+	if s.cfg.InitialService != nil {
+		data, err := json.Marshal(s.cfg.InitialService)
+		if err != nil {
+			return fmt.Errorf("marshal initial service: %w", err)
+		}
+		initial.Service = json.RawMessage(data)
 	}
 	writer, err := OpenWriter(stateDir, initial)
 	if err != nil {
