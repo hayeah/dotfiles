@@ -8,4 +8,7 @@ require (
 	gopkg.in/natefinch/lumberjack.v2 v2.2.1
 )
 
-require golang.org/x/sys v0.41.0 // indirect
+require (
+	github.com/BurntSushi/toml v1.6.0 // indirect
+	golang.org/x/sys v0.41.0 // indirect
+)
