@@ -70,6 +70,9 @@ def parse_sections(text: str) -> list[Section]:
     return sections
 
 
+_DATE_HEADER_RE = re.compile(r"^# +(\d{4}-\d{2}-\d{2})\s*$", re.MULTILINE)
+
+
 class BossDocError(Exception):
     pass
 
@@ -93,3 +96,78 @@ def load(path: Path) -> list[Section]:
             lines.append(f"  {slug!r}: {header!r} (also: {seen[slug]!r})")
         raise BossDocError("\n".join(lines))
     return sections
+
+
+def append_section(path: Path, section_text: str, date: str) -> str:
+    """Append *section_text* to the boss doc under a ``# <date>`` group.
+
+    If a ``# <date>`` header already exists, the section is appended at the
+    end of that date group (before the next ``# `` header or EOF).  Otherwise
+    a new ``# <date>`` header is created at the end of the file.
+
+    Returns the slug of the newly added section.
+
+    Raises ``BossDocError`` if *section_text* contains no ``## `` header or
+    if the resulting slug would duplicate an existing section.
+    """
+    section_text = section_text.strip()
+    if not section_text:
+        raise BossDocError("section text is empty")
+
+    header_m = _HEADER_RE.search(section_text)
+    if header_m is None:
+        raise BossDocError("section text must contain a ## header")
+
+    new_slug = slugify(header_m.group(1))
+
+    # Validate no duplicate slug.
+    if path.exists():
+        existing = parse_sections(path.read_text())
+        for s in existing:
+            if s.slug == new_slug:
+                raise BossDocError(
+                    f"slug {new_slug!r} already exists (header: {s.header!r})"
+                )
+
+    # Ensure section_text ends with a newline.
+    if not section_text.endswith("\n"):
+        section_text += "\n"
+
+    if not path.exists():
+        path.write_text(f"# {date}\n\n{section_text}")
+        return new_slug
+
+    text = path.read_text()
+
+    # Find the date group for the given date.
+    date_matches = list(_DATE_HEADER_RE.finditer(text))
+    target = None
+    for m in date_matches:
+        if m.group(1) == date:
+            target = m
+            break
+
+    if target is not None:
+        # Find the end of this date group: the next `# ` header (level 1) or EOF.
+        # A level-1 header is `^# ` that is NOT `^## `.
+        next_date_pos = len(text)
+        for m in date_matches:
+            if m.start() > target.start():
+                next_date_pos = m.start()
+                break
+
+        # Insert at the end of the date group (before the next date header).
+        insert_pos = next_date_pos
+        # Ensure spacing.
+        before = text[:insert_pos].rstrip("\n")
+        after = text[insert_pos:]
+        if after:
+            text = before + "\n\n" + section_text + "\n" + after
+        else:
+            text = before + "\n\n" + section_text
+    else:
+        # No existing date group — append a new one at the end.
+        text = text.rstrip("\n") + "\n\n# " + date + "\n\n" + section_text
+
+    path.write_text(text)
+    return new_slug

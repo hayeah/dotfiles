@@ -128,9 +128,13 @@ Steps: lowercase, replace runs of non-alphanumerics with `-`, strip leading/trai
 
 ## CLI surface
 
-Four verbs. See BOSS_LOOP.md for the loop and the shell recipes that fill the gaps.
+Five verbs. See BOSS_LOOP.md for the loop and the shell recipes that fill the gaps.
 
 ```
+boss add                       # append a new section to BOSS.md (reads from stdin)
+  --boss-doc <path>            # default: ./BOSS.md
+  --date YYYY-MM-DD            # date group header (default: today)
+
 boss spawn <section>           # set up the workspace and spawn an agent in it
   --mode worktree|main-repo    # default: worktree
   --boss-doc <path>            # default: ./BOSS.md
