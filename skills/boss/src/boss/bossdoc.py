@@ -127,46 +127,54 @@ def parse_body(text: str, base_line: int) -> list[Checkbox | Prose]:
     lines = text.split("\n")
     i = 0
     n = len(lines)
+    _CB = Checkbox
+    _PR = Prose
     while i < n:
         raw = lines[i]
-        m = _TOP_CB_RE.match(raw)
-        if m:
-            checked = m.group(1) != " "
-            cb_text = m.group(2)
+        # Fast path: top-level checkbox starts with "- [" at column 0.
+        if len(raw) > 5 and raw[0] == "-" and raw[1] == " " and raw[2] == "[" and raw[4] == "]":
+            mark = raw[3]
+            checked = mark != " "
+            cb_text = raw[6:]  # skip "- [x] "
             nested: list[str] = []
             j = i + 1
             while j < n:
-                if _NESTED_RE.match(lines[j]):
-                    nested.append(lines[j])
-                    j += 1
-                else:
-                    break
-            items.append(Checkbox(
+                c0 = lines[j][:1]
+                if c0 == " " or c0 == "\t":
+                    # Indented line — check it's a bullet.
+                    ln = lines[j]
+                    k = 0
+                    while k < len(ln) and (ln[k] == " " or ln[k] == "\t"):
+                        k += 1
+                    if k < len(ln) and ln[k] == "-":
+                        nested.append(ln)
+                        j += 1
+                        continue
+                break
+            items.append(_CB(
                 checked=checked,
                 text=cb_text,
                 nested=nested,
                 line=base_line + i,
             ))
             i = j
+        elif not raw or raw.isspace():
+            i += 1
         else:
-            # Skip blank lines between items; collect contiguous prose.
-            stripped = raw.strip()
-            if not stripped:
-                i += 1
-                continue
             prose_start = i
             prose_lines: list[str] = [raw]
             j = i + 1
             while j < n:
-                if _TOP_CB_RE.match(lines[j]):
+                r = lines[j]
+                if len(r) > 5 and r[0] == "-" and r[1] == " " and r[2] == "[" and r[4] == "]":
                     break
-                prose_lines.append(lines[j])
+                prose_lines.append(r)
                 j += 1
-            # Trim trailing blank lines from prose block.
-            while prose_lines and not prose_lines[-1].strip():
+            # Trim trailing blank lines.
+            while prose_lines and (not prose_lines[-1] or prose_lines[-1].isspace()):
                 prose_lines.pop()
             if prose_lines:
-                items.append(Prose(
+                items.append(_PR(
                     text="\n".join(prose_lines),
                     line=base_line + prose_start,
                 ))
@@ -181,18 +189,28 @@ def parse_sections(text: str) -> list[Section]:
     `# Title`). Each section's body extends to the next `## ` or EOF.
     """
     matches = list(_HEADER_RE.finditer(text))
-    # Pre-compute line number at each offset.
-    line_at = _build_line_index(text)
+    if not matches:
+        return []
+    # Compute line numbers incrementally (one pass over the text).
+    _count = text.count
+    line_nums: list[int] = []
+    prev_off = 0
+    cumulative = 1  # 1-based line number
+    for m in matches:
+        off = m.start()
+        cumulative += _count("\n", prev_off, off)
+        line_nums.append(cumulative)
+        prev_off = off
     sections: list[Section] = []
-    for i, m in enumerate(matches):
+    nm = len(matches)
+    for i in range(nm):
+        m = matches[i]
         header = m.group(1).strip()
         start = m.end()
-        end = matches[i + 1].start() if i + 1 < len(matches) else len(text)
+        end = matches[i + 1].start() if i + 1 < nm else len(text)
         body = text[start:end]
-        header_line = line_at(m.start())
-        # base_line for body items: header_line + 1 (body starts on line after header)
-        body_base = header_line + 1
-        items = parse_body(body, base_line=body_base)
+        header_line = line_nums[i]
+        items = parse_body(body, base_line=header_line + 1)
         sections.append(Section(
             header=header,
             body=body,
@@ -201,29 +219,6 @@ def parse_sections(text: str) -> list[Section]:
             items=items,
         ))
     return sections
-
-
-def _build_line_index(text: str):
-    """Return a closure that maps byte offset → 1-based line number."""
-    # Build sorted list of line-start offsets.
-    starts = [0]
-    pos = 0
-    for ch in text:
-        pos += 1
-        if ch == "\n":
-            starts.append(pos)
-
-    def line_at(offset: int) -> int:
-        # Binary search for the line containing offset.
-        lo, hi = 0, len(starts) - 1
-        while lo < hi:
-            mid = (lo + hi + 1) >> 1
-            if starts[mid] <= offset:
-                lo = mid
-            else:
-                hi = mid - 1
-        return lo + 1  # 1-based
-    return line_at
 
 
 _DATE_HEADER_RE = re.compile(r"^# +(\d{4}-\d{2}-\d{2})\s*$", re.MULTILINE)
