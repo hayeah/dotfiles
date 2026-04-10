@@ -105,7 +105,10 @@ So you maintain your own **finer-grained todo list** in your worklog under `## T
 - **After each meaningful step**: append to `## Log`, update `## Todos`, AND append any new friction/surprises to `## Trouble report`. These three sections move together.
 - **When stuck on a real blocker**: set `status: blocked`, write the question in `## Questions for boss`, and stop. Do not spin.
 - **When facing a small judgment call** (which of two approaches, naming, file location, A vs. B vs. C): **don't ask the boss — decide.** Pick what makes sense, do it, and note the alternatives in `## Log` or `## Trouble report`. The boss can override later by editing `## Notes from boss`.
-- **When the section is complete**: do NOT set `status: done` until you have produced evidence. Then set `status: done`, fill in `## Evidence` and `## Trouble report`, and stop. The boss will review and tick the boss-doc boxes after merging.
+- **When the section is complete**: do NOT set `status: done` until you have produced evidence. Then:
+  - Fill in `## Evidence` and `## Trouble report`.
+  - **Update the README** of each repo you touched — if your changes added new commands, flags, config options, or changed behavior, make sure the README reflects that. Don't rewrite the whole README; just update the sections relevant to your changes.
+  - Set `status: done` and stop. The boss will review and tick the boss-doc boxes after merging.
 - **Friction**: when you hit a tooling rough edge — append a `#friction` line to `## Log`. The boss harvests these.
 
 ### Status discipline
