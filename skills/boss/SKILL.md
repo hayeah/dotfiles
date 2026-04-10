@@ -74,8 +74,9 @@ Key properties:
 
 ## Modes
 
-- **Worktree mode (default).** The agent runs `boss checkout <repo>` which leases a numbered pool slot at `<repo>/.worktrees/NNN`. The pool GCs dead leases first, then finds a free slot or grows a new one, resets tracked files to master (build artifacts survive), creates a branch named `<slug>`, writes `.lease.json`, and symlinks the slot under `repos/<host>/<user>/<name>`. Multi-repo sections add more symlinks the same way as the agent discovers what it needs.
+- **Worktree mode (default).** The agent runs `boss checkout <repo>` which leases a numbered pool slot at `<repo>/.worktrees/NNN` via `agentboss lease`. The pool asks `agentboss lease-check` for slot ownership, reuses the current workspace's slot when possible, otherwise finds a free slot or grows a new one, resets tracked files to master (build artifacts survive), creates a branch named `<slug>`, and symlinks the slot under `repos/<host>/<user>/<name>`. Multi-repo sections add more symlinks the same way as the agent discovers what it needs.
 - **Main-repo mode** (rare; for serialized work where worktrees would be overhead). The agent symlinks the main checkout directly into `repos/`. Same restrictions as before: never `git add -A`, only stage explicit paths, the working tree is shared with the human's in-flight work.
+- **iOS simulator option.** `boss checkout <repo> --ios-simulator` also leases a dedicated simulator UDID to the live session, boots it, stores the UDID in `.boss.json`, and prints the corresponding `SWIFTUI_TAP_UDID` export.
 
 The boss tells the agent which mode in the spawn briefing. If the section text says "edit in place" / "no worktree", main-repo mode. Otherwise worktree mode. `boss spawn --mode <mode>` selects.
 
