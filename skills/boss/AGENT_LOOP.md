@@ -46,6 +46,19 @@ The boss told you, via the templated briefing:
     ```
   - You can do this for one repo on the first turn (before you know the full set), and add more symlinks the same way as you discover them. **No coordination with the boss required.**
   - For iOS work, use `boss checkout <repo> --ios-simulator` when you need a dedicated simulator. It leases a simulator UDID to your live session, stores it in `.boss.json`, and prints `export SWIFTUI_TAP_UDID=<UDID>` for downstream tooling.
+- **Start dev services.** After checking out each repo, check if it has a `devport.local.toml` in the repo root. If it does, start `devport run` in the background so dev services (Vite, etc.) get dynamic ports and die with your session — no stale servers.
+  ```bash
+  cd repos/github.com/hayeah/myapp
+  if [ -f devport.local.toml ]; then
+    devport run devport.local.toml \
+      --tmux-session "$SLUG" \
+      --state-dir .devport &
+    # Wait briefly for env file to be written
+    sleep 2
+    source devport.local.env
+  fi
+  ```
+  The env file name is derived from the spec file name (`devport.local.toml` → `devport.local.env`). After sourcing, port variables like `VITE_PORT` are available in your shell. Because `devport run` runs in the background, it dies when your agent session ends — no cleanup needed.
 - **For non-trivial work, write the spec FIRST.** See "Writing a spec" below. Save it as `specs/main.md` in your workspace and link it from the worklog frontmatter as `spec: specs/main.md`.
 - **Seed your `## Todos` list** from the spec (or from the section bullets in your briefing if no spec). 5-15 concrete steps. Top-level checkboxes in the boss doc (which you can't see and don't manage) are user-facing milestones; your worklog `## Todos` is your finer-grained working list.
 - Then `cd repos/github.com/hayeah/myapp` (or similar) and start working on the first unfinished todo. Navigate freely between repos via the `repos/` tree.
