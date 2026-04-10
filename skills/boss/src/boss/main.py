@@ -33,20 +33,37 @@ def _resolve_boss_doc(path: Path | None) -> Path:
     return path.resolve()
 
 
+AGENT_PRESETS = {
+    "claude": {
+        "cmd": ["claude", "--dangerously-skip-permissions"],
+        "detector": "claude",
+    },
+    "codex": {
+        "cmd": ["bunx", "--bun", "@openai/codex", "--dangerously-bypass-approvals-and-sandbox"],
+        "detector": "codex",
+    },
+}
+
+
 @app.command()
 def spawn(
     section: str = typer.Argument(..., help="Slug or unique substring of a section header."),
     mode: str = typer.Option("worktree", "--mode", help="worktree | main-repo"),
+    agent: str = typer.Option("claude", "--agent", help="Agent to spawn: claude | codex"),
     boss_doc: Path = typer.Option(Path("BOSS.md"), "--boss-doc", help="Path to BOSS.md."),
     claude_args: list[str] = typer.Option(
         None,
         "--claude-arg",
-        help="Extra arg to pass to claude (repeatable). Defaults to --dangerously-skip-permissions.",
+        help="Extra arg to pass to the agent command (repeatable).",
     ),
 ) -> None:
     """Set up a workspace for a section and spawn an agent inside it."""
     if mode not in ("worktree", "main-repo"):
         typer.echo(f"error: invalid --mode {mode!r} (use 'worktree' or 'main-repo')", err=True)
+        raise typer.Exit(2)
+
+    if agent not in AGENT_PRESETS:
+        typer.echo(f"error: unknown --agent {agent!r} (use {', '.join(AGENT_PRESETS)})", err=True)
         raise typer.Exit(2)
 
     doc = _resolve_boss_doc(boss_doc)
@@ -73,11 +90,7 @@ def spawn(
     lay = workspace.layout(s.slug)
 
     # Idempotent spawn: if a live session already owns this workspace,
-    # re-engage it instead of refusing. This handles two real flows:
-    #   1. Section was previously done, human added a new top-level
-    #      checkbox, agent is still hanging around idle in tmux.
-    #   2. Boss session was killed and restarted; we want to resume
-    #      driving the same agent without spawning a duplicate.
+    # re-engage it instead of refusing.
     live = None
     if lay.root.is_dir():
         live = agentboss.session_for_cwd(lay.root)
@@ -99,14 +112,13 @@ def spawn(
 
     workspace.create(s.slug, s.header, mode)
 
-    cmd = ["claude"]
-    if not claude_args:
-        cmd.append("--dangerously-skip-permissions")
-    else:
+    preset = AGENT_PRESETS[agent]
+    cmd = list(preset["cmd"])
+    if claude_args:
         cmd.extend(claude_args)
 
     try:
-        descriptor = agentboss.run(cwd=lay.root, command=cmd, detector="claude")
+        descriptor = agentboss.run(cwd=lay.root, command=cmd, detector=preset["detector"])
     except agentboss.AgentbossError as e:
         typer.echo(f"error: {e}", err=True)
         raise typer.Exit(1)
