@@ -42,6 +42,29 @@ The human uses these phrases to tell you what mode to operate in:
 - **"boss spec"** — enter spec mode. The task needs design discussion before implementation. You (the boss session) explore the codebase, read research notes, draft a spec at `$MDNOTES_ROOT/<date>/<slug>-spec.md`, and iterate with the human. Use internal subagents for heavy research — do NOT spawn an agentboss subagent. The BOSS.md section stays without checkboxes until the human says lgtm. Then add `- [ ]` items and spawn.
 - **"boss todo" with a file path** — read the referenced file (usually a spec or research note) and create the BOSS.md section from it.
 
+### Adding sections with `boss add`
+
+**Always use `boss add` to append new sections to BOSS.md.** Do not manually edit BOSS.md to add new sections — `boss add` ensures slug uniqueness and groups sections under date headers (`# YYYY-MM-DD`).
+
+```bash
+boss add --boss-doc BOSS.md <<'EOF'
+## Fix toolbar toggle regression
+
+Work in ~/github.com/hayeah/reader-swiftui.
+
+- [ ] investigate and fix
+  - reproduce the bug on sim
+  - trace the tap handler chain
+  - evidence: screenshots showing toggle works
+EOF
+```
+
+`boss add`:
+- Reads the section from stdin (must start with `## `)
+- Slugifies the header and rejects duplicates
+- Appends under today's `# YYYY-MM-DD` header (creates it if missing)
+- Ensures consistent formatting
+
 ### Spec mode (`boss spec`)
 
 You do the speccing within this session. The human wants to think through the design interactively.
