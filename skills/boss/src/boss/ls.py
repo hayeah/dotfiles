@@ -54,33 +54,41 @@ def collect(boss_doc: Path) -> list[Row]:
     # One subprocess call for all sections instead of one per section.
     all_sessions = agentboss.ls_all()
 
-    # Identify which sections have live workspaces and need diff stats.
-    active: list[tuple[int, bossdoc.Section, workspace.WorkspaceLayout]] = []
+    # Classify sections: done sections skip git diff entirely.
+    needs_diff: list[tuple[int, bossdoc.Section, workspace.WorkspaceLayout]] = []
     rows: list[Row] = [None] * len(sections)  # type: ignore[list-item]
     for i, section in enumerate(sections):
         lay = workspace.layout(section.slug)
-        if lay.root.is_dir():
-            active.append((i, section, lay))
+        has_pending = bossdoc.has_pending(section.body)
+        is_spec = bossdoc.is_spec_only(section.body)
+        ab = _match_session(all_sessions, lay.root) if lay.root.is_dir() else None
+
+        if has_pending or ab is not None:
+            # Active section — need fresh diff.
+            needs_diff.append((i, section, lay))
         else:
+            # Done or no workspace — skip git diff.
             rows[i] = Row(
                 slug=section.slug,
                 header=section.header,
-                has_pending_todos=bossdoc.has_pending(section.body),
-                is_spec=bossdoc.is_spec_only(section.body),
+                has_pending_todos=has_pending,
+                is_spec=is_spec,
+                agentboss=ab,
             )
 
-    # Parallelize git diff calls across all active sections/repos.
+    # Parallelize git diff calls only for active sections.
     diff_results: dict[int, dict[str, dict[str, int]] | None] = {}
-    with ThreadPoolExecutor() as pool:
-        futures = {
-            pool.submit(workspace.diff_per_repo, section.slug): idx
-            for idx, section, _lay in active
-        }
-        for future in futures:
-            idx = futures[future]
-            diff_results[idx] = future.result()
+    if needs_diff:
+        with ThreadPoolExecutor() as pool:
+            futures = {
+                pool.submit(workspace.diff_per_repo, section.slug): idx
+                for idx, section, _lay in needs_diff
+            }
+            for future in futures:
+                idx = futures[future]
+                diff_results[idx] = future.result()
 
-    for idx, section, lay in active:
+    for idx, section, lay in needs_diff:
         rows[idx] = Row(
             slug=section.slug,
             header=section.header,
