@@ -107,14 +107,14 @@ Don't jam long instructions through `agentboss send` — keep them in WORKLOG.md
 ### Wait on a session (event-driven trigger)
 
 ```bash
-agentboss wait "$KEY" --timeout 600 &
+agentboss wait "$KEY" --timeout 1200 &
 # claude-code's run_in_background returns immediately and notifies on completion
 ```
 
 When the wait returns:
 
 - **Exit 0 (idle)** → the agent stopped producing tokens. Do a tick (check it, dispatch the next pending section, harvest), then **immediately re-arm** with a fresh `agentboss wait <same-key> --timeout 600 &`.
-- **Exit non-zero (timeout)** → 10 minutes passed without an idle event. Sanity-check via `agentboss state <key>`. If still working and the transcript jsonl is fresh, re-arm; the agent is on a long task. If wedged (no transcript progress in 15+ min despite "working"), nudge it.
+- **Exit non-zero (timeout)** → 20 minutes passed without an idle event. Sanity-check via `agentboss state <key>`. If still working and the transcript jsonl is fresh, re-arm; the agent is on a long task. If wedged (no transcript progress in 15+ min despite "working"), nudge it.
 - **`agentboss wait` errors with "no process matching"** → session died. `boss spawn <slug>` again — `boss spawn` will reuse the existing workspace and the new agent will pick up `WORKLOG.md` where the old one left off.
 
 ### Harvest friction
