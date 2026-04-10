@@ -10,7 +10,7 @@ dependencies = [
 ]
 
 [tool.uv.sources]
-hayeah-core = { path = "../../hayeah", editable = true }
+hayeah-core = { path = "../../libs/hayeah-py", editable = true }
 
 [project.scripts]
 shell-helper = "shell_helper.main:run"

@@ -1,0 +1,41 @@
+{
+  "load_tests": [
+    {
+      "name": "unset env var",
+      "env_value": null,
+      "expected": {}
+    },
+    {
+      "name": "empty env var",
+      "env_value": "",
+      "expected": {}
+    },
+    {
+      "name": "toml file path",
+      "env_value": "/path/to/config.toml",
+      "file_contents": "port = 8080\ndebug = true\n",
+      "expected": {"port": 8080, "debug": true}
+    },
+    {
+      "name": "json file path",
+      "env_value": "/path/to/config.json",
+      "file_contents": "{\"port\": 8080, \"debug\": true}",
+      "expected": {"port": 8080, "debug": true}
+    },
+    {
+      "name": "json literal",
+      "env_value": "{\"port\": 9090}",
+      "expected": {"port": 9090}
+    },
+    {
+      "name": "missing toml file",
+      "env_value": "/nonexistent/config.toml",
+      "expected": {}
+    },
+    {
+      "name": "missing json file",
+      "env_value": "/nonexistent/config.json",
+      "expected": {}
+    }
+  ]
+}

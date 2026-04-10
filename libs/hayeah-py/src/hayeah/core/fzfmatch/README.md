@@ -4,8 +4,8 @@ A deterministic, non-interactive path matcher inspired by fzf's extended-search 
 
 ## Reference Implementation
 
-- **Python**: [`hayeah.fzfmatch`](https://github.com/hayeah/dotfiles/blob/master/hayeah/src/hayeah/fzfmatch.py)
-- **Test vectors** (language-agnostic JSON): [`fzfmatch_testdata.json`](https://github.com/hayeah/dotfiles/blob/master/hayeah/src/hayeah/fzfmatch_testdata.json)
+- **Python**: `libs/hayeah-py/src/hayeah/core/fzfmatch/` (this directory)
+- **Test vectors** (language-agnostic JSON): `libs/testdata/fzfmatch.json`
 
 ## Overview
 

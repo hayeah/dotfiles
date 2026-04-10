@@ -565,7 +565,7 @@ wheels = [
 [[package]]
 name = "hayeah-core"
 version = "0.1.0"
-source = { editable = "../../hayeah" }
+source = { editable = "../../libs/hayeah-py" }
 dependencies = [
     { name = "structlog" },
 ]
@@ -598,7 +598,7 @@ dev = [
 [package.metadata]
 requires-dist = [
     { name = "google-genai" },
-    { name = "hayeah-core", editable = "../../hayeah" },
+    { name = "hayeah-core", editable = "../../libs/hayeah-py" },
     { name = "openai" },
     { name = "python-dotenv" },
     { name = "typer" },

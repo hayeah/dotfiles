@@ -20,7 +20,7 @@ dotfiles/              Managed dotfiles (symlinked to $HOME)
   .config/mise/         Tool version pinning
   .claude/, .codex/     Agent configs (CLAUDE.md symlinks to AGENTS.md)
 skills/                20+ reusable agent skills
-hayeah/                Shared Python package (structlog logging)
+libs/                  Cross-language convention libraries (Python, TS, Go)
 Makefile.py            pymake orchestration
 dotfile_stow.py        Custom symlink manager
 .dotfiles.toml         Template variables (gitName, gitEmail)
@@ -149,16 +149,15 @@ Key agent conventions from AGENTS.md:
 - Default git branch is `master`
 - Repos live at `~/github.com/<user>/<repo>`
 
-## Shared Python Package (hayeah)
+## Cross-Language Convention Libraries (libs/)
 
-The `hayeah/` directory provides `hayeah.logger` — structured logging with:
-- Colored console output (stderr, TTY-aware)
-- JSONL file logging to `~/.local/log/<tool>.jsonl` (5MB rotation, 3 backups)
-- `LOG_LEVEL` env var for verbosity control
+Canonical solutions to recurring problems — logger, fzf matcher, config loading,
+short IDs. Python (`libs/hayeah-py`) is the reference implementation; TypeScript
+and Go follow. See [`libs/README.md`](libs/README.md) for the full index.
 
-Skills reference it as an editable dependency:
+Skills reference hayeah-core as an editable dependency:
 ```toml
-hayeah = { path = "../../hayeah", editable = true }
+hayeah-core = { path = "../../libs/hayeah-py", editable = true }
 ```
 
 ## Skills

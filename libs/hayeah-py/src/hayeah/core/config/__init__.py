@@ -1,20 +1,21 @@
-"""hayeah.config — load a TOML config file from an env-var path.
+"""hayeah.core.config — single-envar config loading.
 
-Point an environment variable at a TOML file; ``load()`` reads and returns it
-as a plain dict or a typed dataclass.
+One env var per app (``<APP>_CONFIG``). Value is either a file path
+(``.json`` / ``.toml``, detected by extension) or a JSON literal.
 
 Examples::
 
     # plain dict
-    raw = load("HAYEAH_CONFIG")
+    raw = load("MY_APP_CONFIG")
 
     # typed dataclass
-    cfg = load("HAYEAH_CONFIG", into=AppConfig)
+    cfg = load("MY_APP_CONFIG", into=AppConfig)
 """
 
 from __future__ import annotations
 
 import dataclasses
+import json
 import os
 from pathlib import Path
 from typing import Any, TypeVar, overload
@@ -36,19 +37,31 @@ def load(env_var: str, *, into: type[T]) -> T: ...
 
 
 def load(env_var: str, *, into: type[T] | None = None) -> dict | T:
-    """Load a TOML config file from the path in *env_var*.
+    """Load config from the env var *env_var*.
+
+    The value is interpreted as:
+    - File path ending ``.toml`` → load as TOML
+    - File path ending ``.json`` → load as JSON
+    - Anything else → parse as JSON literal
 
     Returns an empty dict (or default-constructed *into*) when the env var
-    is unset or the file is missing.
+    is unset or empty. Returns empty when a file path doesn't exist.
     """
-    config_path = os.getenv(env_var)
+    value = os.getenv(env_var)
     raw: dict = {}
 
-    if config_path:
-        p = Path(config_path).expanduser()
-        if p.is_file():
-            with open(p, "rb") as f:
-                raw = tomllib.load(f)
+    if value:
+        if value.endswith(".toml"):
+            p = Path(value).expanduser()
+            if p.is_file():
+                with open(p, "rb") as f:
+                    raw = tomllib.load(f)
+        elif value.endswith(".json"):
+            p = Path(value).expanduser()
+            if p.is_file():
+                raw = json.loads(p.read_text())
+        else:
+            raw = json.loads(value)
 
     if into is not None:
         return _from_dict(into, raw)

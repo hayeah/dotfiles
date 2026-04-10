@@ -7,15 +7,17 @@ from pathlib import Path
 
 import pytest
 
-from .fzfmatch import (
+from hayeah.core.fzfmatch import (
     MatchError,
     contains_word_exact,
     contains_word_prefix,
     parse_matcher,
 )
 
+# Test vectors live in libs/testdata/ (shared across languages)
+_LIBS_ROOT = Path(__file__).resolve().parents[5]  # libs/hayeah-py/src/hayeah/core/fzfmatch -> libs/
 TESTDATA = json.loads(
-    (Path(__file__).parent / "fzfmatch_testdata.json").read_text()
+    (_LIBS_ROOT / "testdata" / "fzfmatch.json").read_text()
 )
 
 SAMPLE_PATHS = TESTDATA["sample_paths"]

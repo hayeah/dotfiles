@@ -1,4 +1,4 @@
-module github.com/hayeah/dotfiles/golib
+module github.com/hayeah/dotfiles/libs/hayeah-go
 
 go 1.24.0
 
