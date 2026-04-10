@@ -3,6 +3,11 @@
 Canonical solutions to recurring problems. Python (`hayeah-py`) is the
 reference implementation; TypeScript and Go follow.
 
+Import paths:
+- Python: `from hayeah.core.<module> import ...`
+- TypeScript: `import { ... } from "hayeah-ts/<module>"`
+- Go: `import "github.com/hayeah/dotfiles/libs/hayeah-go/<module>"`
+
 ## logger — Structured Logging
 
 Colored console output (stderr) + JSONL file log (`~/.local/log/<tool>.jsonl`,
@@ -14,15 +19,18 @@ Python:
 from hayeah.core.logger import new
 log = new("my-tool")
 log.info("starting", port=8080, env="prod")
-log.error("failed to connect", host="db.local", err=str(e))
+```
 
-# Bind context for all subsequent calls
-log = log.bind(request_id="abc123")
-log.info("handling request")  # includes request_id automatically
+TypeScript:
+```typescript
+import { logger } from "hayeah-ts"
+const log = logger.new("my-tool")
+log.info("starting", { port: 8080 })
 ```
 
 Go:
 ```go
+import "github.com/hayeah/dotfiles/libs/hayeah-go/logger"
 log := logger.New("my-tool")
 log.Info("starting", "port", 8080)
 ```
@@ -35,14 +43,6 @@ Non-interactive, deterministic boolean filter using fzf term syntax.
 No scoring — match or no match. Useful for filtering file lists,
 resource names, etc. without spawning fzf.
 
-```python
-from hayeah.core.fzfmatch import parse_matcher
-
-m = parse_matcher("src .py !test")
-m.match(["src/foo.py", "src/test_foo.py", "docs/bar.md"])
-# ["src/foo.py"]
-```
-
 Term syntax:
 - `foo` — fuzzy substring
 - `!foo` — negation (exclude matches)
@@ -53,6 +53,30 @@ Term syntax:
 - `expr ; expr` — OR (union)
 - `expr | expr` — AND (intersection, lower precedence)
 
+Python:
+```python
+from hayeah.core.fzfmatch import parse_matcher
+m = parse_matcher("src .py !test")
+m.match(["src/foo.py", "src/test_foo.py", "docs/bar.md"])
+# ["src/foo.py"]
+```
+
+TypeScript:
+```typescript
+import { parseMatcher } from "hayeah-ts/fzfmatch"
+const m = parseMatcher("src .py !test")
+m.match(["src/foo.py", "src/test_foo.py", "docs/bar.md"])
+// ["src/foo.py"]
+```
+
+Go:
+```go
+import "github.com/hayeah/dotfiles/libs/hayeah-go/fzfmatch"
+m, _ := fzfmatch.ParseMatcher("src .py !test")
+m.Match([]string{"src/foo.py", "src/test_foo.py", "docs/bar.md"})
+// ["src/foo.py"]
+```
+
 -> [spec](hayeah-py/src/hayeah/core/fzfmatch/) |
 [test vectors](testdata/fzfmatch.json)
 
@@ -62,27 +86,29 @@ One env var per app (`<APP>_CONFIG`). Value is either a file path
 (.json/.toml, detected by extension) or a JSON literal. Config values
 must stay JSON-serializable.
 
+Python:
 ```python
 from hayeah.core.config import load
-
-# Reads MY_APP_CONFIG env var:
-#   "/etc/myapp/config.toml"  → loads TOML file
-#   "/etc/myapp/config.json"  → loads JSON file
-#   '{"port": 8080}'          → parses JSON literal
 cfg = load("MY_APP_CONFIG")
 print(cfg["port"])
-
-# With a typed dataclass:
-@dataclass
-class AppConfig:
-    port: int = 8080
-    debug: bool = False
-
-cfg = load("MY_APP_CONFIG", into=AppConfig)
-print(cfg.port)
 ```
 
--> [spec](hayeah-py/src/hayeah/core/config/)
+TypeScript:
+```typescript
+import { load } from "hayeah-ts/config"
+const cfg = load("MY_APP_CONFIG")
+console.log(cfg.port)
+```
+
+Go:
+```go
+import "github.com/hayeah/dotfiles/libs/hayeah-go/config"
+cfg, _ := config.Load("MY_APP_CONFIG")
+fmt.Println(cfg["port"])
+```
+
+-> [spec](hayeah-py/src/hayeah/core/config/) |
+[test vectors](testdata/single-envar-config.json)
 
 ## shortid — Short ID & Prefix Resolution
 
@@ -91,26 +117,31 @@ unique within a set (3-8 chars, safe alphabet: `0-9a-z` minus `l` and
 `o`). `resolve` does prefix matching against any set of strings — short
 IDs, UUIDs, SHA hashes, whatever. Shortest unambiguous prefix works.
 
+Case-insensitive. Min query length: 3 chars.
+
+Python:
 ```python
 from hayeah.core.shortid import generate, resolve
-
-# Generate a unique short ID
 existing = {"a3f", "b7k", "c2m"}
-new_id = generate(existing)  # e.g. "x9p"
-
-# Resolve prefix against any set of strings
-sessions = ["a3f", "a3g", "b7k"]
-resolve("a3f", sessions)  # "a3f" (exact match)
-resolve("b7k", sessions)  # "b7k"
-
-# Works on UUIDs, hashes, anything
-sims = ["A1B2C3D4-E5F6-7890-...", "A1B2C3D4-FFFF-1111-...", "DEADBEEF-..."]
-resolve("DEA", sims)        # "DEADBEEF-..."
-resolve("A1B2C3D4-E", sims) # "A1B2C3D4-E5F6-..."
-resolve("A1B", sims)        # error: ambiguous
+new_id = generate(existing)
+resolve("a3f", ["a3f", "a3g", "b7k"])  # "a3f"
 ```
 
-Case-insensitive. Min query length: 3 chars.
+TypeScript:
+```typescript
+import { generate, resolve } from "hayeah-ts/shortid"
+const existing = new Set(["a3f", "b7k", "c2m"])
+const newID = generate(existing)
+resolve("a3f", ["a3f", "a3g", "b7k"])  // "a3f"
+```
+
+Go:
+```go
+import "github.com/hayeah/dotfiles/libs/hayeah-go/shortid"
+existing := map[string]bool{"a3f": true, "b7k": true}
+newID, _ := shortid.Generate(existing)
+result, _ := shortid.Resolve("a3f", []string{"a3f", "a3g", "b7k"})
+```
 
 -> [spec](hayeah-py/src/hayeah/core/shortid/) |
 [test vectors](testdata/shortid.json)

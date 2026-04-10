@@ -5,7 +5,14 @@ import {
   containsWordPrefix,
   parseMatcher,
 } from "./fzfmatch.js";
-import testdata from "./fzfmatch_testdata.json";
+import { readFileSync } from "fs";
+import { join, dirname } from "path";
+import { fileURLToPath } from "url";
+
+const __dirname = dirname(fileURLToPath(import.meta.url));
+const testdata = JSON.parse(
+  readFileSync(join(__dirname, "../../../testdata/fzfmatch.json"), "utf-8"),
+);
 
 const SAMPLE_PATHS: string[] = testdata.sample_paths;
 

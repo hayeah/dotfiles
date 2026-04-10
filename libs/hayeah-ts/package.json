@@ -6,6 +6,18 @@
     ".": {
       "import": "./dist/index.js",
       "types": "./dist/index.d.ts"
+    },
+    "./fzfmatch": {
+      "import": "./dist/fzfmatch/index.js",
+      "types": "./dist/fzfmatch/index.d.ts"
+    },
+    "./config": {
+      "import": "./dist/config/index.js",
+      "types": "./dist/config/index.d.ts"
+    },
+    "./shortid": {
+      "import": "./dist/shortid/index.js",
+      "types": "./dist/shortid/index.d.ts"
     }
   },
   "main": "./dist/index.js",
@@ -13,13 +25,15 @@
   "files": ["dist"],
   "scripts": {
     "build": "tsup",
-    "dev": "tsup --watch"
+    "dev": "tsup --watch",
+    "test": "vitest run"
   },
   "dependencies": {},
   "devDependencies": {
     "tsup": "^8.0.0",
     "typescript": "^5.4.0",
-    "@types/node": "^22.0.0"
+    "@types/node": "^22.0.0",
+    "vitest": "^4.1.0"
   },
   "pnpm": {
     "onlyBuiltDependencies": ["esbuild"]
