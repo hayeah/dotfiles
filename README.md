@@ -20,7 +20,7 @@ dotfiles/              Managed dotfiles (symlinked to $HOME)
   .config/mise/         Tool version pinning
   .claude/, .codex/     Agent configs (CLAUDE.md symlinks to AGENTS.md)
 skills/                20+ reusable agent skills
-hayeah/                Shared Python package (structlog logging)
+libs/                  Cross-language convention libraries (Python, TS, Go)
 Makefile.py            pymake orchestration
 dotfile_stow.py        Custom symlink manager
 .dotfiles.toml         Template variables (gitName, gitEmail)
