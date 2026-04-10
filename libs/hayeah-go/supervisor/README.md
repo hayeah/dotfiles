@@ -1,6 +1,6 @@
 # supervisor — process supervision with dir-flock liveness
 
-A reusable Go library for the supervisor pattern: dir-lock for liveness, atomic state.json, tmux window management, event bus, and unix socket SSE.
+A reusable Go library for the supervisor pattern: dir-lock for liveness, atomic state.json, tmux window management, and pluggable service monitoring.
 
 ```go
 import "github.com/hayeah/dotfiles/libs/hayeah-go/supervisor"
@@ -13,8 +13,9 @@ Each supervised process gets a **directory** as its sole state store. The direct
 ```
 <state-dir>/<key>/
   state.json    # all state — rewritten atomically on every change
-  rpc.sock      # unix socket — SSE event stream + control endpoints
 ```
+
+Plugins can create additional files in the directory (e.g. `rpc.sock`, logs). The supervisor doesn't manage these — the plugin owns them.
 
 ### Two primitives
 
@@ -23,6 +24,8 @@ Each supervised process gets a **directory** as its sole state store. The direct
 - Acquire: `flock(LOCK_EX|LOCK_NB)` on the dir fd at startup
 - Probe: try to acquire from another process — `EWOULDBLOCK` means alive
 - Release: close the fd (OS releases automatically on crash)
+
+The flock is advisory and doesn't prevent creating files inside the directory — plugins can freely create sockets, logs, etc.
 
 **state.json — all state in one file.** Written atomically (tmp + rename) by the supervisor on every state change. Two namespaced sections:
 
@@ -90,6 +93,8 @@ state, _ = store.Resolve("vi")
 
 ### Writing a plugin
 
+The plugin owns the service lifecycle — health checks, sockets, restart policy. The supervisor provides `UpdateService()` to persist state and `StateDir` for any files the plugin needs.
+
 ```go
 type MyPlugin struct {
     Port int
@@ -99,47 +104,22 @@ func (p *MyPlugin) Run(ctx context.Context, env supervisor.PluginEnv) error {
     // Report initial state
     env.UpdateService(map[string]any{"state": "starting", "port": p.Port})
 
+    // Optionally serve on a unix socket in the state dir
+    socketPath := filepath.Join(env.StateDir, "rpc.sock")
+    listener, _ := net.Listen("unix", socketPath)
+    defer listener.Close()
+    // ... serve HTTP/gRPC/whatever on listener
+
     // Monitor and report state changes
     for {
         select {
         case <-ctx.Done():
             return ctx.Err()
         case <-time.After(5 * time.Second):
-            // Check health, update state
             env.UpdateService(map[string]any{"state": "healthy", "port": p.Port})
         }
     }
 }
-```
-
-### Event bus
-
-```go
-bus := supervisor.NewEventBus()
-
-// Subscribe — gets cached last-state as "snapshot" immediately
-ch, unsub := bus.Subscribe()
-defer unsub()
-
-// Publish
-bus.Publish(supervisor.Event{
-    Type: "state",
-    Data: json.RawMessage(`{"state":"healthy"}`),
-})
-```
-
-### Unix socket SSE
-
-```go
-closer, _ := supervisor.ListenSocket("rpc.sock", bus, map[string]http.HandlerFunc{
-    "/health": healthHandler,
-})
-defer closer.Close()
-```
-
-Clients connect via:
-```bash
-curl --unix-socket rpc.sock http://localhost/events
 ```
 
 ## Package contents
@@ -151,8 +131,6 @@ curl --unix-socket rpc.sock http://localhost/events
 | `state.go` | StateFile, SupervisorState types |
 | `store.go` | Store (read-side) + Writer (locked single-writer) |
 | `tmux.go` | Tmux CLI wrapper |
-| `event.go` | EventBus (in-memory pub/sub) |
-| `socket.go` | Unix socket SSE server |
 | `poll.go` | Generic retry/poll utility |
 | `tailfile.go` | Incremental file tailing |
 | `plugin.go` | Plugin interface + PluginEnv |
