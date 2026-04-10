@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from typing import Any
@@ -23,26 +24,72 @@ class Row:
         return d
 
 
+def _match_session(sessions: list[dict[str, Any]], cwd: Path) -> dict[str, Any] | None:
+    """Find the live agentboss session whose cwd matches `cwd` exactly.
+
+    Same filtering logic as agentboss.session_for_cwd but against a
+    pre-fetched session list instead of spawning a subprocess.
+    """
+    target = str(cwd.resolve())
+    for entry in sessions:
+        entry_cwd = entry.get("cwd", "")
+        if not entry_cwd:
+            continue
+        try:
+            if str(Path(entry_cwd).resolve()) != target:
+                continue
+        except OSError:
+            if entry_cwd != target:
+                continue
+        state = entry.get("state", "")
+        if state in ("child_exited", "dead", ""):
+            continue
+        return entry
+    return None
+
+
 def collect(boss_doc: Path) -> list[Row]:
     sections = bossdoc.load(boss_doc)
-    rows: list[Row] = []
-    for section in sections:
+
+    # One subprocess call for all sections instead of one per section.
+    all_sessions = agentboss.ls_all()
+
+    # Identify which sections have live workspaces and need diff stats.
+    active: list[tuple[int, bossdoc.Section, workspace.WorkspaceLayout]] = []
+    rows: list[Row] = [None] * len(sections)  # type: ignore[list-item]
+    for i, section in enumerate(sections):
         lay = workspace.layout(section.slug)
-        ab = None
-        diff = None
         if lay.root.is_dir():
-            ab = agentboss.session_for_cwd(lay.root)
-            diff = workspace.diff_per_repo(section.slug)
-        rows.append(
-            Row(
+            active.append((i, section, lay))
+        else:
+            rows[i] = Row(
                 slug=section.slug,
                 header=section.header,
                 has_pending_todos=bossdoc.has_pending(section.body),
                 is_spec=bossdoc.is_spec_only(section.body),
-                agentboss=ab,
-                diff=diff,
             )
+
+    # Parallelize git diff calls across all active sections/repos.
+    diff_results: dict[int, dict[str, dict[str, int]] | None] = {}
+    with ThreadPoolExecutor() as pool:
+        futures = {
+            pool.submit(workspace.diff_per_repo, section.slug): idx
+            for idx, section, _lay in active
+        }
+        for future in futures:
+            idx = futures[future]
+            diff_results[idx] = future.result()
+
+    for idx, section, lay in active:
+        rows[idx] = Row(
+            slug=section.slug,
+            header=section.header,
+            has_pending_todos=bossdoc.has_pending(section.body),
+            is_spec=bossdoc.is_spec_only(section.body),
+            agentboss=_match_session(all_sessions, lay.root),
+            diff=diff_results.get(idx),
         )
+
     return rows
 
 
