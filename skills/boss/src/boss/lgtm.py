@@ -22,7 +22,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from pathlib import Path
 
-from . import pool, workspace
+from . import pool, sim, workspace
 from .util import sh
 
 
@@ -88,13 +88,21 @@ def lgtm(slug: str) -> list[RepoResult]:
             f"no repos linked under {workspace.layout(slug).repos} — nothing to merge"
         )
 
+    boss_json = workspace.read_boss_json(workspace.layout(slug).root)
+    agent_id = boss_json.get("agent_id")
+
     results: list[RepoResult] = []
     for label, target in sorted(repos.items()):
-        results.append(_lgtm_one(label, target, slug))
+        results.append(_lgtm_one(label, target, slug, agent_id))
+
+    udid = boss_json.get("ios_simulator_udid")
+    if udid:
+        sim.release_simulator(udid, agent_id=agent_id)
+
     return results
 
 
-def _lgtm_one(label: str, target: Path, slug: str) -> RepoResult:
+def _lgtm_one(label: str, target: Path, slug: str, agent_id: str | None) -> RepoResult:
     is_wt, main_repo = _is_worktree(target)
 
     if not is_wt:
@@ -134,7 +142,7 @@ def _lgtm_one(label: str, target: Path, slug: str) -> RepoResult:
         already_sha = _git(main_repo, "log", "--pretty=%H", "-1", branch)
         # Release pool lease for already-merged branches too.
         if pool._is_pool_slot(target.name):
-            pool.release_slot(target, slug=branch)
+            pool.release_slot(target, agent_id=agent_id, slug=branch)
         else:
             try:
                 sh("git", "-C", main_repo, "branch", "-d", branch)
@@ -176,7 +184,7 @@ def _lgtm_one(label: str, target: Path, slug: str) -> RepoResult:
 
     # Release pool lease if this is a numbered slot.
     if pool._is_pool_slot(target.name):
-        pool.release_slot(target, slug=branch)
+        pool.release_slot(target, agent_id=agent_id, slug=branch)
     else:
         try:
             sh("git", "-C", main_repo, "branch", "-d", branch)

@@ -107,15 +107,41 @@ def create(slug: str, header: str, mode: str) -> WorkspaceLayout:
         )
     # .boss.json — workspace context for `boss checkout` and other
     # agent-facing subcommands. Always rewritten (mode might change).
-    boss_json = lay.root / ".boss.json"
-    boss_json.write_text(
-        json.dumps(
-            {"slug": slug, "mode": mode, "workspace": str(lay.root)},
-            indent=2,
-        )
-        + "\n"
+    write_boss_json(
+        lay.root,
+        {"slug": slug, "mode": mode, "workspace": str(lay.root)},
+        preserve_existing=True,
     )
     return lay
+
+
+def read_boss_json(root: Path) -> dict:
+    boss_json = root / ".boss.json"
+    try:
+        return json.loads(boss_json.read_text())
+    except (json.JSONDecodeError, OSError):
+        return {}
+
+
+def write_boss_json(root: Path, data: dict, preserve_existing: bool = False) -> dict:
+    boss_json = root / ".boss.json"
+    if preserve_existing:
+        merged = read_boss_json(root)
+        merged.update(data)
+    else:
+        merged = dict(data)
+    boss_json.write_text(json.dumps(merged, indent=2) + "\n")
+    return merged
+
+
+def update_boss_json(root: Path, updates: dict | None = None, remove: set[str] | None = None) -> dict:
+    data = read_boss_json(root)
+    if updates:
+        data.update(updates)
+    if remove:
+        for key in remove:
+            data.pop(key, None)
+    return write_boss_json(root, data, preserve_existing=False)
 
 
 def find_workspace(start: Path | None = None) -> tuple[Path, dict] | None:

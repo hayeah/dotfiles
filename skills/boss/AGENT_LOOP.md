@@ -45,6 +45,7 @@ The boss told you, via the templated briefing:
     ln -s ~/github.com/hayeah/myapp repos/github.com/hayeah/myapp
     ```
   - You can do this for one repo on the first turn (before you know the full set), and add more symlinks the same way as you discover them. **No coordination with the boss required.**
+  - For iOS work, use `boss checkout <repo> --ios-simulator` when you need a dedicated simulator. It leases a simulator UDID to your live session, stores it in `.boss.json`, and prints `export SWIFTUI_TAP_UDID=<UDID>` for downstream tooling.
 - **For non-trivial work, write the spec FIRST.** See "Writing a spec" below. Save it as `specs/main.md` in your workspace and link it from the worklog frontmatter as `spec: specs/main.md`.
 - **Seed your `## Todos` list** from the spec (or from the section bullets in your briefing if no spec). 5-15 concrete steps. Top-level checkboxes in the boss doc (which you can't see and don't manage) are user-facing milestones; your worklog `## Todos` is your finer-grained working list.
 - Then `cd repos/github.com/hayeah/myapp` (or similar) and start working on the first unfinished todo. Navigate freely between repos via the `repos/` tree.

@@ -1,21 +1,7 @@
-"""Numbered worktree pool with lease-based slot management.
-
-Layout:
-    <repo>/.worktrees/
-        000/          # permanent slots, grow on demand
-        001/
-        002/
-
-Each slot may contain a `.lease.json`:
-    {"slug": "fix-oauth", "agent_id": "r19"}
-
-Absent .lease.json → slot is free. Present → leased; check
-`agentboss state <agent_id>` to see if the tenant is still alive.
-"""
+"""Numbered worktree pool with agentboss-backed slot leasing."""
 
 from __future__ import annotations
 
-import json
 import re
 from pathlib import Path
 
@@ -39,61 +25,45 @@ def _slot_dirs(repo: Path) -> list[Path]:
     wt_root = repo / ".worktrees"
     if not wt_root.is_dir():
         return []
-    return sorted(
-        d for d in wt_root.iterdir()
-        if d.is_dir() and _is_pool_slot(d.name)
-    )
+    return sorted(d for d in wt_root.iterdir() if d.is_dir() and _is_pool_slot(d.name))
 
 
-def _read_lease(slot: Path) -> dict | None:
-    lease = slot / ".lease.json"
-    if not lease.exists():
-        return None
+def _repo_lease_key(repo: Path) -> str:
+    return f"{repo.parent.name}/{repo.name}"
+
+
+def slot_resource(slot: Path) -> str:
+    repo = slot.parent.parent
+    return f"worktree:{_repo_lease_key(repo)}_{slot.name}"
+
+
+def slot_holder(slot: Path) -> str | None:
     try:
-        return json.loads(lease.read_text())
-    except (json.JSONDecodeError, OSError):
-        return None
+        return agentboss.lease_check(slot_resource(slot))
+    except agentboss.AgentbossError as e:
+        raise PoolError(str(e)) from e
 
 
-def _is_agent_alive(agent_id: str) -> bool:
-    """Check if an agentboss session is still alive."""
-    proc = sh(agentboss.binary(), "state", agent_id, check=False)
-    if proc.returncode != 0:
-        return False
-    line = proc.stdout.strip().lower()
-    if not line:
-        return False
-    dead_markers = ("child_exited", "dead", "unknown", "not found")
-    return not any(m in line for m in dead_markers)
+def _slot_slug(slot: Path) -> str | None:
+    proc = sh("git", "-C", slot, "branch", "--show-current", check=False)
+    slug = proc.stdout.strip()
+    return slug or None
 
 
-def gc_slots(repo: Path) -> list[str]:
-    """Reap dead leases. Returns list of freed slot names."""
-    freed: list[str] = []
+def find_slot_by_slug(repo: Path, slug: str, agent_id: str) -> Path | None:
+    """Find a slot already leased to this agent/slug (for re-checkout)."""
     for slot in _slot_dirs(repo):
-        lease = _read_lease(slot)
-        if lease is None:
+        if slot_holder(slot) != agent_id:
             continue
-        agent_id = lease.get("agent_id", "")
-        if not agent_id or not _is_agent_alive(agent_id):
-            _release_slot_internal(slot, lease.get("slug"))
-            freed.append(slot.name)
-    return freed
-
-
-def find_slot_by_slug(repo: Path, slug: str) -> Path | None:
-    """Find a slot already leased to this slug (for re-checkout)."""
-    for slot in _slot_dirs(repo):
-        lease = _read_lease(slot)
-        if lease and lease.get("slug") == slug:
+        if _slot_slug(slot) == slug:
             return slot
     return None
 
 
 def find_free_slot(repo: Path) -> Path | None:
-    """Return the first slot without a lease, or None."""
+    """Return the first slot with no live holder, or None."""
     for slot in _slot_dirs(repo):
-        if _read_lease(slot) is None:
+        if slot_holder(slot) is None:
             return slot
     return None
 
@@ -108,26 +78,19 @@ def _next_slot_name(repo: Path) -> str:
 
 
 def grow_pool(repo: Path) -> Path:
-    """Create the next numbered worktree slot. Runs .worktrees.setup if present.
-
-    Returns the new slot path.
-    """
+    """Create the next numbered worktree slot. Runs .worktrees.setup if present."""
     slot_name = _next_slot_name(repo)
     wt_path = repo / ".worktrees" / slot_name
 
-    # Create a detached worktree (no branch yet — lease_slot sets the branch)
-    sh("git", "-C", repo, "worktree", "add", "--detach",
-       f".worktrees/{slot_name}", "master")
+    sh("git", "-C", repo, "worktree", "add", "--detach", f".worktrees/{slot_name}", "master")
 
-    # Run setup hook from the worktree's own copy (not the main checkout's).
     hook = wt_path / ".worktrees.setup"
     if hook.is_file() and (hook.stat().st_mode & 0o111):
         try:
             sh(hook, cwd=wt_path)
         except Exception:
-            pass  # flaky hook shouldn't block pool creation
+            pass
 
-    # Also try pymake worktree_setup
     makefile_py = wt_path / "Makefile.py"
     if not makefile_py.exists():
         makefile_py = repo / "Makefile.py"
@@ -135,49 +98,53 @@ def grow_pool(repo: Path) -> Path:
         try:
             sh("pymake", "worktree_setup", cwd=wt_path)
         except Exception:
-            pass  # task may not exist
+            pass
 
     return wt_path
 
 
 def lease_slot(slot: Path, slug: str, agent_id: str) -> None:
-    """Reset a slot to master, create branch, write .lease.json."""
-    # Reset tracked files — build artifacts (gitignored) survive
-    sh("git", "-C", slot, "reset", "--hard", "master")
-    sh("git", "-C", slot, "checkout", "-B", slug, "master")
-
-    # Write lease
-    lease_path = slot / ".lease.json"
-    lease_path.write_text(
-        json.dumps({"slug": slug, "agent_id": agent_id}, indent=2) + "\n"
-    )
-
-
-def release_slot(slot: Path, slug: str | None = None) -> None:
-    """Release a slot: remove lease, detach HEAD, delete branch."""
-    _release_slot_internal(slot, slug)
+    """Reset a slot to master, create a branch, and lease it via agentboss."""
+    try:
+        sh("git", "-C", slot, "reset", "--hard", "master")
+        sh("git", "-C", slot, "checkout", "-B", slug, "master")
+        legacy_lease = slot / ".lease.json"
+        if legacy_lease.exists():
+            legacy_lease.unlink()
+        agentboss.lease(agent_id, slot_resource(slot))
+    except Exception as e:  # pragma: no cover - wrapped for CLI diagnostics
+        raise PoolError(str(e)) from e
 
 
-def _release_slot_internal(slot: Path, slug: str | None) -> None:
-    """Internal release — used by both gc and explicit release."""
-    lease_path = slot / ".lease.json"
+def release_slot(slot: Path, agent_id: str | None = None, slug: str | None = None) -> None:
+    """Release a slot: drop the live lease, detach HEAD, delete branch."""
+    _release_slot_internal(slot, agent_id=agent_id, slug=slug)
 
-    # Read slug from lease if not provided
+
+def _release_slot_internal(slot: Path, agent_id: str | None, slug: str | None) -> None:
+    resource = slot_resource(slot)
+    holder = agent_id
+    if holder is None:
+        holder = slot_holder(slot)
+
     if slug is None:
-        lease = _read_lease(slot)
-        slug = lease.get("slug") if lease else None
+        slug = _slot_slug(slot)
 
-    # Remove lease file
-    if lease_path.exists():
-        lease_path.unlink()
+    if holder:
+        try:
+            agentboss.lease_release(holder, resource)
+        except agentboss.AgentbossError:
+            pass
 
-    # Detach HEAD so the branch ref is free
+    legacy_lease = slot / ".lease.json"
+    if legacy_lease.exists():
+        legacy_lease.unlink()
+
     try:
         sh("git", "-C", slot, "checkout", "--detach")
     except Exception:
         pass
 
-    # Delete the branch (best-effort — may already be deleted or unmerged)
     if slug:
         try:
             sh("git", "-C", slot, "branch", "-D", slug)

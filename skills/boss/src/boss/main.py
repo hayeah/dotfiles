@@ -16,6 +16,7 @@ from . import (
     lgtm as lgtm_mod,
     ls as ls_mod,
     pool,
+    sim,
     workspace,
 )
 from .util import sh
@@ -126,13 +127,7 @@ def spawn(
     key = descriptor.get("id") or "?"
 
     # Persist agent_id so `boss checkout` can write it into lease files.
-    boss_json_path = lay.root / ".boss.json"
-    try:
-        bj = json.loads(boss_json_path.read_text())
-    except (json.JSONDecodeError, OSError):
-        bj = {}
-    bj["agent_id"] = key
-    boss_json_path.write_text(json.dumps(bj, indent=2) + "\n")
+    workspace.update_boss_json(lay.root, updates={"agent_id": key})
 
     msg = briefing.render(
         slug=s.slug, header=s.header, section_body=s.body, mode=mode
@@ -153,6 +148,11 @@ def checkout(
         "--no-tree",
         help="Main-repo mode: symlink the repo directly instead of creating a worktree.",
     ),
+    ios_simulator: bool = typer.Option(
+        False,
+        "--ios-simulator",
+        help="Lease and boot a dedicated iOS simulator for this workspace.",
+    ),
 ) -> None:
     """Check out a repo into the current workspace's repos/ tree.
 
@@ -161,9 +161,14 @@ def checkout(
     and agent_id.
 
     In worktree mode (default): leases a numbered pool slot at
-    <repo>/.worktrees/NNN — GCs dead leases first, reuses a free slot
-    or grows the pool, resets to master, checks out a branch, writes
-    .lease.json, and symlinks into repos/.
+    <repo>/.worktrees/NNN via `agentboss lease`, reuses an existing
+    slot already held by this workspace when possible, otherwise finds
+    a free slot or grows the pool, resets to master, checks out a
+    branch, and symlinks into repos/.
+
+    With --ios-simulator: leases and boots a dedicated simulator UDID,
+    stores it in `.boss.json`, and prints the corresponding
+    `SWIFTUI_TAP_UDID` export.
 
     With --no-tree: symlinks the repo directly (main-repo mode).
     """
@@ -186,6 +191,9 @@ def checkout(
     mode = "main-repo" if no_tree else boss_json.get("mode", "worktree")
     if mode == "main-repo":
         no_tree = True
+    elif not agent_id:
+        typer.echo("error: .boss.json has no agent_id for worktree leasing", err=True)
+        raise typer.Exit(1)
 
     repo_path = repo.expanduser().resolve()
     if not repo_path.is_dir():
@@ -207,53 +215,56 @@ def checkout(
     if link_path.exists() or link_path.is_symlink():
         import os
         typer.echo(f"already checked out: {label} -> {os.readlink(link_path)}")
-        return
-
-    if no_tree:
+    elif no_tree:
         link_parent.mkdir(parents=True, exist_ok=True)
         link_path.symlink_to(repo_path)
         typer.echo(f"linked (main-repo): {label} -> {repo_path}")
-        return
-
-    # --- Pool/lease worktree mode ---
-
-    # GC dead leases first.
-    freed = pool.gc_slots(repo_path)
-    if freed:
-        typer.echo(f"gc: reaped {len(freed)} dead lease(s): {', '.join(freed)}")
-
-    # Check if this slug already has a lease (re-checkout — reuse without reset).
-    existing = pool.find_slot_by_slug(repo_path, slug)
-    if existing is not None:
-        typer.echo(f"reusing existing lease: slot {existing.name} for {slug}")
-        link_parent.mkdir(parents=True, exist_ok=True)
-        link_path.symlink_to(existing)
-        typer.echo(f"checked out: {label} -> {existing}")
-        return
-
-    # Find a free slot or grow the pool.
-    slot = pool.find_free_slot(repo_path)
-    if slot is not None:
-        typer.echo(f"leasing free slot {slot.name}")
     else:
+        # --- Pool/lease worktree mode ---
         try:
-            slot = pool.grow_pool(repo_path)
+            existing = pool.find_slot_by_slug(repo_path, slug, agent_id)
+            if existing is not None:
+                typer.echo(f"reusing existing lease: slot {existing.name} for {slug}")
+                link_parent.mkdir(parents=True, exist_ok=True)
+                link_path.symlink_to(existing)
+                typer.echo(f"checked out: {label} -> {existing}")
+            else:
+                slot = pool.find_free_slot(repo_path)
+                if slot is not None:
+                    typer.echo(f"leasing free slot {slot.name}")
+                else:
+                    slot = pool.grow_pool(repo_path)
+                    typer.echo(f"created new pool slot {slot.name}")
+
+                pool.lease_slot(slot, slug, agent_id)
+
+                link_parent.mkdir(parents=True, exist_ok=True)
+                link_path.symlink_to(slot)
+                typer.echo(f"checked out: {label} -> {slot}")
         except pool.PoolError as e:
             typer.echo(f"error: {e}", err=True)
             raise typer.Exit(1)
-        typer.echo(f"created new pool slot {slot.name}")
 
-    # Lease the slot: reset to master, create branch, write .lease.json.
-    try:
-        pool.lease_slot(slot, slug, agent_id)
-    except pool.PoolError as e:
-        typer.echo(f"error: failed to lease slot {slot.name}: {e}", err=True)
-        raise typer.Exit(1)
+    if ios_simulator:
+        if not agent_id:
+            typer.echo("error: .boss.json has no agent_id for simulator leasing", err=True)
+            raise typer.Exit(1)
+        preferred_udid = boss_json.get("ios_simulator_udid")
+        try:
+            udid = sim.ensure_simulator(agent_id, preferred_udid=preferred_udid)
+        except sim.SimulatorError as e:
+            typer.echo(f"error: failed to lease simulator: {e}", err=True)
+            raise typer.Exit(1)
 
-    # Symlink into the workspace repos/ tree.
-    link_parent.mkdir(parents=True, exist_ok=True)
-    link_path.symlink_to(slot)
-    typer.echo(f"checked out: {label} -> {slot}")
+        workspace.update_boss_json(
+            ws_root,
+            updates={
+                "ios_simulator_udid": udid,
+                "env": {"SWIFTUI_TAP_UDID": udid},
+            },
+        )
+        typer.echo(f"ios simulator: {udid}")
+        typer.echo(f"export SWIFTUI_TAP_UDID={udid}")
 
 
 @app.command(name="ls")
@@ -340,7 +351,7 @@ def lgtm(
     # Kill the agent session after a successful merge.
     if all_ok:
         lay = workspace.layout(s.slug)
-        bj = json.loads((lay.root / ".boss.json").read_text())
+        bj = workspace.read_boss_json(lay.root)
         agent_id = bj.get("agent_id", "")
         if agent_id:
             sh(agentboss.binary(), "kill", agent_id)
