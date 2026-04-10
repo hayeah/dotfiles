@@ -91,7 +91,7 @@ dev = [
 [package.metadata]
 requires-dist = [
     { name = "cloudflare" },
-    { name = "hayeah", editable = "../../hayeah" },
+    { name = "hayeah", editable = "../../libs/hayeah-py" },
     { name = "typer" },
 ]
 
@@ -132,7 +132,7 @@ wheels = [
 [[package]]
 name = "hayeah"
 version = "0.1.0"
-source = { editable = "../../hayeah" }
+source = { editable = "../../libs/hayeah-py" }
 dependencies = [
     { name = "structlog" },
 ]

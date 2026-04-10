@@ -129,44 +129,43 @@ If you are working on a Jupyter notebook, you MUST read [./notebook.md](./notebo
 
 ## Logging
 
-Use `hayeah.logger` for structured logging. It provides colored console output on stderr and JSONL file logging to `~/.local/log/<tool>.jsonl` with rotation.
+Use `hayeah.core.logger` for structured logging. See `libs/hayeah-py/src/hayeah/core/logger/` for the full spec.
 
 ```py
-import hayeah
+from hayeah.core.logger import new
 
-log = hayeah.logger("my-tool")
+log = new("my-tool")
 
 log.info("message_sent", channel="telegram", duration_ms=120)
 log.error("api_failed", status=429, retry_after=30)
 ```
 
-- `hayeah.logger(name)` returns a structlog `BoundLogger`. Same name returns the same logger (idempotent, safe to call from multiple modules).
+- `new(name)` returns a structlog `BoundLogger`. Same name returns the same logger (idempotent, safe to call from multiple modules).
 - `LOG_LEVEL` env var overrides log level (default: `INFO`).
 - Console output is colored and human-readable. File output is JSONL (5 MB rotation, 3 backups).
 - View logs with `lnav ~/.local/log/` or `tail -f ~/.local/log/*.jsonl | jq .`
 
 ### Adding to a tool's dependencies
 
-Add `hayeah` as an editable dependency in the tool's `pyproject.toml`:
+Add `hayeah-core` as an editable dependency in the tool's `pyproject.toml`:
 
 ```toml
 [project]
 dependencies = [
-    "hayeah",
+    "hayeah-core",
     # ... other deps
 ]
 
 [tool.uv.sources]
-hayeah = { path = "../../hayeah", editable = true }
+hayeah-core = { path = "../../libs/hayeah-py", editable = true }
 ```
 
-Adjust the relative path as needed for the tool's location relative to `hayeah/`.
+Adjust the relative path as needed for the tool's location relative to `libs/hayeah-py/`.
 
-### Migrating from the old `log.py` pattern
+### Other shared modules
 
-If the tool has a copy-pasted `log.py` with `setup_logging()`:
-
-- Delete `log.py`
-- Replace `from .log import setup_logging` + `setup_logging()` + `log = logging.getLogger(__name__)` with `import hayeah; log = hayeah.logger("<tool-name>")`
-- Do NOT use stdlib `logging` directly — `hayeah.logger` wraps it with structlog
+See `libs/README.md` for the full index of cross-language convention libraries:
+- `hayeah.core.fzfmatch` — fuzzy path matcher
+- `hayeah.core.config` — single-envar config loading
+- `hayeah.core.shortid` — short ID generation and prefix resolution
 

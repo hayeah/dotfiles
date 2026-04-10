@@ -9,7 +9,7 @@ dependencies = [
 ]
 
 [tool.uv.sources]
-hayeah-core = { path = "../../hayeah", editable = true }
+hayeah-core = { path = "../../libs/hayeah-py", editable = true }
 
 [project.scripts]
 git-quick-clone = "git_quick_clone.main:run"

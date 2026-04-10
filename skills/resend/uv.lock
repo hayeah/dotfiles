@@ -117,7 +117,7 @@ wheels = [
 [[package]]
 name = "hayeah"
 version = "0.1.0"
-source = { editable = "../../hayeah" }
+source = { editable = "../../libs/hayeah-py" }
 dependencies = [
     { name = "structlog" },
 ]
@@ -286,7 +286,7 @@ dev = [
 
 [package.metadata]
 requires-dist = [
-    { name = "hayeah", editable = "../../hayeah" },
+    { name = "hayeah", editable = "../../libs/hayeah-py" },
     { name = "python-dotenv" },
     { name = "resend" },
     { name = "typer" },
