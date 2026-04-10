@@ -228,13 +228,21 @@ def diff_per_repo(slug: str) -> dict[str, dict[str, int]] | None:
     `git diff master --shortstat --no-renames` (covers committed +
     staged + unstaged) inside each linked repo and parse the summary line,
     plus an `ls-files --others --exclude-standard | wc -l` for untracked.
+
+    When multiple repos are linked, diffs run in parallel.
     """
     repos = list_repo_symlinks(slug)
     if not repos:
         return None
+    if len(repos) == 1:
+        label, target = next(iter(repos.items()))
+        return {label: _diff_one(target)}
+    from concurrent.futures import ThreadPoolExecutor
     out: dict[str, dict[str, int]] = {}
-    for label, target in repos.items():
-        out[label] = _diff_one(target)
+    with ThreadPoolExecutor() as pool:
+        futures = {pool.submit(_diff_one, target): label for label, target in repos.items()}
+        for future in futures:
+            out[futures[future]] = future.result()
     return out
 
 
