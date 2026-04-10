@@ -14,6 +14,7 @@ class Row:
     slug: str
     header: str
     has_pending_todos: bool
+    is_spec: bool = False
     agentboss: dict[str, Any] | None = None
     diff: dict[str, dict[str, int]] | None = None
 
@@ -37,6 +38,7 @@ def collect(boss_doc: Path) -> list[Row]:
                 slug=section.slug,
                 header=section.header,
                 has_pending_todos=bossdoc.has_pending(section.body),
+                is_spec=bossdoc.is_spec_only(section.body),
                 agentboss=ab,
                 diff=diff,
             )
@@ -45,16 +47,14 @@ def collect(boss_doc: Path) -> list[Row]:
 
 
 def bucket(row: Row) -> str:
+    if row.is_spec:
+        return "spec"
     if not row.has_pending_todos and row.agentboss is None:
         return "done"
     if row.has_pending_todos and row.agentboss is not None:
         return "running"
     if row.has_pending_todos and row.agentboss is None:
         return "pending"
-    # pending todos false + live agent: section's top-level boxes are all
-    # ticked but the agent is still parked in tmux. Reusable for follow-up
-    # work — `boss spawn` is idempotent and will re-engage with a fresh
-    # briefing if the human adds new boxes.
     return "idle"
 
 

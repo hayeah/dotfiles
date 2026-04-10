@@ -71,18 +71,32 @@ You do the speccing within this session. The human wants to think through the de
 
 - **Explore**: read code, research notes, prior worklogs, friction. Use internal subagents for deep research.
 - **Draft**: write a spec at `$MDNOTES_ROOT/<date>/<slug>-spec.md`. Cover: goal, architecture, steps, open questions.
+- **Create section immediately** with a `spec:` prefixed checkbox so it shows up as pending in `boss ls`. This keeps the spec visible — specs that live only in the notes dir get forgotten.
 - **Iterate**: the human reviews, you revise. Back and forth until lgtm.
-- **Create section**: on lgtm, add a BOSS.md section linking the spec, with `- [ ]` checkboxes derived from the spec's steps.
-- **Spawn**: `boss spawn <slug>`.
+- **On greenlight**: tick the `spec:` checkbox, add an implementation `- [ ]` checkbox that refers to the spec, then `boss spawn <slug>`. The agent reads the spec and works from it.
 
-During spec mode, the BOSS.md section (if created early) has no checkboxes:
+The `spec:` prefix on the checkbox tells the boss (you) not to spawn a subagent — this is boss-owned design work, not agent work.
 
 ```markdown
 ## Add webview eval to SwiftUITap
 
 Spec: $MDNOTES_ROOT/2026-04-10/webview-eval-spec.md
 
-(speccing — not ready for agent)
+- [ ] spec: design the eval protocol and webview registration API
+  - async eval via callAsyncJavaScript
+  - tag-based webview targeting
+  - return value serialization
+```
+
+On greenlight, tick the spec box and add implementation todo:
+
+```markdown
+## Add webview eval to SwiftUITap
+
+Spec: $MDNOTES_ROOT/2026-04-10/webview-eval-spec.md
+
+- [x] spec: design the eval protocol and webview registration API
+- [ ] implement per spec
 ```
 
 ### Sanitizing the human's brain dump (`boss todo`)
@@ -124,14 +138,15 @@ boss doctor           # report inconsistencies (dup slugs, nested boxes, orphans
 ]
 ```
 
-Three buckets you read off this shape:
+Buckets you read off this shape:
 
-| `has_pending_todos` | `agentboss`  | bucket            | action                                          |
-|---------------------|--------------|-------------------|-------------------------------------------------|
-| `false`             | `null`       | **done**          | skip                                            |
-| `true`              | non-`null`   | **running**       | leave alone (someone is on it)                  |
-| `true`              | `null`       | **pending**       | dispatch (`boss spawn <slug>`)                  |
-| `false`             | non-`null`   | **idle**          | parked, reusable — `boss spawn` re-engages it if new work is added |
+| `is_spec` | `has_pending_todos` | `agentboss`  | bucket            | action                                          |
+|-----------|---------------------|--------------|-------------------|-------------------------------------------------|
+| `true`    | `true`              | any          | **spec**          | boss-owned design work — do NOT spawn, iterate with human |
+| `false`   | `false`             | `null`       | **done**          | skip                                            |
+| `false`   | `true`              | non-`null`   | **running**       | leave alone (someone is on it)                  |
+| `false`   | `true`              | `null`       | **pending**       | dispatch (`boss spawn <slug>`)                  |
+| `false`   | `false`             | non-`null`   | **idle**          | parked, reusable — `boss spawn` re-engages it if new work is added |
 
 ## Shell recipes (the gaps the CLI doesn't fill)
 
@@ -203,7 +218,7 @@ boss ls --json
 
 Reject if exit non-zero (dup slugs, BOSS.md missing → fix and retry). For each row in the output:
 
-- **bucket=pending** → `boss spawn <slug>`. The default mode is `worktree`; pass `--mode main-repo` if the section says edit-in-place.
+- **bucket=pending** → check if the pending checkbox starts with `spec:`. If so, this is boss-owned design work — do NOT spawn. If not, `boss spawn <slug>`. The default mode is `worktree`; pass `--mode main-repo` if the section says edit-in-place.
 - **bucket=running** → check it in (next step).
 - **bucket=done** → skip.
 
@@ -221,7 +236,7 @@ Then:
 - **status: working, agent: idle, log/todos advanced** → the agent finished a step. Append a one-line `## Notes from boss` entry naming the next todo, nudge: `agentboss send <key> "re-read your worklog and continue"`. Don't wait for the human.
 - **status: working, agent: idle, log/todos unchanged for 15+ min** → might be stuck. Check `agentboss output <key>` first — if the pane shows real progress (commits, edits) but the worklog is just stale, the agent is mid-flow, leave it alone. If pane truly silent, nudge onto the next concrete todo.
 - **status: blocked** → read `## Questions for boss`. Either answer in `## Notes from boss` and nudge, or escalate to the human.
-- **status: done** → verify evidence per "Demanding evidence" below. If convincing → `boss lgtm <slug>`. lgtm is **re-runnable** and does NOT tear down — the agent stays alive across mid-section lgtms.
+- **status: done** → verify evidence per "Demanding evidence" below. If convincing → `boss lgtm <slug>`. On success, lgtm kills the agentboss session.
 - **session gone** → `boss spawn <slug>` again to respawn into the existing workspace.
 
 ### Harvest friction
@@ -248,11 +263,11 @@ This walks every repo linked under `$BOSS_ROOT/<slug>/repos/`, and for each:
 - Merges `--no-ff` into master with a clear commit message.
 - Verifies the merge sha actually landed.
 
-It does NOT tear down. The workspace + worktrees + agentboss session stay alive — the agent can keep going on follow-up commits and you can `boss lgtm` again. This is intentional: lgtm is the merge action, not the close action.
+On success, lgtm merges all linked repos and kills the agentboss session. The workspace directory stays around as frozen history.
 
 **After a successful lgtm, YOU tick the section's top-level checkboxes in BOSS.md.** The agent doesn't have access to BOSS.md and can't tick them itself (this is intentional — single writer to BOSS.md, and it's you). Edit BOSS.md and flip the relevant `- [ ]` lines under the section header to `- [x]`. For multi-phase sections (multiple top-level boxes), tick only the boxes corresponding to the work that just landed; leave the rest pending so the section stays in the "running" or "pending" bucket and the loop continues.
 
-If all top-level boxes are now ticked, the section moves to the "done" bucket on the next `boss ls`. The workspace + agent session stay alive in case the human adds a new top-level box later — `boss spawn <slug>` is idempotent and re-engages the existing session by re-sending the briefing with the latest section text.
+If all top-level boxes are now ticked, the section moves to the "done" bucket on the next `boss ls`. If the human adds a new top-level box later, `boss spawn <slug>` creates a fresh session in the existing workspace.
 
 ## Demanding evidence
 

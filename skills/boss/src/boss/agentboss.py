@@ -203,6 +203,15 @@ def send(key: str, message: str) -> None:
         )
 
 
+def kill(key: str) -> None:
+    """Kill an agentboss session by key."""
+    proc = _run(["kill", key], check=False)
+    if proc.returncode != 0:
+        raise AgentbossError(
+            f"agentboss kill {key!r} failed (rc={proc.returncode}): {proc.stderr.strip()}"
+        )
+
+
 def lease(key: str, resource: str) -> None:
     proc = _run(["lease", key, resource], check=False)
     if proc.returncode != 0:

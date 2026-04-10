@@ -10,6 +10,7 @@ from pathlib import Path
 # Top-level checkbox at column zero. Nested (` ` indented) checkboxes are
 # intentionally NOT matched — see SKILL.md "Top-level checkboxes only".
 _TOP_CHECKBOX_RE = re.compile(r"^- \[([ xX])\]", re.MULTILINE)
+_TOP_CHECKBOX_LINE_RE = re.compile(r"^- \[([ xX])\] (.*)$", re.MULTILINE)
 _NESTED_CHECKBOX_RE = re.compile(r"^[ \t]+- \[[ xX]\]", re.MULTILINE)
 _HEADER_RE = re.compile(r"^## +(.*?)\s*$", re.MULTILINE)
 _LEADING_X_RE = re.compile(r"^\[[xX ]\]\s*")
@@ -46,6 +47,20 @@ def has_pending(section_body: str) -> bool:
     if not boxes:
         return False
     return any(b == " " for b in boxes)
+
+
+def is_spec_only(section_body: str) -> bool:
+    """True if all pending (unticked) top-level checkboxes are `spec:` prefixed.
+
+    Returns False if there are no pending checkboxes at all.
+    """
+    pending = [
+        text for check, text in _TOP_CHECKBOX_LINE_RE.findall(section_body)
+        if check == " "
+    ]
+    if not pending:
+        return False
+    return all(t.lower().startswith("spec:") for t in pending)
 
 
 def find_nested_checkboxes(section_body: str) -> list[str]:

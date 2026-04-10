@@ -9,8 +9,8 @@ For each repo linked under `$BOSS_ROOT/<slug>/repos/`:
   4. Merge --no-ff into master.
   5. Verify the merge sha actually landed.
 
-NO teardown. The verb is re-runnable; the workspace stays around as
-frozen history.
+On success, kills the agentboss session. The workspace directory stays
+around as frozen history.
 
 In main-repo mode there's no worktree to merge — the verb just sanity
 checks that the linked repo has no uncommitted changes from the agent

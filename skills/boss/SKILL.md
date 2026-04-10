@@ -87,6 +87,7 @@ A section is "done" when every **top-level** `- [ ]` checkbox in its body is tic
 The grammar boss recognizes inside a section body:
 
 - **Top-level checkbox lines**: `- [ ]` or `- [x]` at column zero. Each is a coarse todo the agent ticks when its chunk is done.
+- **`spec:` prefixed checkboxes**: `- [ ] spec: ...` is boss-owned design work. The boss does the speccing itself (explore, draft, iterate with human) — do NOT spawn a subagent for `spec:` items. On greenlight, replace with implementation checkboxes and spawn.
 - **Nested plain bullets** under a checkbox: instructional breakdown / context for the box above. These MUST be plain `-` bullets (no `[ ]`).
 - **Prose paragraphs**: framing context for the section. Ignored by the doneness check.
 
@@ -167,7 +168,7 @@ The Python implementation enforces:
 - **`boss spawn` constructs the briefing from a template**, not caller-supplied prose.
 - **`boss ls` and `boss lgtm` reject duplicate slugs** in BOSS.md.
 - **`boss lgtm` pre-flight refuses on dirty-file overlap** between the agent's branch and the main checkout, naming the overlapping files and suggesting `git stash --include-untracked`. Does NOT auto-stash.
-- **`boss lgtm` gates teardown on merge success** (today: lgtm doesn't tear down — but the merge gate is still critical when bumping master).
+- **`boss lgtm` gates teardown on merge success.** On success, kills the agentboss session. Workspace directory stays as frozen history.
 - **The agentboss binary is pinned at startup.** boss validates that `agentboss` on PATH is a gobin shim pointing at the canonical `~/github.com/hayeah/agentboss/cli/agentboss`, then snapshots `~/.gobin/bins/agentboss` to a process-private tmp file for the lifetime of the session. An in-flight subagent rebuilding agentboss can't repoint or overwrite our binary mid-loop.
 
 ## What the boss does, what the subagent does

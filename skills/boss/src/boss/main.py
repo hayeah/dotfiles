@@ -395,8 +395,11 @@ def lgtm(
         bj = workspace.read_boss_json(lay.root)
         agent_id = bj.get("agent_id", "")
         if agent_id:
-            sh(agentboss.binary(), "kill", agent_id)
-            typer.echo(f"killed agent {agent_id}")
+            try:
+                agentboss.kill(agent_id)
+                typer.echo(f"killed agent {agent_id}")
+            except agentboss.AgentbossError:
+                typer.echo(f"agent {agent_id} already dead")
 
 
 @app.command(name="doctor")
