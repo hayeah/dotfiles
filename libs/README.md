@@ -145,3 +145,32 @@ result, _ := shortid.Resolve("a3f", []string{"a3f", "a3g", "b7k"})
 
 -> [spec](hayeah-py/src/hayeah/core/shortid/) |
 [test vectors](testdata/shortid.json)
+
+## lstree — Sane Directory Tree Walker
+
+Directory walker with `.gitignore` support, builtin ignores for common
+language ecosystem junk (`node_modules`, `__pycache__`, `.venv` …), and
+an include/exclude glob filter pipeline. Port of
+[go-lstree](https://github.com/hayeah/go-lstree). Zero runtime
+dependencies, Python 3.11+.
+
+Three-stage filter pipeline: **base exclude** (`.gitignore` or builtins)
+→ **include globs** (optional narrowing) → **additional exclude** (always
+wins). Directory pruning happens in-place so ignored subtrees are never
+entered.
+
+Python:
+```python
+from hayeah.core.lstree import walk, Query
+for entry in walk("src/", query=Query(globs=["**/*.py"])):
+    print(entry.path)
+```
+
+TypeScript: not yet ported.
+
+Go: use [go-lstree](https://github.com/hayeah/go-lstree) directly —
+that is the reference implementation this port was derived from.
+
+-> [spec](hayeah-py/src/hayeah/core/lstree/) |
+[glob test vectors](testdata/lstree_glob.json) |
+[walker test vectors](testdata/lstree.json)
