@@ -3,10 +3,11 @@
 from __future__ import annotations
 
 import re
+import sys
 from pathlib import Path
 
 from . import agentboss
-from .util import sh
+from .util import git_is_dirty, sh
 
 
 SLOT_RE = re.compile(r"^\d{3}$")
@@ -61,10 +62,26 @@ def find_slot_by_slug(repo: Path, slug: str, agent_id: str) -> Path | None:
 
 
 def find_free_slot(repo: Path) -> Path | None:
-    """Return the first slot with no live holder, or None."""
+    """Return the first slot with no live holder AND no uncommitted tracked
+    changes, or None.
+
+    A slot whose lease is gone but whose working tree still has tracked
+    modifications belongs to a dead session whose work never merged. Reusing
+    it would clobber that work on the next `git reset --hard`, so we skip
+    it and warn. Untracked files are ignored.
+    """
     for slot in _slot_dirs(repo):
-        if slot_holder(slot) is None:
-            return slot
+        if slot_holder(slot) is not None:
+            continue
+        if git_is_dirty(slot):
+            slug = _slot_slug(slot) or "(detached)"
+            print(
+                f"warning: skipping dirty slot {slot.name} (branch {slug}) — "
+                f"uncommitted tracked changes from a dead session",
+                file=sys.stderr,
+            )
+            continue
+        return slot
     return None
 
 
