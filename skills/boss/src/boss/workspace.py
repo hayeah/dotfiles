@@ -45,17 +45,12 @@ spec:
 created: {created}
 ---
 
-## Status
-(agent fills in on first turn)
-
 ## Todos
 <!-- Finer-grained than the boss-doc top-level checkboxes. Tick off as you go. -->
 
-## Log
+## Agent log
 
-## Questions for boss
-
-## Notes from boss
+## Boss log
 
 ## Evidence
 
@@ -191,6 +186,113 @@ def ensure_bydate_link(slug: str) -> Path | None:
     target = Path("..") / ".." / slug
     link_path.symlink_to(target)
     return link_path
+
+
+def set_section_quote(worklog_path: Path, section_body: str, header: str) -> None:
+    """Write the BOSS.md section text into the worklog as a blockquote.
+
+    The blockquote sits right after the frontmatter and before the first
+    ``## `` header. This function is idempotent: it replaces any existing
+    blockquote at that position rather than stacking a new one.
+    """
+    text = worklog_path.read_text()
+    new_text = _replace_section_quote(text, section_body, header)
+    if new_text != text:
+        worklog_path.write_text(new_text)
+
+
+def _replace_section_quote(text: str, section_body: str, header: str) -> str:
+    import re as _re
+
+    fm_re = _re.compile(r"\A---\n.*?\n---\n?", _re.DOTALL)
+    fm = fm_re.match(text)
+    if fm:
+        head = text[: fm.end()]
+        rest = text[fm.end():]
+    else:
+        head = ""
+        rest = text
+
+    # Strip any existing leading blockquote (and surrounding blank lines).
+    stripped_rest = _strip_leading_blockquote(rest)
+
+    quote = _build_section_quote(header, section_body)
+    # Normalize spacing: one blank line between frontmatter and quote, and
+    # one blank line between quote and the first ## section.
+    head_trim = head.rstrip("\n")
+    body_trim = stripped_rest.lstrip("\n")
+    parts = []
+    if head_trim:
+        parts.append(head_trim + "\n\n")
+    parts.append(quote)
+    parts.append("\n\n")
+    parts.append(body_trim)
+    return "".join(parts)
+
+
+def _strip_leading_blockquote(text: str) -> str:
+    i = 0
+    n = len(text)
+    # Skip leading blank lines.
+    while i < n:
+        j = text.find("\n", i)
+        le = j if j != -1 else n
+        if text[i:le].strip() == "":
+            i = le + 1 if j != -1 else n
+            continue
+        break
+    if i >= n or not text[i:].startswith(">"):
+        return text
+    # Consume contiguous `^>` lines (and blank lines sandwiched between them).
+    k = i
+    last_quote_end = i
+    while k < n:
+        j = text.find("\n", k)
+        le = j if j != -1 else n
+        line = text[k:le]
+        if line.startswith(">"):
+            last_quote_end = le + 1 if j != -1 else n
+            k = last_quote_end
+            continue
+        if line.strip() == "":
+            # Look ahead for more quote.
+            m = le + 1 if j != -1 else n
+            peek = m
+            while peek < n:
+                pj = text.find("\n", peek)
+                ple = pj if pj != -1 else n
+                if text[peek:ple].strip() == "":
+                    peek = ple + 1 if pj != -1 else n
+                    continue
+                break
+            if peek < n and text[peek:].startswith(">"):
+                k = m
+                continue
+            break
+        break
+    return text[last_quote_end:]
+
+
+def _build_section_quote(header: str, body: str) -> str:
+    """Format a section as a blockquote mirror of BOSS.md.
+
+    Shape:
+
+        > ## <header>
+        >
+        > <body line 1>
+        > ...
+    """
+    lines = [f"> ## {header}"]
+    body_text = body.strip("\n")
+    if body_text:
+        lines.append(">")
+        for raw in body_text.split("\n"):
+            if raw == "":
+                lines.append(">")
+            else:
+                lines.append("> " + raw)
+    return "\n".join(lines)
 
 
 def list_repo_symlinks(slug: str) -> dict[str, Path]:

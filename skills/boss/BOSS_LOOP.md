@@ -39,7 +39,7 @@ Spec: $BOSS_ROOT/add-user-authentication/specs/main.md
 The human uses these phrases to tell you what mode to operate in:
 
 - **"boss todo"** — create a BOSS.md section with `- [ ]` checkboxes and spawn an agent. Fast path for well-understood tasks. Sanitize the brain dump (see below), use `boss add` to append to BOSS.md, then `boss spawn`.
-- **"boss append todo"** — add a `- [ ]` checkbox to an existing section. If the agent for that section is dead, `boss spawn` to revive it on the existing workspace. If the agent is alive, edit `## Notes from boss` in the worklog explaining the new todo, then `agentboss send <key> "re-read your worklog — new todo added"` to nudge it.
+- **"boss append todo"** — add a `- [ ]` checkbox to an existing section. If the agent for that section is dead, `boss spawn` to revive it on the existing workspace. If the agent is alive, `boss nudge <slug> "added a new todo: <describe>"` — the nudge appends to `## Boss log` and wakes the agent in one step.
 - **"boss spec"** — enter spec mode. The task needs design discussion before implementation. You (the boss session) explore the codebase, read research notes, draft a spec at `$MDNOTES_ROOT/<date>/<slug>-spec.md`, and iterate with the human. Use internal subagents for heavy research — do NOT spawn an agentboss subagent. The BOSS.md section stays without checkboxes until the human says lgtm. Then add `- [ ]` items and spawn.
 - **"boss todo" with a file path** — read the referenced file (usually a spec or research note) and create the BOSS.md section from it.
 - **"boss research"** — the human wants a research note written, not code. You (the boss session) do the research yourself using internal subagents to save context. Clone repos with `git-quick-clone` if asked. Write the output to `$MDNOTES_ROOT/<date>/` via `/mdnote`. Add a `spec:` checkbox to BOSS.md so it shows up in `boss ls`. Do NOT spawn an agentboss subagent — this is boss-owned work like spec mode.
@@ -107,21 +107,23 @@ Light touch:
 
 - **Pick a clear section header** (becomes the slug + branch name). Imperative and specific: "Add foo command" not "foo stuff".
 - **Keep the framing paragraph short.** One paragraph stating what they want, in their own words.
-- **Add clarifying bullets only if something is genuinely ambiguous.** The agent will ask in `## Questions for boss` if it needs more.
+- **Add clarifying bullets only if something is genuinely ambiguous.** The agent will ask in its `## Agent log` if it needs more.
 - **Add the top-level checkbox(es).** Usually one; two or three for distinct phases.
 
 Then `boss spawn <slug>`. The agent will read the section, write `specs/main.md` for non-trivial work, link it from its worklog, and start working.
 
-## The four verbs
+## The verbs
 
 Everything mechanizable runs through `boss <verb>`. Everything else is raw shell.
 
 ```
-boss add              # append a new section to BOSS.md (read from stdin), with date grouping
-boss ls               # wide read; the source of truth for "what should I do next"
-boss spawn <section>  # set up workspace + spawn agent + send templated briefing
-boss lgtm <section>   # rebase + verify + merge --no-ff with safety gating; re-runnable
-boss doctor           # report inconsistencies (dup slugs, nested boxes, orphans, broken symlinks, rogue sessions)
+boss add                       # append a new section to BOSS.md (read from stdin), with date grouping
+boss ls                        # wide read; the source of truth for "what should I do next"
+boss spawn <section>           # set up workspace + spawn agent + send templated briefing
+boss nudge <slug> <msg>        # append to worklog's ## Boss log and send re-read nudge to the agent
+boss agent log <slug> <msg>    # (agent-facing) append a timestamped entry to ## Agent log
+boss lgtm <section>            # rebase + verify + merge --no-ff with safety gating; re-runnable
+boss doctor                    # report inconsistencies (dup slugs, nested boxes, orphans, broken symlinks, rogue sessions)
 ```
 
 `boss ls --json` returns one row per valid section:
@@ -164,14 +166,25 @@ agentboss output "$KEY" -n 80
 
 ### Send a note to the agent
 
-Edit the workspace's `WORKLOG.md` `## Notes from boss` section, then nudge:
-
 ```bash
-# (after editing $BOSS_ROOT/<slug>/WORKLOG.md)
-agentboss send "$KEY" "re-read your worklog and continue"
+boss nudge "$SLUG" "don't use touch= with tree_digest — the digest IS the marker"
 ```
 
-Don't jam long instructions through `agentboss send` — keep them in WORKLOG.md so the durable record is in one place.
+`boss nudge` does the three-step dance for you: appends a timestamped
+entry to `## Boss log` in the workspace worklog, finds the live
+agentboss session, and sends a `re-read your worklog — new note from
+boss` nudge. If there is no live session, the note is still appended
+(the next spawn will pick it up). For multi-line notes, pipe via stdin:
+
+```bash
+boss nudge "$SLUG" <<'EOF'
+Don't use touch= with tree_digest.
+The digest has its own state file — commit() saves it after success.
+EOF
+```
+
+Don't jam long instructions through `agentboss send` directly — use
+`boss nudge` so the durable record lives in WORKLOG.md.
 
 ### Wait on a session (event-driven trigger)
 
@@ -190,7 +203,7 @@ When the wait returns:
 
 Two sources:
 
-- **Inline `#friction` tags** in `WORKLOG.md` `## Log` sections — grep them.
+- **Inline `#friction` tags** in `WORKLOG.md` `## Agent log` sections — grep them.
 - **`## Trouble report`** sections — kludges, detours, surprises, bugs found along the way.
 
 For each new entry, append to `$BOSS_ROOT/friction.md` with section + timestamp + entry. Don't act on friction yourself in the MVP — collect and surface.
@@ -235,9 +248,9 @@ For each running subagent:
 Then:
 
 - **status: working, agent: working** → leave it alone. **This includes long extended-thinking turns.** Opus 4.6 routinely thinks for 5–10+ minutes mid-task. Don't interrupt thinking.
-- **status: working, agent: idle, log/todos advanced** → the agent finished a step. Append a one-line `## Notes from boss` entry naming the next todo, nudge: `agentboss send <key> "re-read your worklog and continue"`. Don't wait for the human.
-- **status: working, agent: idle, log/todos unchanged for 15+ min** → might be stuck. Check `agentboss output <key>` first — if the pane shows real progress (commits, edits) but the worklog is just stale, the agent is mid-flow, leave it alone. If pane truly silent, nudge onto the next concrete todo.
-- **status: blocked** → read `## Questions for boss`. Either answer in `## Notes from boss` and nudge, or escalate to the human.
+- **status: working, agent: idle, log/todos advanced** → the agent finished a step. `boss nudge <slug> "next: <name the next todo>"`. Don't wait for the human.
+- **status: working, agent: idle, log/todos unchanged for 15+ min** → might be stuck. Check `agentboss output <key>` first — if the pane shows real progress (commits, edits) but the worklog is just stale, the agent is mid-flow, leave it alone. If pane truly silent, `boss nudge <slug> "<next concrete todo>"`.
+- **status: blocked** → read the latest `## Agent log` entries (the agent writes questions there). Either `boss nudge <slug> "answer: <answer>"`, or escalate to the human.
 - **status: done** → verify evidence per "Demanding evidence" below. If convincing → `boss lgtm <slug>`. On success, lgtm kills the agentboss session.
 - **session gone** → `boss spawn <slug>` again to respawn into the existing workspace.
 
@@ -287,16 +300,18 @@ You do NOT cd into worktrees and re-run commands yourself. Your job is to **read
 
 ### Ask for what's missing
 
-Append to `$BOSS_ROOT/<slug>/WORKLOG.md` `## Notes from boss`:
+`boss nudge` the agent with a concrete list of what would convince you:
 
-```
-- HH:MM not convinced yet. need:
-  - a screenshot of the login flow actually completing
-  - one test case for the bad-password path
-  reset status to working.
+```bash
+boss nudge "$SLUG" <<'EOF'
+not convinced yet. need:
+- a screenshot of the login flow actually completing
+- one test case for the bad-password path
+reset status to working.
+EOF
 ```
 
-Be concrete about what would convince you. Then `agentboss send <key> "re-read your worklog and continue"`.
+The note lands in `## Boss log` with a timestamp and the agent is woken to re-read.
 
 ## What you don't do
 
