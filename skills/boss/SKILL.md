@@ -169,6 +169,7 @@ The Python implementation enforces:
 - **`boss ls` and `boss lgtm` reject duplicate slugs** in BOSS.md.
 - **`boss lgtm` pre-flight refuses on dirty-file overlap** between the agent's branch and the main checkout, naming the overlapping files and suggesting `git stash --include-untracked`. Does NOT auto-stash.
 - **`boss lgtm` gates teardown on merge success.** On success, kills the agentboss session. Workspace directory stays as frozen history.
+- **`boss checkout` skips pool slots with uncommitted tracked changes.** A slot whose lease is gone but whose working tree still carries tracked modifications belongs to a dead session whose work never merged — reusing it would `reset --hard` over that work. `find_free_slot` walks past dirty slots and prints a warning naming the stale slug. Untracked files don't count (agents leave scratch around). `boss ls` surfaces the same condition on done sections as the `done(dirty)` bucket so the human can decide whether to salvage or release.
 - **The agentboss binary is pinned at startup.** boss validates that `agentboss` on PATH is a gobin shim pointing at the canonical `~/github.com/hayeah/agentboss/cli/agentboss`, then snapshots `~/.gobin/bins/agentboss` to a process-private tmp file for the lifetime of the session. An in-flight subagent rebuilding agentboss can't repoint or overwrite our binary mid-loop.
 
 ## What the boss does, what the subagent does

@@ -8,6 +8,7 @@ from pathlib import Path
 from typing import Any
 
 from . import agentboss, bossdoc, workspace
+from .util import git_is_dirty
 
 
 @dataclass
@@ -18,10 +19,24 @@ class Row:
     is_spec: bool = False
     agentboss: dict[str, Any] | None = None
     diff: dict[str, dict[str, int]] | None = None
+    dirty: bool = False
 
     def to_json(self) -> dict[str, Any]:
         d = asdict(self)
         return d
+
+
+def _workspace_is_dirty(slug: str) -> bool:
+    """True if any linked repo under the workspace has tracked modifications.
+
+    Used by the ls bucket logic to surface `done(dirty)` for finished
+    sections whose worktrees still have uncommitted tracked work. Untracked
+    files are not counted — only dropped work is worth flagging.
+    """
+    for target in workspace.list_repo_symlinks(slug).values():
+        if git_is_dirty(target):
+            return True
+    return False
 
 
 def _match_session(sessions: list[dict[str, Any]], cwd: Path) -> dict[str, Any] | None:
@@ -56,6 +71,7 @@ def collect(boss_doc: Path) -> list[Row]:
 
     # Classify sections: done sections skip git diff entirely.
     needs_diff: list[tuple[int, bossdoc.Section, workspace.WorkspaceLayout]] = []
+    needs_dirty: list[tuple[int, workspace.WorkspaceLayout]] = []
     rows: list[Row] = [None] * len(sections)  # type: ignore[list-item]
     for i, section in enumerate(sections):
         lay = workspace.layout(section.slug)
@@ -67,7 +83,8 @@ def collect(boss_doc: Path) -> list[Row]:
             # Active section — need fresh diff.
             needs_diff.append((i, section, lay))
         else:
-            # Done or no workspace — skip git diff.
+            # Done or no workspace — skip git diff, but still run a cheap
+            # dirty check so leftover tracked work surfaces as done(dirty).
             rows[i] = Row(
                 slug=section.slug,
                 header=section.header,
@@ -75,6 +92,8 @@ def collect(boss_doc: Path) -> list[Row]:
                 is_spec=is_spec,
                 agentboss=ab,
             )
+            if lay.root.is_dir() and lay.repos.is_dir():
+                needs_dirty.append((i, lay))
 
     # Parallelize git diff calls only for active sections.
     diff_results: dict[int, dict[str, dict[str, int]] | None] = {}
@@ -98,6 +117,18 @@ def collect(boss_doc: Path) -> list[Row]:
             diff=diff_results.get(idx),
         )
 
+    # Cheap dirty check for done sections with repo symlinks. Runs in
+    # parallel because a single dirty check shells out to git per repo.
+    if needs_dirty:
+        with ThreadPoolExecutor() as pool:
+            futures = {
+                pool.submit(_workspace_is_dirty, lay.root.name): idx
+                for idx, lay in needs_dirty
+            }
+            for future in futures:
+                idx = futures[future]
+                rows[idx].dirty = future.result()
+
     return rows
 
 
@@ -105,7 +136,7 @@ def bucket(row: Row) -> str:
     if row.is_spec:
         return "spec"
     if not row.has_pending_todos and row.agentboss is None:
-        return "done"
+        return "done(dirty)" if row.dirty else "done"
     if row.has_pending_todos and row.agentboss is not None:
         return "running"
     if row.has_pending_todos and row.agentboss is None:
