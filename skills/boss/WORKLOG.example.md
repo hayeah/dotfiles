@@ -20,15 +20,24 @@ section: Add user authentication
 slug: add-user-authentication
 mode: worktree           # worktree | main-repo
 spec: specs/main.md
+created: 2026-04-11T07:30:16Z
 ---
 
-## Status
-implementing the /login endpoint — schema and signup are in, working on session token generation now
+> ## Add user authentication
+>
+> Work in ~/github.com/hayeah/myapp.
+>
+> - [ ] implement per spec
+>   - schema + endpoint + tests
+<!-- Blockquote above is a mirror of the current BOSS.md section text.
+     `boss spawn` writes and refreshes this on every spawn/respawn —
+     don't edit it by hand. -->
 
 ## Todos
 <!-- Finer-grained than the boss-doc top-level checkboxes. Tick off as you go.
      The boss-doc top-level checkboxes are user-facing milestones;
-     this list is your internal driver. Add new items as you discover them. -->
+     this list is your internal driver. Add new items as you discover them.
+     For multi-stage work, use `### phase label` sub-headings. -->
 
 - [x] design users + sessions schema (UUIDs per the section's nested note)
 - [x] write the migration
@@ -45,22 +54,22 @@ implementing the /login endpoint — schema and signup are in, working on sessio
 ### Blocked
 - (none)
 
-## Log
-- 14:01 read section + spec, starting on schema design
-- 14:05 wrote migration for users + sessions tables, used UUIDs per the spec
-- 14:08 ran `pytest tests/test_schema.py` — passes
-- 14:12 wired up signup endpoint
-- 14:15 hit a quirk: the test client fixture didn't auto-create the sessions table; had to add it to conftest.py  #friction
-- 14:22 signup endpoint test passes (POST /signup → 201 + user row)
-- 14:30 starting on /login
+## Agent log
+<!-- Prefer `boss agent log <slug> "<message>"` — it appends a timestamped
+     entry here for you. Questions for the boss live here too; the boss
+     watches this section and replies via `boss nudge`. -->
+- 2026-04-11T14:01Z read section + spec, starting on schema design
+- 2026-04-11T14:05Z wrote migration for users + sessions tables, used UUIDs per the spec
+- 2026-04-11T14:08Z ran `pytest tests/test_schema.py` — passes
+- 2026-04-11T14:12Z wired up signup endpoint
+- 2026-04-11T14:15Z hit a quirk: the test client fixture didn't auto-create the sessions table; had to add it to conftest.py  #friction
+- 2026-04-11T14:22Z signup endpoint test passes (POST /signup → 201 + user row)
+- 2026-04-11T14:30Z starting on /login
 
-## Questions for boss
-- (none right now)
-
-## Notes from boss
-<!-- (boss appends timestamped lines here when it has new instructions; you re-read on every turn) -->
-- 14:18 the schema should use UUIDs not ints — confirmed, already done
-- 14:32 for /login add a test that asserts the session cookie is HttpOnly + Secure
+## Boss log
+<!-- The boss appends timestamped lines here via `boss nudge`. Re-read on every turn. -->
+- 2026-04-11T14:18Z the schema should use UUIDs not ints — confirmed, already done
+- 2026-04-11T14:32Z for /login add a test that asserts the session cookie is HttpOnly + Secure
 
 ## Evidence
 <!--

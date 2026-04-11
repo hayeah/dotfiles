@@ -143,6 +143,9 @@ boss spawn <section>           # set up the workspace and spawn an agent in it
 boss ls                        # wide read: BOSS.md ↔ workspace ↔ agentboss join
   --json                       # machine-readable for the boss session
 
+boss nudge <slug> <msg>        # append to worklog's ## Boss log + wake the agent
+boss agent log <slug> <msg>    # (agent-facing) append a timestamped entry to ## Agent log
+
 boss lgtm <section>            # rebase + verify + merge --no-ff each linked repo, with gating
 
 boss doctor                    # report inconsistencies the happy-path verbs ignore
@@ -153,7 +156,6 @@ What the CLI does NOT do (use shell instead):
 | Use case        | Shell recipe                                                                          |
 |-----------------|---------------------------------------------------------------------------------------|
 | `check`         | `cat $BOSS_ROOT/<slug>/WORKLOG.md && agentboss state <key> && agentboss output <key>` |
-| `send`          | edit `$BOSS_ROOT/<slug>/WORKLOG.md` `## Notes from boss`, then `agentboss send <key> "re-read your worklog and continue"` |
 | `wait`          | `agentboss wait <key> --timeout 600 &`                                                |
 | `harvest`       | `cat $BOSS_ROOT/<slug>/WORKLOG.md` (the `## Trouble report` section), append by hand to `$BOSS_ROOT/friction.md` |
 | `recover`       | manual `git worktree prune` per repo + `boss ls` to see what reconciled               |

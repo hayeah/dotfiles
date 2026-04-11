@@ -6,7 +6,7 @@ You were spawned by a **boss** Claude session to work on one section of work. Yo
 
 There is a markdown todo doc somewhere on the human's machine that lists feature sections and tracks which are done. **You do not know where it is, you do not look for it, and you do not modify it.** That doc is the boss's working file — the boss is the only writer.
 
-The boss has handed you the text of your section inline in your spawn briefing (and again in any "boss is re-engaging" briefing). That embedded text IS your section. If you need to re-read it, scroll back in your tmux pane to find the most recent `----- SECTION TEXT -----` block, OR ask the boss to re-send via `## Questions for boss`.
+The boss has handed you the text of your section inline in your spawn briefing (and again in any "boss is re-engaging" briefing). That embedded text IS your section, and `boss spawn` also mirrors it into your WORKLOG.md as a blockquote right after the frontmatter — re-read there whenever you need to check the original framing. If you need a freshly-updated copy, ask by appending a line to `## Agent log`; the boss re-mirrors on the next `boss spawn`.
 
 When the boss decides your work is convincing and merges it, the boss ticks any top-level checkboxes in the boss doc. **You never tick those.** Your job is to drive your own `## Todos` in WORKLOG.md and to declare `status: done` when you've produced evidence — the boss does the rest.
 
@@ -92,11 +92,10 @@ After writing the spec: link it from your worklog, seed `## Todos` from your "St
 See **WORKLOG.example.md** in this skill directory for a fully-worked example. The required sections in order:
 
 - YAML frontmatter: `status`, `section`, `slug`, `mode` (`worktree` or `main-repo`), `spec` (path to primary spec doc, relative to workspace)
-- `## Status` — one-liner, what you are doing right now
-- `## Todos` — your working todo list (see below)
-- `## Log` — timestamped append-only history; `#friction` tags inline
-- `## Questions for boss` — empty when you have none
-- `## Notes from boss` — boss appends here, you read every turn
+- A blockquote mirroring the current BOSS.md section text. `boss spawn` writes and refreshes this on every spawn/respawn — don't edit it by hand.
+- `## Todos` — your working todo list (see below). Optional `### ` sub-headers partition it into phases for multi-stage work.
+- `## Agent log` — timestamped append-only history (what you did, questions for the boss, #friction tags). Prefer `boss agent log <slug> <message>` to append — it timestamps for you.
+- `## Boss log` — the boss appends timestamped notes here via `boss nudge`. Read it every turn to pick up directives, answers, and new todos.
 - `## Evidence` — required before `status: done` (see "Evidence" below)
 - `## Trouble report` — **rolling**, not just a final summary. Update it every time you update `## Todos`. Friction, kludges, bugs found along the way, detours that didn't work, surprises.
 
@@ -107,29 +106,30 @@ The boss doc (which you can't see) has top-level `- [ ]` checkboxes that are the
 So you maintain your own **finer-grained todo list** in your worklog under `## Todos`. Same `- [ ]` / `- [x]` syntax, but:
 
 - **Seed it on first turn** by reading the section + spec and breaking the work down into concrete steps.
-- **Tick items off as you complete them**, in the same edit pass where you append to `## Log`.
+- **Tick items off as you complete them**, in the same edit pass where you append to `## Agent log`.
 - **Add new items as you discover them.** It's normal for the list to grow.
 - **Reorder freely.** This is your working list, not a contract.
 - **Move stuck items to a `### Blocked` sub-list** so you can see at a glance what's actually next.
+- **Phases**: for multi-stage work, group todos under `### phase label` sub-headings. Simple work should stay flat.
 
 ### When to update
 
-- **Every turn**, before doing anything else: re-read the work log for new `## Notes from boss` AND glance at your `## Todos`.
-- **After each meaningful step**: append to `## Log`, update `## Todos`, AND append any new friction/surprises to `## Trouble report`. These three sections move together.
-- **When stuck on a real blocker**: set `status: blocked`, write the question in `## Questions for boss`, and stop. Do not spin.
-- **When facing a small judgment call** (which of two approaches, naming, file location, A vs. B vs. C): **don't ask the boss — decide.** Pick what makes sense, do it, and note the alternatives in `## Log` or `## Trouble report`. The boss can override later by editing `## Notes from boss`.
+- **Every turn**, before doing anything else: re-read the work log for new `## Boss log` entries AND glance at your `## Todos`.
+- **After each meaningful step**: `boss agent log <slug> "<what happened>"` (appends a timestamped entry), update `## Todos`, AND append any new friction/surprises to `## Trouble report`. These three move together.
+- **When stuck on a real blocker**: set `status: blocked`, `boss agent log <slug> "blocked: <question>"`, and stop. Do not spin.
+- **When facing a small judgment call** (which of two approaches, naming, file location, A vs. B vs. C): **don't ask the boss — decide.** Pick what makes sense, do it, and note the alternatives in `## Agent log` or `## Trouble report`. The boss can override later via `boss nudge`.
 - **When the section is complete**: do NOT set `status: done` until you have produced evidence. Then:
   - Fill in `## Evidence` and `## Trouble report`.
   - **Update the README** of each repo you touched — if your changes added new commands, flags, config options, or changed behavior, make sure the README reflects that. Don't rewrite the whole README; just update the sections relevant to your changes.
   - Set `status: done` and stop. The boss will review and tick the boss-doc boxes after merging.
-- **Friction**: when you hit a tooling rough edge — append a `#friction` line to `## Log`. The boss harvests these.
+- **Friction**: when you hit a tooling rough edge — `boss agent log <slug> "#friction <what>"`. The boss harvests these.
 
 ### Status discipline
 
 Your `status:` field is how the boss knows what to do with you:
 
 - `working` — actively making progress. Boss leaves you alone.
-- `blocked` — you need an answer or decision. Boss will resolve in `## Notes from boss`.
+- `blocked` — you need an answer or decision. Boss will resolve in `## Boss log`.
 - `done` — section complete. Boss will read your evidence and lgtm.
 
 If you stop without updating `status:`, the boss will nudge you. Don't make it nudge you.

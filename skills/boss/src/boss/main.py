@@ -18,6 +18,7 @@ from . import (
     ls as ls_mod,
     pool,
     sim,
+    worklog as worklog_mod,
     workspace,
 )
 from .util import sh
@@ -99,6 +100,9 @@ def spawn(
 
     if live is not None:
         key = live.get("id") or "?"
+        # Refresh the BOSS.md section mirror blockquote before the agent re-reads.
+        if lay.worklog.exists():
+            workspace.set_section_quote(lay.worklog, s.body, s.header)
         resume_msg = briefing.render_resume(
             slug=s.slug, header=s.header, section_body=s.body
         )
@@ -113,6 +117,7 @@ def spawn(
         return
 
     workspace.create(s.slug, s.header, mode)
+    workspace.set_section_quote(lay.worklog, s.body, s.header)
 
     preset = AGENT_PRESETS[agent]
     cmd = list(preset["cmd"])
@@ -400,6 +405,148 @@ def lgtm(
                 typer.echo(f"killed agent {agent_id}")
             except agentboss.AgentbossError:
                 typer.echo(f"agent {agent_id} already dead")
+
+
+def _resolve_worklog(slug_or_match: str) -> tuple[str, Path]:
+    """Resolve a slug or unique substring to ``(slug, worklog_path)``.
+
+    Preference order:
+      1. Exact workspace dir under $BOSS_ROOT — fastest path, works without BOSS.md.
+      2. Fuzzy match against BOSS.md section slugs/headers (if BOSS.md loads).
+
+    Exits with error code 1 on no match or ambiguity.
+    """
+    direct = workspace.workspace_path(slug_or_match)
+    if direct.is_dir():
+        return slug_or_match, direct / "WORKLOG.md"
+
+    try:
+        sections = bossdoc.load(Path("BOSS.md").resolve())
+    except bossdoc.BossDocError:
+        typer.echo(
+            f"error: no workspace at {direct} and BOSS.md not loadable",
+            err=True,
+        )
+        raise typer.Exit(1)
+
+    matches = [s for s in sections if slug_or_match == s.slug]
+    if not matches:
+        needle = slug_or_match.lower()
+        matches = [
+            s for s in sections
+            if slug_or_match in s.slug or needle in s.header.lower()
+        ]
+    if not matches:
+        typer.echo(f"error: no section matching {slug_or_match!r}", err=True)
+        raise typer.Exit(1)
+    if len(matches) > 1:
+        typer.echo(
+            f"error: {slug_or_match!r} is ambiguous: "
+            + ", ".join(m.slug for m in matches),
+            err=True,
+        )
+        raise typer.Exit(1)
+    s = matches[0]
+    lay = workspace.layout(s.slug)
+    return s.slug, lay.worklog
+
+
+@app.command()
+def nudge(
+    section: str = typer.Argument(..., help="Slug or unique substring."),
+    message: str = typer.Argument(None, help="Note text. Omit to read from stdin."),
+) -> None:
+    """Append a timestamped note to ``## Boss log`` and wake the agent.
+
+    If a message argument is omitted, reads the note from stdin — so the
+    caller can heredoc a multi-line note. Then finds the live agentboss
+    session for this workspace (if any) and sends a ``re-read your
+    worklog`` nudge. If no live session is found, the note is still
+    appended (the agent will pick it up on respawn).
+    """
+    slug, worklog_path = _resolve_worklog(section)
+
+    if message is None:
+        if sys.stdin.isatty():
+            typer.echo(
+                "error: no message given and stdin is a TTY — "
+                "pass a message arg or pipe one in",
+                err=True,
+            )
+            raise typer.Exit(2)
+        message = sys.stdin.read()
+
+    if not message.strip():
+        typer.echo("error: empty message", err=True)
+        raise typer.Exit(2)
+
+    if not worklog_path.exists():
+        typer.echo(f"error: worklog not found at {worklog_path}", err=True)
+        raise typer.Exit(1)
+
+    try:
+        worklog_mod.append_boss_note(worklog_path, message)
+    except worklog_mod.WorklogError as e:
+        typer.echo(f"error: {e}", err=True)
+        raise typer.Exit(1)
+
+    typer.echo(f"appended to Boss log: {slug}")
+
+    lay = workspace.layout(slug)
+    live = agentboss.session_for_cwd(lay.root)
+    if live is None:
+        typer.echo("no live agent session — note will be read on next spawn")
+        return
+
+    key = live.get("id") or "?"
+    try:
+        agentboss.send(key, "re-read your worklog — new note from boss")
+    except agentboss.AgentbossError as e:
+        typer.echo(f"warning: failed to send nudge to {key}: {e}", err=True)
+        return
+    typer.echo(f"nudged agent {key}")
+
+
+agent_app = typer.Typer(
+    add_completion=False,
+    no_args_is_help=True,
+    help="Agent-facing subcommands (call from inside an agent session).",
+)
+app.add_typer(agent_app, name="agent")
+
+
+@agent_app.command("log")
+def agent_log_cmd(
+    section: str = typer.Argument(..., help="Slug or unique substring."),
+    message: str = typer.Argument(None, help="Log entry. Omit to read from stdin."),
+) -> None:
+    """Append a timestamped entry to ``## Agent log`` in the worklog."""
+    slug, worklog_path = _resolve_worklog(section)
+
+    if message is None:
+        if sys.stdin.isatty():
+            typer.echo(
+                "error: no message given and stdin is a TTY — "
+                "pass a message arg or pipe one in",
+                err=True,
+            )
+            raise typer.Exit(2)
+        message = sys.stdin.read()
+
+    if not message.strip():
+        typer.echo("error: empty message", err=True)
+        raise typer.Exit(2)
+
+    if not worklog_path.exists():
+        typer.echo(f"error: worklog not found at {worklog_path}", err=True)
+        raise typer.Exit(1)
+
+    try:
+        worklog_mod.append_agent_log(worklog_path, message)
+    except worklog_mod.WorklogError as e:
+        typer.echo(f"error: {e}", err=True)
+        raise typer.Exit(1)
+    typer.echo(f"appended to Agent log: {slug}")
 
 
 @app.command(name="doctor")
