@@ -1,0 +1,178 @@
+{
+  "expand_env_tests": [
+    {
+      "name": "empty string",
+      "input": "",
+      "env": {},
+      "expected": ""
+    },
+    {
+      "name": "no interpolation",
+      "input": "hello world",
+      "env": {},
+      "expected": "hello world"
+    },
+    {
+      "name": "bare dollar is literal",
+      "input": "costs $5",
+      "env": {},
+      "expected": "costs $5"
+    },
+    {
+      "name": "bare dollar word is literal (no braces)",
+      "input": "$FOO is not interpolated",
+      "env": {"FOO": "bar"},
+      "expected": "$FOO is not interpolated"
+    },
+    {
+      "name": "double dollar escape",
+      "input": "$$",
+      "env": {},
+      "expected": "$"
+    },
+    {
+      "name": "escape before braces yields literal dollar then interpolation",
+      "input": "$$${FOO}",
+      "env": {"FOO": "bar"},
+      "expected": "$bar"
+    },
+    {
+      "name": "escape entire reference",
+      "input": "$${FOO}",
+      "env": {"FOO": "bar"},
+      "expected": "${FOO}"
+    },
+    {
+      "name": "simple interpolation",
+      "input": "${FOO}",
+      "env": {"FOO": "bar"},
+      "expected": "bar"
+    },
+    {
+      "name": "interpolation in surrounding text",
+      "input": "hello ${NAME}!",
+      "env": {"NAME": "world"},
+      "expected": "hello world!"
+    },
+    {
+      "name": "multiple interpolations",
+      "input": "${A}-${B}-${C}",
+      "env": {"A": "1", "B": "2", "C": "3"},
+      "expected": "1-2-3"
+    },
+    {
+      "name": "adjacent interpolations",
+      "input": "${A}${B}",
+      "env": {"A": "foo", "B": "bar"},
+      "expected": "foobar"
+    },
+    {
+      "name": "missing var becomes empty",
+      "input": "${MISSING}",
+      "env": {},
+      "expected": ""
+    },
+    {
+      "name": "missing var with surrounding text",
+      "input": "[${MISSING}]",
+      "env": {},
+      "expected": "[]"
+    },
+    {
+      "name": "missing var with default",
+      "input": "${MISSING:-fallback}",
+      "env": {},
+      "expected": "fallback"
+    },
+    {
+      "name": "set var with default uses set value",
+      "input": "${SET:-fallback}",
+      "env": {"SET": "actual"},
+      "expected": "actual"
+    },
+    {
+      "name": "empty var with default uses default (bash :- semantics)",
+      "input": "${EMPTY:-fallback}",
+      "env": {"EMPTY": ""},
+      "expected": "fallback"
+    },
+    {
+      "name": "default with special chars",
+      "input": "${MISSING:-/usr/local/bin}",
+      "env": {},
+      "expected": "/usr/local/bin"
+    },
+    {
+      "name": "default with empty value",
+      "input": "${MISSING:-}",
+      "env": {},
+      "expected": ""
+    },
+    {
+      "name": "home path style",
+      "input": "${HOME}/Dropbox/boss",
+      "env": {"HOME": "/Users/test"},
+      "expected": "/Users/test/Dropbox/boss"
+    },
+    {
+      "name": "value containing dollar is preserved literally",
+      "input": "${PRICE}",
+      "env": {"PRICE": "$5"},
+      "expected": "$5"
+    },
+    {
+      "name": "value containing brace ref is not re-expanded",
+      "input": "${TEMPLATE}",
+      "env": {"TEMPLATE": "${INNER}", "INNER": "should-not-appear"},
+      "expected": "${INNER}"
+    },
+    {
+      "name": "empty braces left literal",
+      "input": "${}",
+      "env": {},
+      "expected": "${}"
+    },
+    {
+      "name": "unterminated brace left literal",
+      "input": "${UNCLOSED",
+      "env": {"UNCLOSED": "x"},
+      "expected": "${UNCLOSED"
+    },
+    {
+      "name": "space before brace not interpolated",
+      "input": "$ {FOO}",
+      "env": {"FOO": "bar"},
+      "expected": "$ {FOO}"
+    },
+    {
+      "name": "trailing dollar is literal",
+      "input": "end$",
+      "env": {},
+      "expected": "end$"
+    },
+    {
+      "name": "double dollar then text",
+      "input": "$$foo",
+      "env": {},
+      "expected": "$foo"
+    },
+    {
+      "name": "escape adjacent to interpolation",
+      "input": "$${A}${A}",
+      "env": {"A": "x"},
+      "expected": "${A}x"
+    },
+    {
+      "name": "key with underscores and digits",
+      "input": "${FOO_BAR_2}",
+      "env": {"FOO_BAR_2": "ok"},
+      "expected": "ok"
+    },
+    {
+      "name": "missing var with default containing braces",
+      "input": "${MISSING:-{literal}}",
+      "env": {},
+      "expected": "{literal}"
+    }
+  ]
+}

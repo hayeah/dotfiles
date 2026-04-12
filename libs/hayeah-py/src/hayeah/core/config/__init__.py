@@ -25,6 +25,10 @@ try:
 except ImportError:
     import tomli as tomllib  # type: ignore[no-redef]
 
+from hayeah.core.config.expand_env import expand_env
+
+__all__ = ["load", "expand_env"]
+
 T = TypeVar("T")
 
 

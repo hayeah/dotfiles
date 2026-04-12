@@ -107,8 +107,20 @@ cfg, _ := config.Load("MY_APP_CONFIG")
 fmt.Println(cfg["port"])
 ```
 
+Each language also exposes `expand_env` (Go: `ExpandEnv`, TS: `expandEnv`)
+for `${VAR}` interpolation in config string values. `$$` escapes a literal
+`$`; bare `$` is left alone; `${VAR:-default}` falls back to `default` when
+`VAR` is unset or empty (bash semantics). All three implementations share
+[test vectors](testdata/expand_env.json).
+
+```python
+from hayeah.core.config import expand_env
+expand_env("${HOME}/Dropbox/boss")  # "/Users/me/Dropbox/boss"
+```
+
 -> [spec](hayeah-py/src/hayeah/core/config/) |
-[test vectors](testdata/single-envar-config.json)
+[test vectors](testdata/single-envar-config.json) |
+[expand_env vectors](testdata/expand_env.json)
 
 ## shortid — Short ID & Prefix Resolution
 
