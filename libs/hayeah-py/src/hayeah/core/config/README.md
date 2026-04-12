@@ -64,6 +64,34 @@ When `into=SomeDataclass` is provided:
 - `Path` fields get `~` expanded
 - `Optional[X]` / `X | None` fields try the non-None type first
 
+## Env Var Interpolation (`expand_env`)
+
+A standalone helper for interpolating `${VAR}` references in config string
+values. Not yet wired into `load()` — call it explicitly on values that
+need expansion.
+
+```python
+from hayeah.core.config import expand_env
+
+expand_env("${HOME}/Dropbox/boss")     # "/Users/me/Dropbox/boss"
+expand_env("port: ${PORT:-7777}")      # "port: 7777" if PORT unset
+expand_env("$$5 fee")                  # "$5 fee" — $$ escapes to literal $
+expand_env("$FOO is literal")          # "$FOO is literal" — bare $ untouched
+expand_env("${MISSING}")               # "" — missing var becomes empty
+```
+
+Rules:
+- `${VAR}` → `os.environ["VAR"]`, or `""` if unset.
+- `${VAR:-default}` → env value if set and non-empty, else `default` (bash `:-` semantics).
+- `$$` → literal `$`.
+- Bare `$` (not followed by `{`) is left as-is.
+- Substitution is single-pass: the result of one expansion is not re-scanned.
+
+The same syntax and behavior is implemented in `hayeah-go/config.ExpandEnv`
+and `hayeah-ts/config.expandEnv`. Cross-language test vectors live in
+`libs/testdata/expand_env.json`.
+
 ## Test Vectors
 
-See `libs/testdata/single-envar-config.json`.
+- `libs/testdata/single-envar-config.json` — `load()` cases
+- `libs/testdata/expand_env.json` — `expand_env()` cases (shared with Go and TS)

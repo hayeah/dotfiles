@@ -7,6 +7,8 @@
 
 import { readFileSync, existsSync } from "fs";
 
+export { expandEnv } from "./expand_env.js";
+
 /**
  * Load config from the env var `envVar`.
  *
