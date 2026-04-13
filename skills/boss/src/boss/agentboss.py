@@ -112,7 +112,22 @@ def binary() -> str:
     return _BINARY
 
 
-def _run(args: list[str], check: bool = True):
+def _run(
+    args: list[str],
+    check: bool = True,
+    extra_env: dict[str, str] | None = None,
+):
+    if extra_env:
+        import subprocess
+
+        env = {**os.environ, **extra_env}
+        return subprocess.run(
+            [binary(), *args],
+            capture_output=True,
+            text=True,
+            check=check,
+            env=env,
+        )
     return sh(binary(), *args, check=check)
 
 
@@ -173,14 +188,29 @@ def run(
     cwd: Path,
     command: list[str],
     detector: str = "claude",
+    *,
     tmux_session: str | None = None,
+    key: str | None = None,
 ) -> dict[str, Any]:
-    """Spawn a supervised CLI in `cwd`. Returns the JSON descriptor agentboss prints."""
-    args = ["run", "--detector", detector, "--cwd", str(cwd)]
+    """Spawn a supervised CLI in `cwd`. Returns the JSON descriptor agentboss prints.
+
+    Configuration is passed via the AGENTBOSS_CONFIG env var (JSON literal).
+    CLI flags have been removed from `agentboss run`.
+    """
+    agent_config: dict[str, Any] = {
+        "detector": detector,
+        "cwd": str(cwd),
+        "command": command,
+    }
     if tmux_session:
-        args += ["--tmux-session", tmux_session]
-    args += ["--", *command]
-    proc = _run(args, check=False)
+        agent_config["tmux_session"] = tmux_session
+    if key:
+        agent_config["key"] = key
+
+    config = {"agent": agent_config}
+    env_override = {"AGENTBOSS_CONFIG": json.dumps(config)}
+
+    proc = _run(["run"], check=False, extra_env=env_override)
     if proc.returncode != 0:
         raise AgentbossError(
             f"agentboss run failed (rc={proc.returncode}): {proc.stderr.strip()}"
