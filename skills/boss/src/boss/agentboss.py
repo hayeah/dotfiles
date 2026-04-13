@@ -169,9 +169,17 @@ def session_for_cwd(cwd: Path) -> dict[str, Any] | None:
     return None
 
 
-def run(cwd: Path, command: list[str], detector: str = "claude") -> dict[str, Any]:
+def run(
+    cwd: Path,
+    command: list[str],
+    detector: str = "claude",
+    tmux_session: str | None = None,
+) -> dict[str, Any]:
     """Spawn a supervised CLI in `cwd`. Returns the JSON descriptor agentboss prints."""
-    args = ["run", "--detector", detector, "--cwd", str(cwd), "--", *command]
+    args = ["run", "--detector", detector, "--cwd", str(cwd)]
+    if tmux_session:
+        args += ["--tmux-session", tmux_session]
+    args += ["--", *command]
     proc = _run(args, check=False)
     if proc.returncode != 0:
         raise AgentbossError(
