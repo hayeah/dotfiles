@@ -13,6 +13,7 @@ from . import (
     agentboss,
     briefing,
     bossdoc,
+    config,
     doctor as doctor_mod,
     lgtm as lgtm_mod,
     ls as ls_mod,
@@ -119,13 +120,20 @@ def spawn(
     workspace.create(s.slug, s.header, mode)
     workspace.set_section_quote(lay.worklog, s.body, s.header)
 
+    cfg = config.load()
+
     preset = AGENT_PRESETS[agent]
     cmd = list(preset["cmd"])
     if claude_args:
         cmd.extend(claude_args)
 
     try:
-        descriptor = agentboss.run(cwd=lay.root, command=cmd, detector=preset["detector"])
+        descriptor = agentboss.run(
+            cwd=lay.root,
+            command=cmd,
+            detector=preset["detector"],
+            tmux_session=cfg.tmux_session,
+        )
     except agentboss.AgentbossError as e:
         typer.echo(f"error: {e}", err=True)
         raise typer.Exit(1)
