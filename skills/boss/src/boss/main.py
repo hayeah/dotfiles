@@ -13,6 +13,7 @@ from . import (
     agentboss,
     briefing,
     bossdoc,
+    close as close_mod,
     config,
     doctor as doctor_mod,
     lgtm as lgtm_mod,
@@ -360,6 +361,34 @@ def ls_cmd(
             typer.echo("(nothing pending — try `boss ls --all` to see everything)")
         return
     typer.echo(ls_mod.format_table(rows))
+
+
+@app.command()
+def close(
+    section: str = typer.Argument(..., help="Slug or unique substring of a section header."),
+    boss_doc: Path = typer.Option(Path("BOSS.md"), "--boss-doc"),
+) -> None:
+    """Mark a section done by writing a tombstone marker into its body.
+
+    Idempotent: if the section is already closed, prints ``already closed``
+    and exits 0. Kills the live agent session (if any) after writing the
+    marker. Reversible: delete the ``<!-- closed: ... -->`` line by hand.
+    """
+    doc = _resolve_boss_doc(boss_doc)
+    try:
+        result = close_mod.close_section(doc, section)
+    except (bossdoc.BossDocError, close_mod.CloseError) as e:
+        typer.echo(f"error: {e}", err=True)
+        raise typer.Exit(1)
+
+    if result.already_closed:
+        typer.echo(f"already closed: {result.slug}")
+        return
+
+    if result.killed_agent:
+        typer.echo(f"closed: {result.slug} (killed agent {result.killed_agent})")
+    else:
+        typer.echo(f"closed: {result.slug}")
 
 
 @app.command()

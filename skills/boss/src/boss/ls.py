@@ -17,6 +17,7 @@ class Row:
     header: str
     has_pending_todos: bool
     is_spec: bool = False
+    closed: bool = False
     agentboss: dict[str, Any] | None = None
     diff: dict[str, dict[str, int]] | None = None
     dirty: bool = False
@@ -77,9 +78,13 @@ def collect(boss_doc: Path) -> list[Row]:
         lay = workspace.layout(section.slug)
         has_pending = bossdoc.has_pending(section.body)
         is_spec = bossdoc.is_spec_only(section.body)
+        closed = bossdoc.is_closed(section.body)
         ab = _match_session(all_sessions, lay.root) if lay.root.is_dir() else None
 
-        if has_pending or ab is not None:
+        # A closed section is done regardless of pending todos — skip the
+        # expensive diff path.
+        active = (has_pending or ab is not None) and not closed
+        if active:
             # Active section — need fresh diff.
             needs_diff.append((i, section, lay))
         else:
@@ -90,6 +95,7 @@ def collect(boss_doc: Path) -> list[Row]:
                 header=section.header,
                 has_pending_todos=has_pending,
                 is_spec=is_spec,
+                closed=closed,
                 agentboss=ab,
             )
             if lay.root.is_dir() and lay.repos.is_dir():
@@ -113,6 +119,7 @@ def collect(boss_doc: Path) -> list[Row]:
             header=section.header,
             has_pending_todos=bossdoc.has_pending(section.body),
             is_spec=bossdoc.is_spec_only(section.body),
+            closed=bossdoc.is_closed(section.body),
             agentboss=_match_session(all_sessions, lay.root),
             diff=diff_results.get(idx),
         )
@@ -133,8 +140,12 @@ def collect(boss_doc: Path) -> list[Row]:
 
 
 def bucket(row: Row) -> str:
+    # `is_spec` wins over `closed` visually — a closed spec is still a
+    # spec that didn't ship, and the UI surfaces that separately.
     if row.is_spec:
         return "spec"
+    if row.closed:
+        return "done(dirty)" if row.dirty else "done"
     if not row.has_pending_todos and row.agentboss is None:
         return "done(dirty)" if row.dirty else "done"
     if row.has_pending_todos and row.agentboss is not None:

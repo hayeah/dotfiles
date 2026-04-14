@@ -46,6 +46,34 @@ def test_bucket_spec():
     assert ls.bucket(row) == "spec"
 
 
+def test_bucket_closed_overrides_pending():
+    row = ls.Row(slug="s", header="h", has_pending_todos=True, closed=True)
+    assert ls.bucket(row) == "done"
+
+
+def test_bucket_closed_with_live_agent_still_done():
+    # Closed + live agent is an in-flight race (close should have killed it)
+    # — the bucket is still done.
+    row = ls.Row(
+        slug="s",
+        header="h",
+        has_pending_todos=True,
+        closed=True,
+        agentboss={"id": "abc"},
+    )
+    assert ls.bucket(row) == "done"
+
+
+def test_bucket_closed_dirty():
+    row = ls.Row(slug="s", header="h", has_pending_todos=True, closed=True, dirty=True)
+    assert ls.bucket(row) == "done(dirty)"
+
+
+def test_bucket_spec_wins_over_closed():
+    row = ls.Row(slug="s", header="h", has_pending_todos=True, is_spec=True, closed=True)
+    assert ls.bucket(row) == "spec"
+
+
 def test_workspace_is_dirty_detects_tracked_change(tmp_path, monkeypatch):
     monkeypatch.setenv("BOSS_ROOT", str(tmp_path))
     slug = "done-feat"

@@ -15,6 +15,11 @@ _TOP_CB_RE = re.compile(r"^- \[([ xX])\] (.*)$")
 _NESTED_RE = re.compile(r"^([ \t]+)- (.*)$")
 _NESTED_CB_RE = re.compile(r"^[ \t]+- \[[ xX]\]")
 
+# Tombstone marker written by `boss close` — an HTML comment at the top
+# of the section body. Match anywhere in the body (human may have moved
+# it) but the writer emits it as the first non-blank line.
+CLOSED_RE = re.compile(r"^<!--\s*closed:\s*(\d{4}-\d{2}-\d{2})\s*-->\s*$", re.M)
+
 
 @dataclass(slots=True)
 class Checkbox:
@@ -47,6 +52,10 @@ class Section:
                 if not item.checked:
                     return True
         return False if found_any else False
+
+    def is_closed(self) -> bool:
+        """True if the section body carries a `<!-- closed: YYYY-MM-DD -->` tombstone."""
+        return CLOSED_RE.search(self.body) is not None
 
     def is_spec_only(self) -> bool:
         """True if all pending checkboxes are spec:-prefixed."""
@@ -95,6 +104,11 @@ def has_pending(section_body: str) -> bool:
             if not item.checked:
                 return True
     return False if found_any else False
+
+
+def is_closed(section_body: str) -> bool:
+    """True if the section body carries a `<!-- closed: YYYY-MM-DD -->` tombstone."""
+    return CLOSED_RE.search(section_body) is not None
 
 
 def is_spec_only(section_body: str) -> bool:
