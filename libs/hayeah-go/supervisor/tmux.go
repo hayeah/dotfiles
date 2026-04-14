@@ -85,6 +85,22 @@ func (t *Tmux) NewSessionOrWindow(spawn TmuxSpawn) error {
 	return t.run(args...)
 }
 
+// RespawnPane replaces the process running in an existing tmux pane with
+// a fresh invocation of the given command. Used by the restart-on-exit
+// supervisor loop: the pane is preserved (same target, same window) but
+// the dead child is replaced by a new spawn. `-k` kills any still-running
+// process first (in the normal restart flow there is none; the pane is
+// already at an exit prompt).
+func (t *Tmux) RespawnPane(target string, spawn TmuxSpawn) error {
+	shellCmd := t.buildShellCmd(spawn)
+	args := []string{"respawn-pane", "-k", "-t", target}
+	if spawn.CWD != "" {
+		args = append(args, "-c", spawn.CWD)
+	}
+	args = append(args, shellCmd)
+	return t.run(args...)
+}
+
 // KillSession kills a tmux session.
 func (t *Tmux) KillSession(target string) error {
 	return t.run("kill-session", "-t", target)

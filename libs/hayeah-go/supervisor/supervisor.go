@@ -8,6 +8,7 @@ import (
 	"os"
 	"os/signal"
 	"path/filepath"
+	"strings"
 	"syscall"
 	"time"
 )
@@ -20,6 +21,30 @@ type SupervisorConfig struct {
 	InitialService any       // optional initial value for the "service" section
 	Plugin         Plugin    // monitors the running service, reports state (optional)
 	KillOnExit     bool      // kill tmux window when supervisor exits (default false)
+
+	// RestartOnExit, if true, respawns the tmux pane and re-runs the
+	// plugin when the supervised child exits. Used for infrastructure
+	// processes (boss agent, dashboard) that should survive a kill and
+	// self-heal during dev iteration.
+	RestartOnExit bool
+
+	// PluginFactory, if set, is called to construct a fresh Plugin on
+	// each (re)spawn. Required when RestartOnExit is true — the existing
+	// Plugin field is single-shot and can't be reused across iterations.
+	// When RestartOnExit is false, only Plugin is consulted.
+	PluginFactory func() Plugin
+
+	// Briefing is a message replayed to the child after each (re)spawn
+	// when the plugin reports "idle". Used to reconstruct operational
+	// context for a boss-style agent after a kill. Sent via `tmux
+	// send-keys -l` + Enter. Empty = no replay.
+	Briefing string
+
+	// OnIdle, if set, is called once per spawn cycle the first time the
+	// plugin publishes state=="idle". Used by callers to drive
+	// per-cycle side effects (briefing replay is built-in; this hook is
+	// for tests + custom integrations).
+	OnIdle func(cycle int)
 }
 
 // Supervisor coordinates a single supervised process.
@@ -83,7 +108,8 @@ func (s *Supervisor) Run(ctx context.Context) error {
 
 	s.log.Info("acquired flock", "dir", stateDir)
 
-	// 3. Create tmux window
+	// 3. Create tmux window (first iteration). Subsequent restart
+	//    iterations use respawn-pane to re-run the command in place.
 	spawn := s.cfg.Spawn
 	if spawn.Window == "" {
 		spawn.Window = s.cfg.Key
@@ -103,51 +129,150 @@ func (s *Supervisor) Run(ctx context.Context) error {
 
 	// 4. Initial state already written by OpenWriter
 
-	// 5. Run plugin if provided
+	// 5. Forward signals
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 
-	pluginDone := make(chan error, 1)
-	if s.cfg.Plugin != nil {
+	sigCh := make(chan os.Signal, 3)
+	signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM, syscall.SIGHUP)
+	defer signal.Stop(sigCh)
+
+	// 6. Run plugin loop (one iteration unless RestartOnExit + PluginFactory).
+	for cycle := 0; ; cycle++ {
+		if cycle > 0 {
+			// Two restart shapes: (1) the user Ctrl-C'd the child but
+			// tmux kept the pane open → respawn-pane reuses it; (2) the
+			// window is gone entirely → recreate it. We probe and pick.
+			if s.tmux.HasWindow(target) {
+				s.log.Info("respawning tmux pane", "target", target, "cycle", cycle)
+				if err := s.tmux.RespawnPane(target, spawn); err != nil {
+					s.log.Warn("respawn-pane failed", "err", err)
+					return fmt.Errorf("respawn pane: %w", err)
+				}
+			} else {
+				s.log.Info("recreating tmux window", "target", target, "cycle", cycle)
+				if err := s.tmux.NewSessionOrWindow(spawn); err != nil {
+					return fmt.Errorf("recreate tmux window: %w", err)
+				}
+			}
+		}
+
+		plugin := s.pluginForCycle(cycle)
+
+		// Per-cycle idle observer: wraps UpdateService to detect the first
+		// "idle" transition and fire briefing replay + OnIdle.
+		idleFired := false
 		env := PluginEnv{
 			UpdateService: func(state any) error {
-				return writer.UpdateService(state)
+				if err := writer.UpdateService(state); err != nil {
+					return err
+				}
+				if !idleFired && isIdleState(state) {
+					idleFired = true
+					s.onFirstIdle(cycle, target)
+				}
+				return nil
 			},
 			Tmux:     s.tmux,
 			Target:   target,
 			StateDir: stateDir,
 		}
-		go func() {
-			pluginDone <- s.cfg.Plugin.Run(ctx, env)
-		}()
-	}
 
-	// 6. Forward signals
-	sigCh := make(chan os.Signal, 3)
-	signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM, syscall.SIGHUP)
-	defer signal.Stop(sigCh)
+		pluginDone := make(chan error, 1)
+		if plugin != nil {
+			go func() { pluginDone <- plugin.Run(ctx, env) }()
+		} else {
+			// No plugin: block until signal or ctx.
+			close(pluginDone)
+		}
 
-	// 7. Wait for completion
-	select {
-	case err := <-pluginDone:
-		s.log.Info("plugin exited", "err", err)
-		return err
-	case sig := <-sigCh:
-		s.log.Info("received signal", "signal", sig)
-		cancel() // cancel plugin context
 		select {
-		case <-pluginDone:
-		case <-time.After(5 * time.Second):
-			s.log.Warn("plugin did not exit within 5s after signal")
+		case err := <-pluginDone:
+			s.log.Info("plugin exited", "err", err, "cycle", cycle)
+			if !s.cfg.RestartOnExit || ctx.Err() != nil {
+				return err
+			}
+			// Loop for next respawn iteration.
+		case sig := <-sigCh:
+			s.log.Info("received signal", "signal", sig)
+			cancel()
+			select {
+			case <-pluginDone:
+			case <-time.After(5 * time.Second):
+				s.log.Warn("plugin did not exit within 5s after signal")
+			}
+			return fmt.Errorf("terminated by signal: %s", sig)
+		case <-ctx.Done():
+			s.log.Info("context cancelled")
+			select {
+			case <-pluginDone:
+			case <-time.After(5 * time.Second):
+				s.log.Warn("plugin did not exit within 5s after cancel")
+			}
+			return ctx.Err()
 		}
-		return fmt.Errorf("terminated by signal: %s", sig)
-	case <-ctx.Done():
-		s.log.Info("context cancelled")
-		select {
-		case <-pluginDone:
-		case <-time.After(5 * time.Second):
-			s.log.Warn("plugin did not exit within 5s after cancel")
-		}
-		return ctx.Err()
 	}
+}
+
+// pluginForCycle returns the Plugin to use for this iteration. Restart
+// cycles require a fresh instance because plugins typically hold single-
+// shot state (sync.Once, channels, bound sockets).
+func (s *Supervisor) pluginForCycle(cycle int) Plugin {
+	if s.cfg.PluginFactory != nil {
+		return s.cfg.PluginFactory()
+	}
+	if cycle == 0 {
+		return s.cfg.Plugin
+	}
+	// Subsequent cycles without a factory: reuse Plugin (caller's risk).
+	return s.cfg.Plugin
+}
+
+// onFirstIdle is invoked at most once per spawn cycle the first time the
+// plugin reports state "idle". Fires the OnIdle hook and replays the
+// briefing if one was configured.
+func (s *Supervisor) onFirstIdle(cycle int, target string) {
+	if s.cfg.OnIdle != nil {
+		s.cfg.OnIdle(cycle)
+	}
+	if s.cfg.Briefing == "" {
+		return
+	}
+	// Send briefing in a goroutine so we don't block the UpdateService
+	// callback (which is on the plugin's hot path).
+	briefing := s.cfg.Briefing
+	go func() {
+		// Small delay so the agent's input box is settled before typing.
+		time.Sleep(500 * time.Millisecond)
+		if err := s.tmux.SendText(target, briefing); err != nil {
+			s.log.Warn("briefing send-text failed", "err", err, "cycle", cycle)
+			return
+		}
+		if err := s.tmux.SendKeys(target, "Enter"); err != nil {
+			s.log.Warn("briefing send-enter failed", "err", err, "cycle", cycle)
+			return
+		}
+		s.log.Info("briefing replayed", "target", target, "cycle", cycle)
+	}()
+}
+
+// isIdleState inspects a marshaled service-state payload for a top-level
+// `state` field equal to "idle". The payload is whatever the plugin
+// passed to UpdateService — typically a struct with a State string.
+func isIdleState(v any) bool {
+	data, err := json.Marshal(v)
+	if err != nil {
+		return false
+	}
+	// Cheap string probe first to avoid a full re-unmarshal on every tick.
+	if !strings.Contains(string(data), `"idle"`) {
+		return false
+	}
+	var probe struct {
+		State string `json:"state"`
+	}
+	if err := json.Unmarshal(data, &probe); err != nil {
+		return false
+	}
+	return probe.State == "idle"
 }
