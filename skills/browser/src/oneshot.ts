@@ -14,7 +14,10 @@ export const openOption = {
 interface OneShotArgv {
 	open?: string;
 	session?: string;
+	wait?: string;
 }
+
+const DEFAULT_SETTLE_MS = 3000;
 
 /**
  * Wrap a command handler with one-shot mode support.
@@ -50,7 +53,10 @@ export function withOneShot<T extends OneShotArgv>(
 			}
 
 			if (resolved.url) {
-				await page.goto(resolved.url, { waitUntil: "networkidle0" });
+				await page.goto(resolved.url, { waitUntil: "domcontentloaded" });
+				if (argv.wait === undefined) {
+					await new Promise((r) => setTimeout(r, DEFAULT_SETTLE_MS));
+				}
 			}
 
 			// Inject the targetId as session so resolvePage finds it

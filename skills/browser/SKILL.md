@@ -68,6 +68,8 @@ browser fetch --open https://example.com https://example.com/api/data
 
 Network capture in one-shot mode automatically captures from page load — no `--reload` needed.
 
+One-shot navigation waits for `domcontentloaded` (not network idle), then sleeps 3s by default to let JS-rendered content paint. This avoids hangs on pages with long-lived streams (SSE, websockets) where network idle never fires. Pass `--wait <expr|ms>` to override the default settle with a precise condition.
+
 ## Persistent Sessions
 
 For multi-step workflows (debugging, exploration, discovery), use persistent sessions. The `browser open` command holds the CDP connection alive in the foreground, preserving device emulation across commands.
