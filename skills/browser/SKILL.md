@@ -146,7 +146,13 @@ browser eval 'document.querySelectorAll("a").length' -s a3f2
 browser eval script.js
 ```
 
-Execute JavaScript in a session. Pass inline code or a `.js`/`.mjs`/`.ts` file path. Code runs in async context. 
+Execute JavaScript in a session. Pass inline code or a `.js`/`.mjs`/`.ts` file path. Code runs inside an async function, so `await` is available at the top level.
+
+Wrapping rule:
+- **Single expression** (no top-level `;`, doesn't start with `const`/`let`/`var`/`if`/`for`/`while`/`function`/…) → wrapped as `return (<code>)`. Trailing `;` is stripped. One-liners like `document.title` and IIFEs like `(() => { return 1 })()` keep working.
+- **Multi-statement** (contains a `;` outside of strings/comments, or starts with a statement keyword) → runs as-is. **You write your own `return`.**
+
+File inputs (`.js`/`.mjs`/`.ts`) follow the same rule on their contents. Comments and string/template-literal contents are skipped when scanning for `;`, so `const s = 'a;b;c'; return s` is correctly detected as multi-statement (not tripped by the `;` inside the string).
 
 IMPORTANT: For scripts longer than 5–10 lines, write to a file using the `tmpfile` convention and pass the path:
 
@@ -353,14 +359,21 @@ Auto-detects site-specific extractors:
 
 ### Complex Scripts in Single Calls
 
-Wrap everything in an IIFE to run multi-statement code:
+For multi-statement code, just paste it directly — you own the `return`:
 
 ```javascript
-(function() {
+const data = document.querySelector('#target').textContent;
+const buttons = document.querySelectorAll('button');
+buttons[0].click();
+return JSON.stringify({ data, buttonCount: buttons.length });
+```
+
+IIFEs still work if you prefer that style:
+
+```javascript
+(() => {
   const data = document.querySelector('#target').textContent;
-  const buttons = document.querySelectorAll('button');
-  buttons[0].click();
-  return JSON.stringify({ data, buttonCount: buttons.length });
+  return data;
 })()
 ```
 
@@ -369,27 +382,23 @@ Wrap everything in an IIFE to run multi-statement code:
 **Don't** make separate calls for each click. **Do** batch them:
 
 ```javascript
-(function() {
-  const actions = ["btn1", "btn2", "btn3"];
-  actions.forEach(id => document.getElementById(id).click());
-  return "Done";
-})()
+const actions = ["btn1", "btn2", "btn3"];
+actions.forEach(id => document.getElementById(id).click());
+return "Done";
 ```
 
 ### Investigate Before Interacting
 
-Always start by understanding the page structure:
+Always start by understanding the page structure. Single-expression form works for simple probes:
 
 ```javascript
-(function() {
-  return {
-    title: document.title,
-    forms: document.forms.length,
-    buttons: document.querySelectorAll('button').length,
-    inputs: document.querySelectorAll('input').length,
-    mainContent: document.body.innerHTML.slice(0, 3000)
-  };
-})()
+({
+  title: document.title,
+  forms: document.forms.length,
+  buttons: document.querySelectorAll('button').length,
+  inputs: document.querySelectorAll('input').length,
+  mainContent: document.body.innerHTML.slice(0, 3000)
+})
 ```
 
 Then target specific elements based on what you find.
