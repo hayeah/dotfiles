@@ -12,6 +12,7 @@ import {
 	browserDistPath,
 } from "../plugins/loader.js";
 import type { MatchedRoute } from "../plugins/types.js";
+import { wrapEvalCode } from "./eval-wrap.js";
 
 interface Args {
 	code: string;
@@ -64,18 +65,19 @@ async function evalBrowser(
 		}
 	}
 
+	const body = wrapEvalCode(code);
+
 	if (names.length === 0) {
-		// No plugins — use original simple eval
-		return page.evaluate((c: string) => {
+		return page.evaluate((b: string) => {
 			const AsyncFunction = (async () => {}).constructor as new (
 				...args: string[]
 			) => Function;
-			return new AsyncFunction(`return (${c})`)();
-		}, code);
+			return new AsyncFunction(b)();
+		}, body);
 	}
 
 	return page.evaluate(
-		(code: string, names: string[], sources: string[]) => {
+		(body: string, names: string[], sources: string[]) => {
 			const pluginObjects = sources.map((src) => {
 				const setup = new Function(`${src}; return __browserPlugin;`)();
 				return typeof setup === "function" ? setup() : setup;
@@ -84,10 +86,10 @@ async function evalBrowser(
 			const AsyncFunction = (async () => {}).constructor as new (
 				...args: string[]
 			) => Function;
-			const fn = new AsyncFunction(...names, `return (${code})`);
+			const fn = new AsyncFunction(...names, body);
 			return fn(...pluginObjects);
 		},
-		code,
+		body,
 		names,
 		iifeSources,
 	);
@@ -118,7 +120,7 @@ async function evalNodeContext(
 	}
 
 	const AsyncFunction = (async () => {}).constructor as new (...args: string[]) => Function;
-	const fn = new AsyncFunction(...names, code);
+	const fn = new AsyncFunction(...names, wrapEvalCode(code));
 	return fn(...objects);
 }
 
