@@ -7,7 +7,9 @@ description: Report remaining Claude Code and Codex quota (5h and 7d). Use when 
 
 CLI that reports remaining quota for Claude Code (subscription) and Codex (ChatGPT plan).
 
-- **Claude**: hits `https://api.anthropic.com/api/oauth/usage` with the OAuth token from `~/.claude/.credentials.json`.
+- **Claude**: hits `https://api.anthropic.com/api/oauth/usage` with the local Claude OAuth token.
+  - On macOS, reads the `Claude Code-credentials` keychain entry first.
+  - Falls back to legacy credential files such as `~/.claude/.credentials.json`.
 - **Codex**: reads `payload.rate_limits` from the newest entry of the latest rollout JSONL under `~/.codex/sessions/`.
 
 ## Setup

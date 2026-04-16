@@ -4,6 +4,7 @@ version = "0.1.0"
 description = "Report remaining Claude Code and Codex quotas"
 requires-python = ">=3.11"
 dependencies = [
+    "rich>=13",
     "typer",
 ]
 
