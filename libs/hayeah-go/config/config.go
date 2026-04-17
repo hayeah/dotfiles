@@ -9,7 +9,7 @@ import (
 	"os"
 	"strings"
 
-	"github.com/BurntSushi/toml"
+	"github.com/pelletier/go-toml/v2"
 )
 
 // Load reads config from the env var envVar.
@@ -31,8 +31,12 @@ func Load(envVar string) (map[string]any, error) {
 		if _, err := os.Stat(value); os.IsNotExist(err) {
 			return map[string]any{}, nil
 		}
+		data, err := os.ReadFile(value)
+		if err != nil {
+			return nil, err
+		}
 		var raw map[string]any
-		if _, err := toml.DecodeFile(value, &raw); err != nil {
+		if err := toml.Unmarshal(data, &raw); err != nil {
 			return nil, err
 		}
 		return raw, nil
