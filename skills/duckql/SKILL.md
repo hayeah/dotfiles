@@ -1,0 +1,1 @@
+/Users/me/github.com/hayeah/duckql/SKILL.md
