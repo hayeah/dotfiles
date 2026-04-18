@@ -6,8 +6,19 @@ import (
 	"os"
 	"os/exec"
 	"strings"
+	"sync"
 	"syscall"
 )
+
+// tmuxCreateMu serializes session/window creation across all Tmux
+// instances in this process. Without it, two concurrent
+// NewSessionOrWindow calls against the same session both observe
+// HasSession == false, both invoke `tmux new-session -d`, and the
+// second loses with "duplicate session". Window creation has the
+// analogous race (both see HasWindow == false, both call
+// new-window), though windows only collide when callers pick the
+// same window name — this mutex closes both holes.
+var tmuxCreateMu sync.Mutex
 
 // TmuxSpawn describes how to create the tmux window and what to run in it.
 type TmuxSpawn struct {
@@ -54,6 +65,11 @@ func (t *Tmux) HasWindow(target string) bool {
 // then creates a window running the given command. If the session doesn't
 // exist, the first window is created as part of session creation.
 func (t *Tmux) NewSessionOrWindow(spawn TmuxSpawn) error {
+	// Serialize across goroutines so concurrent calls don't both try
+	// to create the same session (or window).
+	tmuxCreateMu.Lock()
+	defer tmuxCreateMu.Unlock()
+
 	target := spawn.Target()
 	window := spawn.Window
 	if window == "" {
