@@ -163,7 +163,6 @@ hayeah-core = { path = "../../libs/hayeah-py", editable = true }
 ## Skills
 
 - **[browser](skills/browser/)** — Interactive browser automation via Chrome DevTools Protocol
-- **[chezmoi](skills/chezmoi/)** — Chezmoi reference guide
 - **[cloudflare-tunnel](skills/cloudflare-tunnel/)** — Manage Cloudflare Tunnel ingress rules and DNS
 - **[ctrlv](skills/ctrlv/)** — Save macOS clipboard contents to `.ctrlv/` subdirectory
 - **[dotenv-ls](skills/dotenv-ls/)** — List env var names from .env files without exposing values

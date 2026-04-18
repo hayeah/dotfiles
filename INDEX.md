@@ -231,7 +231,6 @@ link is load-bearing.
 - [godzkilla](https://github.com/hayeah/godzkilla) — install/sync agent skills into `~/.claude/skills/`, `~/.codex/skills/`, `~/.openclaw/skills/`
 - [duckql](https://github.com/hayeah/duckql) — DuckDB-as-a-pipe for the `ls` convention
 - [agentboss](https://github.com/hayeah/agentboss) — tmux-based supervisor for interactive CLIs (claude code, codex, repls)
-- [oauth-ai](https://github.com/hayeah/oauth-ai) — CLI-first OAuth toolkit for AI providers
 - [skills/gobin/](skills/gobin/SKILL.md) — `uv tool install -e` for go CLIs via build shim
 - [skills/git-quick-clone/](skills/git-quick-clone/SKILL.md) — treeless partial clone into `$GITHUB_REPOS`
 - [skills/ctrlv/](skills/ctrlv/SKILL.md) — dump macOS clipboard (text / image / file) into `.ctrlv/`
@@ -248,16 +247,13 @@ link is load-bearing.
 - [skills/resend/](skills/resend/SKILL.md) — send email via resend API
 - [skills/text-copyedit/](skills/text-copyedit/SKILL.md) — grammar fix / listicle tidy
 - [skills/readme-skill/](skills/readme-skill/SKILL.md) — generate agent-friendly SKILL.md
-- [skills/create-role/](skills/create-role/SKILL.md) — bundle skills into a role persona
 - [skills/dotfiles/](skills/dotfiles/SKILL.md) — dotfile_stow.py symlink manager
 - [skills/indexmd/](skills/indexmd/SKILL.md) — how to maintain this INDEX.md
 
 ## Opensource Tools
 
 Distilled use cases for complex third-party tools. Recipe collections,
-not man-page rewrites.
-
-- [skills/chezmoi/](skills/chezmoi/) — chezmoi reference
+not man-page rewrites. Empty for now.
 
 ## Research Notes
 

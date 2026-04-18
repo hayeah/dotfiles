@@ -97,8 +97,8 @@ categories must clear a high bar: ≥3 entries with no natural home.
   `~/github.com/hayeah/*`. Anything unlikely to appear in an LLM
   training set qualifies.
 - **Opensource Tools** — distilled recipe collections for complex
-  third-party tools (e.g. duckdb, chezmoi). Not a man-page rewrite —
-  the kind of "known-good usage" the user keeps re-deriving otherwise.
+  third-party tools (e.g. duckdb). Not a man-page rewrite — the kind
+  of "known-good usage" the user keeps re-deriving otherwise.
 - **Research Notes** — high-level mental models. "How does X actually
   work" for systems the user wants to keep handy (swiftui internals,
   wireguard protocol, etc.). Promoted from `$MDNOTES_ROOT` once durable.
