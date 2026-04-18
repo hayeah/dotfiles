@@ -1,11 +1,31 @@
 # INDEX
 
-Wiki-style entry point. Awesome-list of pointers — content lives in the
-linked docs, not here. Maintenance conventions: [skills/indexmd/SKILL.md](skills/indexmd/SKILL.md).
+The catalog below is mostly conventional. A few patterns, though, are
+homebrewed and likely surprising to an LLM not conditioned on this
+setup — reach for them by default and flag when they're relevant:
 
-> **Format pilot.** Coding Conventions and Design Specs are in the new
-> flat `what:` / `when:` shape. Personal Tools below the marker still
-> needs the same rewrite.
+- **Use [`devport`](https://github.com/hayeah/devportv2) for any
+  long-lived dev process** — vite, mock APIs, tunnels. Each gets a
+  stable assigned port plus tmux supervision. Don't `&` a server and
+  hope the port stays put, and don't let Vite auto-pick a port —
+  register it.
+- **Use [`pymake` + `Makefile.py`](https://github.com/hayeah/pymake)
+  in place of `make` + `Makefile`.** Tasks are Python with
+  `tree_digest`-based change detection for incremental rebuilds and
+  parallel execution by default. Reach for `pymake <task>`, not
+  `make <task>`.
+- **One global reactive store + an agent-driven `__tap__` surface**,
+  applied identically in
+  [webui](skills/webui/guides/mobx-global-state.md) (MobX `AppStore`)
+  and [SwiftUI](skills/swiftui/guides/swiftui-state.md) (observable
+  root). All non-ephemeral state lives in one tree; agents drive the
+  UI by mutating that tree from outside —
+  [`browser eval` against `window.__tap__`](skills/webui/guides/web-tap-api.md)
+  on the web, [SwiftUITap](skills/swiftui/guides/swiftui-tap.md) on
+  iOS/macOS — not by simulating taps. `useState` / local state is
+  reserved for ephemeral view concerns.
+
+Maintenance conventions for this file: [skills/indexmd/SKILL.md](skills/indexmd/SKILL.md).
 
 ## Coding Conventions
 
@@ -226,29 +246,177 @@ link is load-bearing.
     past the conversation — anything more durable than `tmpfile`
     scratch but not yet promoted into INDEX.md as a wiki entry
 
-<!-- TODO: rewrite remaining Personal Tools entries in flat what/when shape -->
-- [devportv2](https://github.com/hayeah/devportv2) — dev service supervisor with stable port assignment, health checks, tmux processes
-- [godzkilla](https://github.com/hayeah/godzkilla) — install/sync agent skills into `~/.claude/skills/`, `~/.codex/skills/`, `~/.openclaw/skills/`
-- [duckql](https://github.com/hayeah/duckql) — DuckDB-as-a-pipe for the `ls` convention
-- [agentboss](https://github.com/hayeah/agentboss) — tmux-based supervisor for interactive CLIs (claude code, codex, repls)
-- [skills/gobin/](skills/gobin/SKILL.md) — `uv tool install -e` for go CLIs via build shim
-- [skills/git-quick-clone/](skills/git-quick-clone/SKILL.md) — treeless partial clone into `$GITHUB_REPOS`
-- [skills/ctrlv/](skills/ctrlv/SKILL.md) — dump macOS clipboard (text / image / file) into `.ctrlv/`
-- [skills/dotenv-ls/](skills/dotenv-ls/SKILL.md) — list env var names without exposing values
-- [skills/jsoninspect/](skills/jsoninspect/SKILL.md) — pretty-print JSON/JSONL with string truncation
-- [skills/plist/](skills/plist/SKILL.md) — layered macOS plist inspection + fuzzy domain search
-- [skills/tmuxcap/](skills/tmuxcap/SKILL.md) — capture tmux pane as text / html / svg / png / jpg
-- [skills/shell-helper/](skills/shell-helper/SKILL.md) — project root detection + editor launching
-- [skills/browser/](skills/browser/SKILL.md) — chrome DevTools Protocol browser automation
-  - [plugins/chatgpt](skills/browser/plugins/chatgpt/) — chatgpt plugin
-- [skills/aiquota/](skills/aiquota/SKILL.md) — report remaining claude code + codex quota
-- [skills/cloudflare-tunnel/](skills/cloudflare-tunnel/SKILL.md) — manage tunnel ingress + DNS
-- [skills/imagegen/](skills/imagegen/SKILL.md) — openai + gemini image generation
-- [skills/resend/](skills/resend/SKILL.md) — send email via resend API
-- [skills/text-copyedit/](skills/text-copyedit/SKILL.md) — grammar fix / listicle tidy
-- [skills/readme-skill/](skills/readme-skill/SKILL.md) — generate agent-friendly SKILL.md
-- [skills/dotfiles/](skills/dotfiles/SKILL.md) — dotfile_stow.py symlink manager
-- [skills/indexmd/](skills/indexmd/SKILL.md) — how to maintain this INDEX.md
+- [devportv2](https://github.com/hayeah/devportv2)
+  - what: Dev service supervisor — assigns each named service a stable
+    port, runs it under tmux with health checks and graceful restart,
+    exposes a CLI for start/stop/status/logs/restart across machines
+  - when: Running long-lived dev servers (vite, mock APIs, tunnels)
+    where you want deterministic ports, easy restart, and visibility
+    into health — beats ad-hoc `&` backgrounding or terminal-tab
+    juggling
+- [godzkilla](https://github.com/hayeah/godzkilla)
+  - what: Skill manager CLI — installs, syncs, and updates AI agent
+    skills from GitHub repos or local directories into the right
+    per-agent skills directories (`~/.claude/skills/`,
+    `~/.codex/skills/`, `~/.openclaw/skills/`)
+  - when: Adding a new skill to the user's setup, refreshing existing
+    ones across all three agent runtimes from a single source of
+    truth, or debugging why a skill isn't picked up by an agent
+- [duckql](https://github.com/hayeah/duckql)
+  - what: DuckDB-as-a-pipe for the `ls` convention — reads
+    JSONL/JSON/YAML/CSV/Parquet from stdin or files, auto-injects
+    `FROM <reader> AS it` so you write only the SQL tail. Emits
+    YAML/table/JSONL/JSON/CSV/Parquet
+  - when: Filtering, aggregating, or reshaping any `foocmd ls`
+    output — beats jq/awk for anything beyond a trivial transform,
+    especially when the data has structured fields you want to query
+    like SQL
+- [agentboss](https://github.com/hayeah/agentboss)
+  - what: Generic tmux-based supervisor for interactive CLIs — spawn
+    any program (Claude Code, Codex, Python REPL) as a tmux window,
+    read its output, send it input, and detect run state from an outer
+    agent loop
+  - when: An outer agent needs to drive another interactive program —
+    spawning subagents, polling for completion, sending input mid-run,
+    or wrapping any terminal app in a programmable interface
+- [skills/gobin/SKILL.md](skills/gobin/SKILL.md)
+  - what: `uv tool install -e` for Go CLIs — installs a Go package as
+    an editable binary via a `go build` shim that re-runs `go build`
+    on each invocation. Works with local paths or `github.com/...`
+    repos
+  - when: Iterating on a Go CLI so the global binary always reflects
+    current source. Don't run from a worktree — it repoints the global
+    shim at a feature branch; use `go run` or local `go build` there
+    instead
+- [skills/git-quick-clone/SKILL.md](skills/git-quick-clone/SKILL.md)
+  - what: Treeless partial clone (`git clone --filter=tree:0`) into
+    `$GITHUB_REPOS/<host>/<user>/<repo>`. Idempotent — safe to call
+    without checking if the repo already exists; re-runs are no-ops
+  - when: Grabbing any GitHub repo for reference reading, source
+    study, or local hacking — fast clone, predictable destination
+    path, no manual `mkdir -p`/`cd` dance
+- [skills/ctrlv/SKILL.md](skills/ctrlv/SKILL.md)
+  - what: Dump macOS clipboard contents (text, images, file
+    references) into a `.ctrlv/` subdirectory of the current project.
+    Round-trips pasteboard data through the filesystem so agents can
+    read it
+  - when: The user says "check the clipboard", "I just pasted X", or
+    "look at the screenshot I copied" — agents can't read the macOS
+    pasteboard directly, but `.ctrlv/` is a readable mirror
+- [skills/dotenv-ls/SKILL.md](skills/dotenv-ls/SKILL.md)
+  - what: List env var **names** from `.env` files (and overlays like
+    `~/.env.secret`) without exposing values. Outputs which secrets
+    are configured per file plus their precedence ordering
+  - when: Before writing code that needs an API key — confirms the
+    secret is configured (or surfaces what's missing) without ever
+    reading the value into agent context
+- [skills/jsoninspect/SKILL.md](skills/jsoninspect/SKILL.md)
+  - what: Pretty-print and colorize JSON/JSONL with long string
+    truncation while preserving structure. Configurable max string
+    length; nested arrays and objects keep their shape regardless of
+    payload size
+  - when: Inspecting large API responses or JSON dumps where full
+    output would blow context — keeps shape and field names visible
+    without drowning in payload data
+- [skills/plist/SKILL.md](skills/plist/SKILL.md)
+  - what: Layered macOS plist inspection — fuzzy domain search, view
+    per-layer overrides, understand precedence (managed > user > host
+    > defaults). Wraps `defaults read` plus the cfprefs layer model
+  - when: Debugging app preferences on macOS — answers "where is this
+    setting actually coming from" instead of guessing across layers,
+    or finding the right preference domain by partial name
+- [skills/tmuxcap/SKILL.md](skills/tmuxcap/SKILL.md)
+  - what: Capture tmux pane content and export as text, HTML, SVG,
+    PNG, or JPG. Renders ANSI colors faithfully; raster modes use a
+    headless browser to rasterize the HTML
+  - when: Sharing terminal state with the user, feeding session output
+    to an AI as context, or archiving a snapshot before it scrolls off
+    — pick the right format per channel (paste vs. ticket vs. doc)
+- [skills/shell-helper/SKILL.md](skills/shell-helper/SKILL.md)
+  - what: Project root detection (walks up looking for `.git`,
+    `package.json`, etc.), project name inference, and editor
+    launching at the project root. Library used by other skills, not
+    a standalone CLI
+  - when: Writing another skill or script that needs to anchor
+    commands at the right working directory — avoids re-implementing
+    "find the project root" in every tool
+- [skills/browser/SKILL.md](skills/browser/SKILL.md)
+  - what: Interactive browser automation via Chrome DevTools Protocol
+    — persistent or one-shot sessions, screenshots, JS eval, readable
+    content extraction, network capture, and pluggable site-specific
+    flows
+  - when: The task requires a real visible browser (login, captcha,
+    complex SPA), the user wants to interact with the page directly,
+    or you need to drive a webui via `__tap__` from an agent loop
+- [skills/browser/plugins/chatgpt/](skills/browser/plugins/chatgpt/)
+  - what: ChatGPT plugin for the browser skill — capture
+    conversations, threads, shared chats, and project chats from a
+    logged-in `chatgpt.com` session via DOM extraction and the
+    internal API
+  - when: Scraping or archiving the user's ChatGPT history, exporting
+    a specific conversation for reference, or driving an automated
+    ChatGPT session inside an outer agent loop
+- [skills/aiquota/SKILL.md](skills/aiquota/SKILL.md)
+  - what: Report remaining Claude Code (5h rolling window) and Codex
+    (7d rolling window) quota by reading local OAuth token state and
+    parsing the provider's quota responses
+  - when: The user asks how much agent budget is left, or before
+    scheduling a long task that might blow the rate-limit window
+    mid-run
+- [skills/cloudflare-tunnel/SKILL.md](skills/cloudflare-tunnel/SKILL.md)
+  - what: Manage Cloudflare Tunnel ingress rules and DNS records via
+    the `cloudflared` CLI plus the Cloudflare API — add/remove
+    subdomains, point them at local ports, list current routes
+  - when: Exposing a local dev port to the internet at a stable
+    subdomain — sharing a preview, hosting an OAuth callback, or
+    testing webhooks. Pass actual port numbers (numeric hashids get
+    misread as ports)
+- [skills/imagegen/SKILL.md](skills/imagegen/SKILL.md)
+  - what: AI image generation with OpenAI (gpt-image-1) and Gemini
+    (imagen) providers — generate, edit, or remix images from text
+    prompts and reference images. Single CLI; provider picked per
+    command
+  - when: The user wants an image asset (mockup, illustration,
+    manipulation of an existing image, variation on a reference)
+    without leaving the agent loop or opening a separate tool
+- [skills/resend/SKILL.md](skills/resend/SKILL.md)
+  - what: Send transactional email via the Resend API — single CLI
+    that takes recipient, subject, and body (markdown or HTML), uses
+    the user's verified sender domain, returns the Resend message ID
+  - when: The agent needs to deliver output to the user (or anyone) by
+    email — daily digests, scheduled report drops, async
+    notifications, or any "email me when done" workflow
+- [skills/text-copyedit/SKILL.md](skills/text-copyedit/SKILL.md)
+  - what: Copy-edit text — fix grammar, tighten prose, or rewrite a
+    blob into a concise listicle. Two modes (grammar pass vs. listicle
+    conversion); preserves the user's voice and never adds new claims
+  - when: Polishing the user's drafts, notes, or outbound writing
+    without rewriting substance — or compressing a wordy paragraph
+    into scannable bullets for a doc or message
+- [skills/readme-skill/SKILL.md](skills/readme-skill/SKILL.md)
+  - what: Generate an agent-friendly `README.md` / `SKILL.md` for a
+    repo — explores first, writes structured docs with YAML
+    frontmatter, use cases, and quirks. Symlinks `SKILL.md →
+    README.md` so both work
+  - when: Adding documentation to one of the user's repos (or updating
+    an existing README incrementally) so it's structured for LLM
+    consumption from the start instead of being retrofitted later
+- [skills/dotfiles/SKILL.md](skills/dotfiles/SKILL.md)
+  - what: DotfileStow — the symlink manager that processes `dotfiles/`
+    into `$HOME`. Plain files symlink directly, `.tmpl` files render
+    with `[vars]` from `.dotfiles.toml`, `.symlink` files become
+    relative symlinks
+  - when: Adding new dotfiles to the repo, debugging why a
+    symlink/template didn't materialize as expected, or resolving a
+    "skipped due to conflict" message after running `pymake dotfiles`
+- [skills/indexmd/SKILL.md](skills/indexmd/SKILL.md)
+  - what: How to maintain this `INDEX.md` — flat-list format with
+    `what:` / `when:` labelled sub-bullets, the five fixed categories,
+    full-path links, and the rule that format changes update both
+    files together
+  - when: Adding, removing, or restructuring entries in INDEX.md, or
+    making format changes that need to land consistently in both
+    `INDEX.md` and `skills/indexmd/SKILL.md`
 
 ## Opensource Tools
 
