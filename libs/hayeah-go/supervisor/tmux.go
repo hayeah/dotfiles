@@ -89,7 +89,20 @@ func (t *Tmux) NewSessionOrWindow(spawn TmuxSpawn) error {
 		}
 		args = append(args, envArgs...)
 		args = append(args, shellCmd)
-		return t.run(args...)
+		err := t.run(args...)
+		if err == nil {
+			return nil
+		}
+		// Cross-process race: another caller created the session
+		// between HasSession and new-session. The in-process
+		// tmuxCreateMu only serializes goroutines in *this* process;
+		// two processes concurrently spawning their own supervisors
+		// (e.g. devportv3's detached sidecars) can both see
+		// HasSession==false and both try new-session. Fall through
+		// to the new-window path for the loser.
+		if !strings.Contains(err.Error(), "duplicate session") {
+			return err
+		}
 	}
 
 	// Session exists — check if window already exists
