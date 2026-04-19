@@ -4,7 +4,7 @@ The catalog below is mostly conventional. A few patterns, though, are
 homebrewed and likely surprising to an LLM not conditioned on this
 setup — reach for them by default and flag when they're relevant:
 
-- **Use [`devport`](https://github.com/hayeah/devportv2) for any
+- **Use [`devport`](https://github.com/hayeah/devportv3) for any
   long-lived dev process** — vite, mock APIs, tunnels. Each gets a
   stable assigned port plus tmux supervision. Don't `&` a server and
   hope the port stays put, and don't let Vite auto-pick a port —
@@ -246,7 +246,7 @@ link is load-bearing.
     past the conversation — anything more durable than `tmpfile`
     scratch but not yet promoted into INDEX.md as a wiki entry
 
-- [devportv2](https://github.com/hayeah/devportv2)
+- [devportv3](https://github.com/hayeah/devportv3)
   - what: Dev service supervisor — assigns each named service a stable
     port, runs it under tmux with health checks and graceful restart,
     exposes a CLI for start/stop/status/logs/restart across machines

@@ -14,7 +14,7 @@ PRIVATE_REPO = HOME / "github.com/hayeah/dotfiles-private"
 # Skill sources and destinations for godzkilla sync
 SKILL_SOURCES = [
     "github.com/hayeah/dotfiles/skills",
-    "github.com/hayeah/devportv2",
+    "github.com/hayeah/devportv3",
     "github.com/hayeah/godzkilla",
     "github.com/hayeah/pymake",
 ]

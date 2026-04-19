@@ -5,7 +5,7 @@ description: Manage Cloudflare Tunnel ingress rules and DNS records via CLI. Use
 
 # cloudflare-tunnel
 
-CLI for managing Cloudflare Tunnel ingress rules and DNS records. One tunnel per machine, ingress rules synced from devportv2 config.
+CLI for managing Cloudflare Tunnel ingress rules and DNS records. One tunnel per machine, ingress rules synced from devportv3 config.
 
 ## Model
 
