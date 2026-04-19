@@ -5,6 +5,7 @@ import (
 	"io"
 	"os"
 	"os/exec"
+	"sort"
 	"strings"
 	"sync"
 	"syscall"
@@ -76,16 +77,32 @@ func (t *Tmux) NewSessionOrWindow(spawn TmuxSpawn) error {
 		window = "0"
 	}
 
-	// Build the shell command string with env injection
+	// Build the shell command string (no env injection — env is passed
+	// natively via tmux -e KEY=VAL args below).
 	shellCmd := t.buildShellCmd(spawn)
+	envArgs := envFlags(spawn.Env)
 
 	if !t.HasSession(spawn.Session) {
 		args := []string{"new-session", "-d", "-s", spawn.Session, "-n", window}
 		if spawn.CWD != "" {
 			args = append(args, "-c", spawn.CWD)
 		}
+		args = append(args, envArgs...)
 		args = append(args, shellCmd)
-		return t.run(args...)
+		err := t.run(args...)
+		if err == nil {
+			return nil
+		}
+		// Cross-process race: another caller created the session
+		// between HasSession and new-session. The in-process
+		// tmuxCreateMu only serializes goroutines in *this* process;
+		// two processes concurrently spawning their own supervisors
+		// (e.g. devportv3's detached sidecars) can both see
+		// HasSession==false and both try new-session. Fall through
+		// to the new-window path for the loser.
+		if !strings.Contains(err.Error(), "duplicate session") {
+			return err
+		}
 	}
 
 	// Session exists — check if window already exists
@@ -97,6 +114,7 @@ func (t *Tmux) NewSessionOrWindow(spawn TmuxSpawn) error {
 	if spawn.CWD != "" {
 		args = append(args, "-c", spawn.CWD)
 	}
+	args = append(args, envArgs...)
 	args = append(args, shellCmd)
 	return t.run(args...)
 }
@@ -107,6 +125,11 @@ func (t *Tmux) NewSessionOrWindow(spawn TmuxSpawn) error {
 // the dead child is replaced by a new spawn. `-k` kills any still-running
 // process first (in the normal restart flow there is none; the pane is
 // already at an exit prompt).
+//
+// Env handling: `respawn-pane` has no `-e` flag of its own. The respawned
+// process inherits the window's environment set via `-e` at new-window
+// time, which matches the "restart ≠ reconfigure" intuition — rerunning
+// the command does not re-seed env.
 func (t *Tmux) RespawnPane(target string, spawn TmuxSpawn) error {
 	shellCmd := t.buildShellCmd(spawn)
 	args := []string{"respawn-pane", "-k", "-t", target}
@@ -217,14 +240,30 @@ func (t *Tmux) output(args ...string) (string, error) {
 }
 
 func (t *Tmux) buildShellCmd(spawn TmuxSpawn) string {
-	var parts []string
-	for k, v := range spawn.Env {
-		parts = append(parts, fmt.Sprintf("export %s=%s;", k, shellQuote(v)))
-	}
+	parts := make([]string, 0, len(spawn.Cmd))
 	for _, arg := range spawn.Cmd {
 		parts = append(parts, shellQuote(arg))
 	}
 	return strings.Join(parts, " ")
+}
+
+// envFlags renders spawn.Env as tmux `-e KEY=VAL` argv in sorted key
+// order (reproducible output for tests and debugging). Returns an empty
+// slice when env is nil/empty.
+func envFlags(env map[string]string) []string {
+	if len(env) == 0 {
+		return nil
+	}
+	keys := make([]string, 0, len(env))
+	for k := range env {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+	out := make([]string, 0, 2*len(keys))
+	for _, k := range keys {
+		out = append(out, "-e", k+"="+env[k])
+	}
+	return out
 }
 
 func shellQuote(s string) string {
