@@ -35,6 +35,20 @@ One canonical entry-point doc per directory: `README.md`. `SKILL.md` is always a
   ## <next sub-item or body section>
   ...
   ```
+- When the fan-out is too big for per-item digests, the body (or a
+  section of it) compresses to a catalog — one line per entry, with
+  labelled `what:` / `when:` hooks:
+  ```
+  ## <Category>
+
+  - [path/to/thing/](path/to/thing/)
+    - what: <what it is and what it does — 20–30 words>
+    - when: <what should send an agent here — 20–30 words>
+
+  - [path/to/other-thing/](path/to/other-thing/)
+    - what: ...
+    - when: ...
+  ```
 - Create the symlink in the same commit as the README:
   ```bash
   cd <dir>
