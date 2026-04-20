@@ -1,24 +1,24 @@
 ---
 name: readme
-description: Write one canonical README.md per directory (symlinked as SKILL.md when the directory is also a skill). TLDR at the top, body in the middle, an optional index of links fanning out to deeper docs at the bottom. Use when creating a new README or updating one after code changes.
+description: Write one canonical README.md per directory, always carrying the SKILL-compat frontmatter (name + description) and always symlinked as SKILL.md. TLDR at the top, body in the middle, an optional index of links fanning out to deeper docs at the bottom. Use when creating a new README or updating one after code changes.
 ---
 
 # readme
 
-One canonical entry-point doc per directory: `README.md`. If the directory is also an agent skill, `SKILL.md` is a symlink to `README.md` — never a second real file. The reader should be able to use the thing by reading the top of the doc alone; everything deeper is linked out.
+One canonical entry-point doc per directory: `README.md`. `SKILL.md` is always a symlink to `README.md` — never a second real file. Every README carries YAML frontmatter (`name` + `description`) at the top — the "SKILL-compat header" — so any directory is discoverable as a skill without a separate decision about which ones "count." The reader should be able to use the thing by reading the top of the doc alone; everything deeper is linked out.
 
 ## TLDR
 
 - File layout per directory:
   ```
   foo/
-    README.md       # real file — frontmatter (if skill) + TLDR + body + (optional) index of links
-    SKILL.md        # symlink → README.md (only when foo is a skill)
+    README.md       # real file — frontmatter + TLDR + body + (optional) index of links
+    SKILL.md        # symlink → README.md
   ```
 - Document skeleton, top to bottom:
   ```
   ---
-  name: foo                # frontmatter, only when the dir is a skill
+  name: foo                # always — matches the directory name
   description: one line, what + when
   ---
 
@@ -35,7 +35,7 @@ One canonical entry-point doc per directory: `README.md`. If the directory is al
   ```
 - Create the symlink in the same commit as the README:
   ```bash
-  cd skills/foo
+  cd <dir>
   ln -s README.md SKILL.md
   ```
 
@@ -94,19 +94,19 @@ The fan-out format is a dial, not a switch: one-line + hook for small indexes, `
 
 ## Frontmatter and the SKILL.md symlink
 
-Skill directories need YAML frontmatter at the top of `README.md`:
+Every `README.md` carries YAML frontmatter at the top:
 
 ```yaml
 ---
-name: <skill-identifier>
-description: <one-liner — what the skill does + when to use it>
+name: <directory-name>
+description: <one-liner — what this thing does + when to use it>
 ---
 ```
 
 - `name` matches the directory name.
-- `description` is the string Claude's skill-matcher sees when deciding whether to load the skill. Write it as both a capability ("what it does") and a trigger ("when to use it") separated by a period. Specific keywords beat vague framing.
-- Frontmatter lives in `README.md`. `SKILL.md` is a symlink (`ln -s README.md SKILL.md`) so that agent-side skill loaders that look for `SKILL.md` by name still find it. `godzkilla` discovers skills via `rglob("SKILL.md")`, which matches the symlink by name; reading the file follows the symlink.
-- Non-skill directories just skip the frontmatter block.
+- `description` is the string Claude's skill-matcher sees when deciding whether to surface this doc. Write it as both a capability ("what it does") and a trigger ("when to use it") separated by a period. Specific keywords beat vague framing.
+- Every directory also gets a `SKILL.md` symlink pointing at `README.md` (`ln -s README.md SKILL.md`). This keeps any directory discoverable as a skill without having to decide up front which ones "count." `godzkilla` finds skills via `rglob("SKILL.md")`, which matches the symlink by name; reading the file follows the symlink.
+- Uniform discipline — no conditional "is this a skill?" branch. If a directory is worth a canonical README, it's worth being discoverable by the skill-matcher too.
 
 ## Updating an existing README
 
@@ -143,10 +143,10 @@ git commit -m "skills/foo: README-ify SKILL.md; symlink SKILL.md"
 
 **Starting a README from scratch**:
 
-- Write frontmatter (if skill), then `# <name>`, then `## TLDR` with a paragraph and one usage block.
+- Write frontmatter (`name: <dir>`, `description: <what> + <when>`), then `# <name>`, then `## TLDR` with a paragraph and one usage block.
 - Add body sections for anything a user needs beyond TLDR: `## Install`, `## Usage`, `## How it works`, `## Quirks`.
 - If there are sub-docs worth linking, add a final index section with one-line-plus-hook entries.
-- Symlink `SKILL.md → README.md` in the same commit if the directory is a skill.
+- Symlink `SKILL.md → README.md` in the same commit.
 
 **Examples already in this shape in `~/github.com/hayeah/dotfiles/skills/`**:
 
