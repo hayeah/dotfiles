@@ -1,6 +1,6 @@
 ---
 name: readme
-description: Write one canonical README.md per directory (symlinked as SKILL.md when the directory is also a skill) — TLDR at top, index of links below. Use when creating a new README, updating one after code changes, or curating a repo-root catalog that fans out to many sub-docs.
+description: Write one canonical README.md per directory (symlinked as SKILL.md when the directory is also a skill). TLDR at the top, body in the middle, an optional index of links fanning out to deeper docs at the bottom. Use when creating a new README or updating one after code changes.
 ---
 
 # readme
@@ -12,10 +12,10 @@ One canonical entry-point doc per directory: `README.md`. If the directory is al
 - File layout per directory:
   ```
   foo/
-    README.md       # real file — frontmatter (if skill) + TLDR + body + index of links
+    README.md       # real file — frontmatter (if skill) + TLDR + body + (optional) index of links
     SKILL.md        # symlink → README.md (only when foo is a skill)
   ```
-- Document structure, top to bottom:
+- Document skeleton, top to bottom:
   ```
   ---
   name: foo                # frontmatter, only when the dir is a skill
@@ -30,50 +30,14 @@ One canonical entry-point doc per directory: `README.md`. If the directory is al
   ## <body sections...>
   deeper docs, architecture, reference, quirks
 
-  ## <index of links>     # if the dir fans out to sub-docs / sub-libs / sub-skills
+  ## <index of links>     # only if the dir fans out to sub-docs worth linking
   - [path/to/sub-doc.md](path/to/sub-doc.md) — one-line hook on why you'd read this
   ```
-- Two patterns: **Plain** (most directories) and **Wiki** (repo roots that catalog many things). Same skeleton, different index format.
 - Create the symlink in the same commit as the README:
   ```bash
   cd skills/foo
   ln -s README.md SKILL.md
   ```
-
-## Patterns
-
-### Plain README
-
-For any directory: a skill, a library module, a tool, a repo that does one thing. The index-of-links section (if any) points at sub-guides, design specs, or related files; each link gets one-line + hook.
-
-Examples already in this shape in `~/github.com/hayeah/dotfiles/skills/`:
-
-- [cloudflare-tunnel/](../cloudflare-tunnel/README.md) — body-heavy, no sub-docs, no index section needed
-- [tmuxcap/](../tmuxcap/README.md) — installation + usage + formats
-- [plist/](../plist/README.md) — richer reference-style body
-- [gobin/](../gobin/README.md) — TLDR-style quickstart up top
-
-### Wiki README
-
-For a repo root (or any directory) that catalogs many documented things — per-language style guides, personal tools, design specs, third-party recipes. Same skeleton, but the index-of-links section is the bulk of the doc and uses a richer format.
-
-Example: `~/github.com/hayeah/dotfiles/INDEX.md` is a Wiki-style catalog today. The same discipline applies whether it's named `INDEX.md` or lives under a `## Catalog` section inside a `README.md`.
-
-Wiki-pattern index rules — keep these even as they migrate between files:
-
-- Five fixed categories (raise the bar for a sixth): **Coding Conventions**, **Personal Tools**, **Opensource Tools**, **Research Notes**, **Design Specs**.
-- Flat list — a skill and its sub-guides are siblings, not nested children. The only nested bullets are `what:` and `when:`.
-- Each entry:
-  ```markdown
-  - [<full/path/to/doc>](<full/path/to/doc>)
-    - what: <what it is and what it does — 20–30 words>
-    - when: <situations that should send an agent to this entry — 20–30 words>
-  ```
-- Full repo-relative path in the link text (show the location at a glance).
-- `what`: the "is" half identifies the kind (library, CLI, style guide, design doc); the "does" half names the capability.
-- `when`: concrete decision triggers. Drop the generic "Use when…" preamble; lead with the actual moment of need.
-- Sentence-case. No trailing period on `what`/`when` lines.
-- Repo-relative links inside the repo; full `https://github.com/...` URL for external repos.
 
 ## The TLDR section
 
@@ -81,13 +45,17 @@ Wiki-pattern index rules — keep these even as they migrate between files:
 - Contents: one short paragraph stating what the thing is + one or two minimal, copy-pasteable usage examples. If install is a one-liner, it can fit inside TLDR; otherwise put it in a separate `## Install` section below.
 - **A reader who only ever reads TLDR should be able to use the thing.** That's the bar. If that's impossible, the TLDR is wrong (or the thing is too broad — split it).
 - Absence of TLDR means "this README hasn't been reshaped yet." It is **not** a deliberate "low importance" signal. Agents should read the whole doc when no TLDR is present, not skip the doc.
-- When updating a README, the TLDR is the part most likely to stay stable. If the TLDR changes meaningfully, the thing's API surface or purpose changed — flag it in the commit message.
+- When updating a README, the TLDR is the part most likely to stay stable. If the TLDR changes meaningfully, the thing's API surface or purpose changed — flag that in the commit message.
+
+## Body
+
+Everything a reader needs beyond TLDR: install, usage reference, architecture, quirks, known pitfalls. Structure with `##` section headers. No rules here beyond "write what the reader actually needs" — body shape varies by subject matter.
 
 ## Index of links
 
-For any README whose directory fans out to sub-docs or sub-libs worth linking.
+Below the body, optionally, list sub-docs / sub-guides / sub-libs / design specs / related files worth inducing on-demand reading of. One README per directory; an index-of-links section is how the canonical README fans out to everything else.
 
-**Plain pattern** — one line + hook per entry:
+Each entry is a link + a one-line hook on why you'd read it:
 
 ```markdown
 ## Deeper reading
@@ -96,11 +64,33 @@ For any README whose directory fans out to sub-docs or sub-libs worth linking.
 - [docs/protocol.md](docs/protocol.md) — Wire-format spec for the agent-side tap API
 ```
 
-The hook is the "why you'd read this" induced read — a single short sentence, no period, no generic "about X" phrasing.
+Rules:
 
-**Wiki pattern** — the `what:` / `when:` nested format under category headers. See [Wiki README](#wiki-readme) above.
+- The hook is a single short sentence. No period. No generic "about X" phrasing — state the actual reason to read.
+- Link text uses the repo-relative path (show location at a glance).
+- Heading name is whatever fits the content: `## Deeper reading`, `## Sub-guides`, `## Catalog`, `## Related`. Pick one, don't agonize.
 
-**Rule of thumb**: if the README lists more than ~5 sub-docs and readers care about discovering by topic, use Wiki. Otherwise Plain. You can mix — a Plain README can still have a Wiki-style section near the bottom if one sub-area genuinely fans out.
+### When the fan-out is a large catalog
+
+If the index grows past ~5 entries and readers will discover by topic, richen the format: group under category headers and use `what:` / `when:` nested bullets per entry. The classic shape (live instance: `~/github.com/hayeah/dotfiles/INDEX.md`):
+
+```markdown
+## <Category>
+
+- [<full/path/to/doc>](<full/path/to/doc>)
+  - what: <what it is and what it does — 20–30 words>
+  - when: <situations that should send an agent here — 20–30 words>
+```
+
+- Flat list within a category. A skill and its sub-guides are siblings, not nested children. The only nested bullets are `what:` and `when:`.
+- `what`: the "is" half identifies the kind (library, CLI, style guide, design doc); the "does" half names the capability.
+- `when`: concrete decision triggers. Drop the generic "Use when…" preamble; lead with the actual moment of need.
+- 20–30 words each — shorter is too sparse, longer means the hook is doing the linked doc's job.
+- Sentence-case. No trailing period on `what`/`when` lines.
+- Repo-relative links for targets inside the repo; full `https://github.com/...` URL for external repos.
+- Five conventional categories for a user-wide catalog: **Coding Conventions**, **Personal Tools**, **Opensource Tools**, **Research Notes**, **Design Specs**. Raise the bar for a sixth (≥3 entries with no natural home).
+
+The fan-out format is a dial, not a switch: one-line + hook for small indexes, `what:`/`when:` for large catalogs, continuum in between. Same section in the same doc, same canonical shape — it just gets more structure as the linked surface grows.
 
 ## Frontmatter and the SKILL.md symlink
 
@@ -134,13 +124,13 @@ git diff <last-readme-commit>..HEAD -- <subpath>
 - Scope with the subpath — for `skills/foo/README.md`, use `skills/foo/` as the subpath.
 - If the README is at repo root, drop the subpath filter (use all commits since).
 - Read the diff, then update the README to reflect the changes. TLDR usually stays; body sections and index entries are the parts that drift.
-- For a Wiki README, also check whether any catalog entries point to files that were renamed or deleted (`git log --diff-filter=D --name-only <last>..HEAD -- <subpath>`). Broken links in a catalog are worse than no entry.
+- If there's a large-catalog index, also check whether any catalog entries point to files that were renamed or deleted (`git log --diff-filter=D --name-only <last>..HEAD -- <subpath>`). Broken links in a catalog are worse than no entry.
 
 Commit the README update alongside the work that caused it when possible — otherwise in a dedicated follow-on commit.
 
 ## Worked examples
 
-**Converting a SKILL-only skill to the target shape**:
+**Converting a SKILL-only skill to the canonical shape**:
 
 ```bash
 cd skills/foo
@@ -151,17 +141,23 @@ git add README.md SKILL.md
 git commit -m "skills/foo: README-ify SKILL.md; symlink SKILL.md"
 ```
 
-**Starting a Plain README from scratch**:
+**Starting a README from scratch**:
 
 - Write frontmatter (if skill), then `# <name>`, then `## TLDR` with a paragraph and one usage block.
 - Add body sections for anything a user needs beyond TLDR: `## Install`, `## Usage`, `## How it works`, `## Quirks`.
-- If there are sub-docs worth linking, add a final `## Deeper reading` section with one-line-plus-hook entries.
+- If there are sub-docs worth linking, add a final index section with one-line-plus-hook entries.
 - Symlink `SKILL.md → README.md` in the same commit if the directory is a skill.
 
-**Dogfood**: this skill's own README (the file you're reading) follows its own rules — labeled `## TLDR` at the top, one-line-plus-hook format for internal links in the worked-examples list, frontmatter with name + description, `SKILL.md` symlinked to this file.
+**Examples already in this shape in `~/github.com/hayeah/dotfiles/skills/`**:
+
+- [cloudflare-tunnel/](../cloudflare-tunnel/README.md) — body-heavy reference, no index section needed
+- [tmuxcap/](../tmuxcap/README.md) — installation + usage + formats
+- [plist/](../plist/README.md) — richer reference-style body
+- [gobin/](../gobin/README.md) — TLDR-style quickstart up top
+
+**Dogfood**: this skill's own README (the file you're reading) follows its own rules — labeled `## TLDR` at the top, one-line-plus-hook format for the worked-example links above, frontmatter with name + description, `SKILL.md` symlinked to this file.
 
 ## What this skill doesn't do
 
 - Does not cover `$MDNOTES_ROOT/<date>/` ad-hoc notes — that's the [mdnote](../mdnote/SKILL.md) skill, different purpose.
-- Does not auto-update READMEs — the update workflow above is a prompt-driven manual pass. A `/update-readme` slash command could wrap it; not provided here.
 - Does not retire or replace the legacy [readme-skill](../readme-skill/SKILL.md) / [indexmd](../indexmd/SKILL.md) skills; they coexist for now. When working on documentation tasks, prefer this skill.
