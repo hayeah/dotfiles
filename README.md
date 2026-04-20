@@ -8,11 +8,7 @@ description: Personal dev environment — dotfile management, tool pinning, shel
 Personal development environment for macOS. Manages shell configuration, tool versions, git setup, AI agent skills, and cross-language convention libraries across Claude, Codex, and OpenClaw. Also the wiki root — the catalog at the bottom points at everything documented across the user's setup.
 
 - [Surprising defaults](#surprising-defaults) — three patterns agents should reach for by default
-- [Install](#install) — first-time setup pointer
-- [Architecture](#architecture) — repo layout at a glance
-- [DotfileStow](#dotfilestow) — how `dotfiles/` becomes `$HOME`
-- [pymake tasks](#pymake-tasks) — full-refresh pipeline
-- [Skill sync](#skill-sync) — how skills reach agent dirs
+- [Hacking](#hacking) — install + editing the repo (architecture, DotfileStow, pymake, skill sync, shell config, mise)
 - [Catalog](#coding-conventions) — the five-category wiki index (Coding Conventions, Personal Tools, Opensource Tools, Research Notes, Design Specs)
 
 ## Surprising defaults
@@ -23,150 +19,20 @@ Most of this repo is conventional. A few patterns, though, are homebrewed and li
 - **Use [`pymake` + `Makefile.py`](https://github.com/hayeah/pymake) in place of `make` + `Makefile`.** Tasks are Python with `tree_digest`-based change detection for incremental rebuilds and parallel execution by default. Reach for `pymake <task>`, not `make <task>`.
 - **One global reactive store + an agent-driven `__tap__` surface**, applied identically in [webui](skills/webui/guides/mobx-global-state.md) (MobX `AppStore`) and [SwiftUI](skills/swiftui/guides/swiftui-state.md) (observable root). All non-ephemeral state lives in one tree; agents drive the UI by mutating that tree from outside — [`browser eval` against `window.__tap__`](skills/webui/guides/web-tap-api.md) on the web, [SwiftUITap](skills/swiftui/guides/swiftui-tap.md) on iOS/macOS — not by simulating taps. `useState` / local state is reserved for ephemeral view concerns.
 
-## Install
+## Hacking
 
-See [INSTALL.md](INSTALL.md). Assumes [mise](https://mise.jdx.dev/) is already installed; after cloning and filling in `.dotfiles.toml`, `pymake` runs the full refresh.
+Editing the repo itself — architecture, plumbing, and refresh pipeline — lives in [HACK.md](HACK.md):
 
-## Architecture
+- **Architecture** — repo layout (`dotfiles/`, `skills/`, `libs/`, `docs/`, `Makefile.py`, `AGENTS.md`)
+- **DotfileStow** — how `dotfiles/` becomes `$HOME` (plain / `.tmpl` / `.symlink` conventions)
+- **pymake tasks** — `pymake` runs `dotfiles` + `tmux_plugins` + `mise` + `skills`
+- **Skill sync** — godzkilla fans out from 4 source repos to `~/.claude/`, `~/.codex/`, `~/.openclaw/`
+- **Shell configuration** — `.zshenv` / `.zprofile` / `.zshrc` split, key env vars (`GITHUB_REPOS`, `MDNOTES_ROOT`, …)
+- **Git aliases** — shorthand from `.gitconfig.tmpl`
+- **Tool management** — mise-pinned tools in `dotfiles/.config/mise/config.toml`
+- **Agent configuration** — how `AGENTS.md` reaches each agent's config dir
 
-```
-dotfiles/              Managed dotfiles (symlinked to $HOME)
-  .zshrc, .zshenv      Shell config
-  .zsh_inits/          Modular shell init (antigen, fzf, zoxide, p10k, etc.)
-  .tmux.conf           tmux config
-  .gitconfig.tmpl      Git config (templated with .dotfiles.toml vars)
-  .config/mise/        Tool version pinning
-  .claude/, .codex/    Agent configs (CLAUDE.md symlinks to AGENTS.md)
-skills/                20+ reusable agent skills
-libs/                  Cross-language convention libraries (Python, TS, Go)
-docs/                  Durable design specs
-Makefile.py            pymake orchestration
-dotfile_stow.py        Custom symlink manager
-.dotfiles.toml         Template variables (gitName, gitEmail)
-AGENTS.md              Master AI agent instructions (symlinked into all agent configs)
-```
-
-## DotfileStow
-
-Custom lightweight alternative to chezmoi. Files in `dotfiles/` are processed by convention:
-
-- **Plain files** — Symlinked directly to `$HOME` (e.g. `dotfiles/.zshrc` -> `~/.zshrc`)
-- **`.tmpl` files** — Rendered via `string.Template` substitution, then written (e.g. `.gitconfig.tmpl` -> `~/.gitconfig`). Variables come from `.dotfiles.toml` `[vars]` section.
-- **`.symlink` files** — Content is read as a relative symlink target (e.g. `CLAUDE.md.symlink` containing `../../AGENTS.md`)
-
-```bash
-# Apply dotfiles (dry run)
-pymake dotfiles --vars dotfiles.dry=true
-
-# Apply dotfiles (first time — overwrite existing)
-pymake dotfiles --vars dotfiles.force=true
-
-# Apply dotfiles (incremental — skips conflicts)
-pymake dotfiles
-```
-
-Conflict handling: if a target already exists and doesn't match, DotfileStow prints `SKIP` unless `--force` is set.
-
--> [spec](docs/dotfile-stow-design.md) | [skill](skills/dotfiles/SKILL.md)
-
-## pymake tasks
-
-`Makefile.py` defines the full refresh pipeline:
-
-```bash
-# Full refresh: dotfiles + tmux plugins + mise install + skill sync
-pymake
-
-# Individual tasks
-pymake dotfiles                              # Symlink dotfiles into $HOME
-pymake dotfiles --vars dotfiles.force=true   # Force-overwrite conflicts
-pymake tmux_plugins                          # Clone tmux-sensible if missing
-pymake mise                                  # Install pinned tools
-pymake skills                                # Sync skills to agent directories
-pymake skills --vars skills.dry=true         # Preview skill sync
-```
-
-The `default` task runs all of the above in sequence.
-
-## Skill sync
-
-Skills are synced from multiple source repos into agent-specific directories via [godzkilla](https://github.com/hayeah/godzkilla):
-
-**Sources:**
-- `github.com/hayeah/dotfiles/skills` — main skill collection
-- `github.com/hayeah/devport` — dev service management
-- `github.com/hayeah/godzkilla` — skill manager itself
-- `github.com/hayeah/pymake` — build tool
-
-**Destinations:**
-- `~/.claude/skills/`
-- `~/.codex/skills/`
-- `~/.openclaw/skills/`
-
-## Shell configuration
-
-Zsh init is split across three files by shell type:
-
-- `.zshenv` — All shells. Sets PATH, env vars, activates mise.
-- `.zprofile` — Login shells only. Language toolchain paths (Go, Rust, etc.).
-- `.zshrc` — Interactive shells. Loads modules via a timed `_init` function that sources `~/.zsh_inits/<name>` (p10k, antigen, fzf, zoxide, bun, orbstack).
-
-Key environment variables set in `.zshenv`:
-
-```bash
-GITHUB_REPOS=~                   # git-quick-clone resolves repos under ~/
-GODZKILLA_PATH=~                 # godzkilla resolves repos under ~/
-DROPBOX_ROOT=~/Dropbox           # Cloud storage root
-MDNOTES_ROOT=$DROPBOX_ROOT/notes # Markdown notes
-OUTPUT_ROOT=$DROPBOX_ROOT/output # Task output artifacts
-```
-
--> [dotfiles/.zshrc](dotfiles/.zshrc) | [dotfiles/.zshenv](dotfiles/.zshenv) | [dotfiles/.zsh_inits/](dotfiles/.zsh_inits/)
-
-## Git aliases
-
-Extensive shorthand from `.gitconfig.tmpl` — highlights:
-
-```
-s = status           c = commit            b = branch
-co = checkout        com = checkout master  l = log (pretty)
-p = push             po = push origin       pom = push origin master
-ap = add -p          ai = add --interactive
-ca = commit --amend  cam = commit -am
-z = rebase           zc = rebase --continue
-rhom = reset --hard origin/master
-```
-
--> [dotfiles/.gitconfig.tmpl](dotfiles/.gitconfig.tmpl)
-
-## Tool management (mise)
-
-Pinned tools in `dotfiles/.config/mise/config.toml`:
-
-```
-bat, bun, duckdb, fd, fzf, gh, go, godotenv, mise, neovim,
-node, pnpm, python, tmux, uv, zoxide, cloudflared, foundry
-```
-
-Run `mise install` (or `pymake mise`) to install all pinned versions.
-
--> [dotfiles/.config/mise/config.toml](dotfiles/.config/mise/config.toml)
-
-## Agent configuration
-
-`AGENTS.md` is the master instruction file for AI agents. It's symlinked into `~/.claude/CLAUDE.md` (via `dotfiles/.claude/CLAUDE.md.symlink`), `~/.codex/AGENTS.md`, and `~/.openclaw/AGENTS.md`.
-
-Key conventions from `AGENTS.md`:
-- Use `uv` + Python for ad-hoc scripting
-- Secrets in `~/.env.secret` — agents must never read this directly
-- Use `godotenv -o -f ~/.env.secret,.env` to load secrets
-- Output artifacts go to `$OUTPUT_ROOT/<date>/<taskName>`
-- Default git branch is `master`
-- Repos live at `~/github.com/<user>/<repo>`
-
--> [AGENTS.md](AGENTS.md)
-
-## Maintenance
+## Catalog format
 
 Shape and grading discipline: [skills/readme/](skills/readme/SKILL.md). One canonical README per directory, every item graded AAA/AA/A, size budget forces the ranking. Catalog entries below use the same `what:` / `when:` flat-list format under the five fixed categories.
 
