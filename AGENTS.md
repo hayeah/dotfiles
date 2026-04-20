@@ -44,15 +44,6 @@ If writing more than ~15 lines:
   - `godotenv -f ~/.env.secret uv run --with cloudflare python`
     - If you need access tokens in the script
 
-## Dotfiles
-
-- Make changes directly to the dotfiles repo at `~/github.com/hayeah/dotfiles`.
-- Run `pymake` in `~/github.com/hayeah/dotfiles` to fully refresh.
-  - It runs these tasks automatically — no need to invoke them manually:
-  - `dotfiles` — symlinks `dotfiles/` into `$HOME` via `dotfile_stow.py`
-  - `mise install` — installs any new tools
-  - `godzkilla sync` — syncs agent skills
-
 # Personal Peeves
 
 Petty, I Know. But IMPORTANT for my happiness.
@@ -127,23 +118,6 @@ git-quick-clone github.com/user/repo
 - Install and launch on sim: `xcrun simctl install booted <app-path> && xcrun simctl launch booted <bundle-id>`
 - Use `xcrun simctl list devices available` to find simulator UDIDs
 - Deployment target: iOS 26.0 (for liquid glass APIs)
-
-## Dev Ports
-
-Use `devport` to find free ports for one-off CLI testing (e.g. spinning up a dev server to verify a fix). When done, close the services — these are temporary, not long-running. Do NOT let tools like Vite pick their own ports — they may silently increment if their default is taken, making the port unpredictable for other tools (e.g. devport registration, Cloudflare tunnels).
-
-```bash
-# Assign a known free port to Vite
-VITE_PORT=$(devport) vite --port $VITE_PORT
-
-# Pass a free port to any server
-some-server --port $(devport)
-```
-
-- `devport` prints the first free port to stdout (for `$()` substitution) and all 3 to stderr.
-- `-r 20000-30000` — search within a specific range.
-- `-r 20000` — search starting from a port.
-- Always pass the port explicitly to the tool. Never rely on a tool's default port auto-selection.
 
 ## Env & Secrets
 
