@@ -79,7 +79,7 @@ Content lives fully in the README body. No link to follow; the reader reads it h
 - The one gotcha that would otherwise get re-discovered via a stack trace.
 - The install/setup one-liner.
 
-AAA is the dominant grade for a leaf-shape README — when the directory documents one thing, most of the body ends up AAA.
+AAA tends to dominate when the directory's contents are small or tightly coupled enough to cover end-to-end without distinguishing into separate items — the body is mostly inlined commentary rather than per-item digests or pointers.
 
 **Quick-link list at the top.** Directly below the orientation paragraph, include a short bulleted list of the README's AAA items — one line per item, linking to its `##` anchor with a one-line hook. A mini-TOC of the hot path so the reader can jump straight to what they need instead of scanning:
 
@@ -140,11 +140,11 @@ An A entry still has to orient the reader ("which of these should I reach for?")
 
 ### Typical grade distributions
 
-The grade mix varies with the directory's fan-out:
+The README is commentary on what's in the directory — whatever that is, coherent or kitchen-sink. Coherence level doesn't change the grading discipline; it just changes the mix of grades the README ends up with:
 
-- **Single-thing directory**: almost all AAA — the README inlines the whole concept end-to-end. Overflow (design notes, full reference) goes to sub-docs linked inline from the AAA body, treated as one-off A entries.
-- **Small-hub directory** (a handful of sub-things): AAA for shared orientation + AA blocks per sub-thing.
-- **Large-hub / wiki-root** (many sub-things): AAA for the orientation paragraph + mostly A entries grouped under categories, with a few AA blocks for the most-used sub-things that earn the bigger digest.
+- **Small or tightly-coupled contents** (one tool, one library module, a few closely-related files): mostly AAA — the README inlines most of the commentary end-to-end because there's little to distinguish into separate items. Any overflow (design notes, full reference) goes to sub-docs linked inline from the body as one-off A entries.
+- **Several distinguishable items** (a handful of sub-things worth their own section): AAA for shared orientation + AA blocks per item. Classic hub shape.
+- **Many loosely-related items** (wiki root, kitchen-sink collection): AAA for orientation + mostly A catalog entries grouped under categories, with a few AA blocks for the items hot enough to earn the bigger digest.
 
 Any real README can mix all three. The grading is per-item; the shape emerges from the mix.
 
