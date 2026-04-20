@@ -315,3 +315,43 @@ browser screenshot --open http://localhost:5173 \
 ```
 
 Full reference: [Web Tap API Guide](guides/web-tap-api.md)
+
+## `/preview` Route
+
+**TLDR**: Dedicate a `/preview` route to render the same views against a `MockDataSource` so you can iterate on pure UI without the backend. Views depend only on a `DataSource` interface; `MockDataSource` and `LiveDataSource` both implement it. Expose the mock's mutators on `window.__tap__` so the agent can drive any state via `browser eval`.
+
+```tsx
+// App.tsx
+<Switch>
+  <Route path="/preview" component={Preview} />
+  <Route><Live /></Route>
+</Switch>
+
+// data/tasks.ts — one interface, two implementations
+export interface DashboardDataSource {
+  tasks: TaskItem[];
+  fetchWorklog(slug: string): Promise<string | null>;
+}
+
+// previews/Preview.tsx — mock + tap mutators, render the shared view tree
+const ds = new MockDataSource();
+window.__tap__ = {
+  get tasks() { return ds.tasks; },
+  addTask(t) { ds.addTask(t); refresh(); },
+  setTaskStatus(slug, status) { ds.setTaskStatus(slug, status); refresh(); },
+};
+```
+
+```bash
+browser open http://localhost:5173/preview        # session a3f2
+browser eval -s a3f2 '__tap__.setTaskStatus("foo", { type: "running" })'
+browser screenshot -s a3f2 -o "$(tmpfile running.png)"
+```
+
+Key rules:
+- **No imports from `data/mock.ts` inside `views/`** — views depend only on the `DataSource` interface and domain types
+- **Share the render tree** between `Preview.tsx` and `Live.tsx` — the data source is the only difference
+- **Mutators call `refresh()`** so plain-React components re-read the mock (MobX observers re-render for free)
+- **Fixtures cover edge cases** — empty, loading, failed, long strings, dark mode
+
+Full reference: [`/preview` Route Guide](guides/preview-route.md)
