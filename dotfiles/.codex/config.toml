@@ -19,7 +19,7 @@ trust_level = "trusted"
 [projects."/Users/me/github.com/hayeah/dotfiles"]
 trust_level = "trusted"
 
-[projects."/Users/me/github.com/hayeah/devportv2"]
+[projects."/Users/me/github.com/hayeah/devportv3"]
 trust_level = "trusted"
 
 [projects."/Users/me/github.com/hayeah/agentproxy"]
@@ -44,6 +44,126 @@ trust_level = "trusted"
 trust_level = "trusted"
 
 [projects."/Users/me/Dropbox/notes/2026-04-08/tmp/144454.710-codex-watcher-smoke"]
+trust_level = "trusted"
+
+[projects."/Users/me/github.com/hayeah/reader-swiftui"]
+trust_level = "trusted"
+
+[projects."/Users/me/Dropbox/boss/persist-scroll-position-in-book-reading-sessions"]
+trust_level = "trusted"
+
+[projects."/Users/me/Dropbox/boss/swiftuitap-multi-device-support"]
+trust_level = "trusted"
+
+[projects."/Users/me/Dropbox/boss/resource-leasing-agentboss-lease-worktree-refactor-ios-simulator"]
+trust_level = "trusted"
+
+[projects."/private/tmp"]
+trust_level = "trusted"
+
+[projects."/Users/me/Dropbox/boss/fix-codex-spawn-reliability-in-agentboss"]
+trust_level = "trusted"
+
+[projects."/Users/me/github.com/hayeah/agentboss"]
+trust_level = "trusted"
+
+[projects."/Users/me/Dropbox/boss/refactor-agentboss-to-use-libs-hayeah-go-supervisor"]
+trust_level = "trusted"
+
+[projects."/Users/me/Dropbox/boss/incremental-tree-digest-with-per-file-sqlite-cache"]
+trust_level = "trusted"
+
+[projects."/Users/me/Dropbox/boss/fix-dashboard-v2-boss-terminal-not-connecting-to-boss-pty"]
+trust_level = "trusted"
+
+[projects."/Users/me/Dropbox/boss/redo-tree-digest-cache-with-merkle-tree-of-directory-hashes"]
+trust_level = "trusted"
+
+[projects."/Users/me/Dropbox/boss/remove-sqlite-caching-from-tree-digest-in-pymake"]
+trust_level = "trusted"
+
+[projects."/Users/me/Dropbox/boss/fix-directory-safety-prompts-when-spawning-agents-in-new-cwd"]
+trust_level = "trusted"
+
+[projects."/private/var/folders/3t/69zn6xzd2kj3n4kgj72x_fk80000gn/T/agentboss-fresh-4246515032"]
+trust_level = "trusted"
+
+[projects."/private/var/folders/3t/69zn6xzd2kj3n4kgj72x_fk80000gn/T/agentboss-fresh-1322868629"]
+trust_level = "trusted"
+
+[projects."/private/var/folders/3t/69zn6xzd2kj3n4kgj72x_fk80000gn/T/agentboss-fresh-1543474233"]
+trust_level = "trusted"
+
+[projects."/Users/me/Dropbox/boss/fix-tmux-buffer-history-not-captured-for-lgtm-d-sessions"]
+trust_level = "trusted"
+
+[projects."/Users/me/Dropbox/boss/move-tmux-history-capture-to-well-known-location"]
+trust_level = "trusted"
+
+[projects."/Users/me/Dropbox/boss"]
+trust_level = "trusted"
+
+[projects."/Users/me/Dropbox/boss/tasks/b2-chunked-video-mvp-phases-1-3"]
+trust_level = "trusted"
+
+[projects."/Users/me/Dropbox/boss/tasks/fix-b2cast-segment-duration-order-mismatch"]
+trust_level = "trusted"
+
+[projects."/Users/me/Dropbox/boss/tasks/add-b2cast-probe-verb-survey-snos-source-gop-structure"]
+trust_level = "trusted"
+
+[projects."/Users/me/Dropbox/boss/tasks/refactor-b2cast-webui-into-mobx-react-app"]
+trust_level = "trusted"
+
+[projects."/Users/me/Dropbox/boss/tasks/b2cast-self-cleanup-lifecycle-rule-publish-side-hard-delete-gc-verb"]
+trust_level = "trusted"
+
+[projects."/Users/me/Dropbox/boss/tasks/design-thumbnail-sprite-gen-for-b2cast"]
+trust_level = "trusted"
+
+[projects."/Users/me/Dropbox/boss/tasks/redesign-b2cast-webplayer-v2-components-nerd-mode-keyboard"]
+trust_level = "trusted"
+
+[projects."/Users/me/Dropbox/boss/tasks/add-srt-subtitle-support-to-v2-webplayer-preview-first-then-rfc"]
+trust_level = "trusted"
+
+[projects."/Users/me/Dropbox/boss/tasks/reorganize-b2cast-bucket-layout-into-typed-subdirectories"]
+trust_level = "trusted"
+
+[projects."/Users/me/Dropbox/boss/tasks/add-hover-preview-thumbnails-to-v2-player-preview-numbered-test-sprites-rfc"]
+trust_level = "trusted"
+
+[projects."/Users/me/Dropbox/boss/tasks/make-job-id-idempotent-per-source-add-salt-flag-for-testing"]
+trust_level = "trusted"
+
+[projects."/Users/me/Dropbox/boss/tasks/flatten-thumbnails-publish-a-per-job-manifest-json"]
+trust_level = "trusted"
+
+[projects."/Users/me/Dropbox/boss/tasks/fix-planner-segment-id-collision-on-short-adaptive-segments"]
+trust_level = "trusted"
+
+[projects."/Users/me/Dropbox/boss/tasks/teach-go-publisher-to-handle-variable-duration-adaptive-plans"]
+trust_level = "trusted"
+
+[projects."/Users/me/Dropbox/boss/tasks/per-segment-ffmpeg-for-variable-duration-plans-parallel-go-fix"]
+trust_level = "trusted"
+
+[projects."/Users/me/Dropbox/boss/tasks/simplify-plan-execution-hardcode-hls-time-2-drop-near-uniform-guardrail"]
+trust_level = "trusted"
+
+[projects."/Users/me/Dropbox/boss/tasks/investigate-boss-add-boss-nudge-heredoc-stdin-hang"]
+trust_level = "trusted"
+
+[projects."/Users/me/Dropbox/boss/tasks/snap-webplayer-scrub-to-thumbnail-cadence"]
+trust_level = "trusted"
+
+[projects."/Users/me/Dropbox/boss/tasks/research-spec-b2upload-general-dir-b2-uploader-with-content-addressed-change-detection"]
+trust_level = "trusted"
+
+[projects."/Users/me/Dropbox/boss/tasks/investigate-fix-codex-detector-log-flush-delay/tmp/codex-repro/tmp/codex-repro"]
+trust_level = "trusted"
+
+[projects."/Users/me/Dropbox/boss/tasks/investigate-fix-codex-detector-log-flush-delay/tmp/codex-repro"]
 trust_level = "trusted"
 
 [plugins."github@openai-curated"]
