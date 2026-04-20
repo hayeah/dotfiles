@@ -168,8 +168,7 @@ Key conventions from `AGENTS.md`:
 
 ## Maintenance
 
-- **This README** — shape and grading discipline: [skills/readme/](skills/readme/SKILL.md). One canonical README per directory, every item graded AAA/AA/A, size budget forces the ranking.
-- **Catalog entries** — `what:` / `when:` format: [skills/indexmd/](skills/indexmd/SKILL.md). Flat-list entries under the five fixed categories below.
+Shape and grading discipline: [skills/readme/](skills/readme/SKILL.md). One canonical README per directory, every item graded AAA/AA/A, size budget forces the ranking. Catalog entries below use the same `what:` / `when:` flat-list format under the five fixed categories.
 
 ---
 
@@ -322,15 +321,9 @@ Tools the user built — unlikely to be in agent training sets, so the link is l
 - [skills/readme/SKILL.md](skills/readme/SKILL.md)
   - what: Canonical-README discipline — one README per directory with SKILL-compat frontmatter and SKILL.md symlink, every covered item graded AAA/AA/A (inlined / digested+pointer / pointer), size budget forces the ranking
   - when: Writing a new README from scratch or updating an existing one after code changes — gives the grade rubric, the frontmatter+symlink recipe, and the git-log-subpath incremental workflow
-- [skills/readme-skill/SKILL.md](skills/readme-skill/SKILL.md)
-  - what: Generate an agent-friendly `README.md` / `SKILL.md` for a repo — explores first, writes structured docs with YAML frontmatter, use cases, and quirks. Symlinks `SKILL.md → README.md` so both work
-  - when: Adding documentation to one of the user's repos (or updating an existing README incrementally) so it's structured for LLM consumption from the start instead of being retrofitted later
 - [skills/dotfiles/SKILL.md](skills/dotfiles/SKILL.md)
   - what: DotfileStow — the symlink manager that processes `dotfiles/` into `$HOME`. Plain files symlink directly, `.tmpl` files render with `[vars]` from `.dotfiles.toml`, `.symlink` files become relative symlinks
   - when: Adding new dotfiles to the repo, debugging why a symlink/template didn't materialize as expected, or resolving a "skipped due to conflict" message after running `pymake dotfiles`
-- [skills/indexmd/SKILL.md](skills/indexmd/SKILL.md)
-  - what: How to maintain the wiki catalog in this README — flat-list format with `what:` / `when:` labelled sub-bullets, the five fixed categories, full-path links
-  - when: Adding, removing, or restructuring catalog entries below, or making format changes that need to land consistently in both this README and `skills/indexmd/SKILL.md`
 
 ## Opensource Tools
 
