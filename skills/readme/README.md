@@ -1,18 +1,20 @@
 ---
 name: readme
-description: Write one canonical README.md per directory, always carrying the SKILL-compat frontmatter (name + description) and always symlinked as SKILL.md. TLDR at the top, body in the middle, an optional index of links fanning out to deeper docs at the bottom. Use when creating a new README or updating one after code changes.
+description: Write one canonical README.md per directory — always with SKILL-compat frontmatter (name + description) and always symlinked as SKILL.md. The README saturates normal-use needs for the directory and everything in it; sub-docs are read on demand, only when the reader needs more detail than the README provides. Use when creating a new README or updating one after code changes.
 ---
 
 # readme
 
-One canonical entry-point doc per directory: `README.md`. `SKILL.md` is always a symlink to `README.md` — never a second real file. Every README carries YAML frontmatter (`name` + `description`) at the top — the "SKILL-compat header" — so any directory is discoverable as a skill without a separate decision about which ones "count." The reader should be able to use the thing by reading the top of the doc alone; everything deeper is linked out.
+One canonical entry-point doc per directory: `README.md`. `SKILL.md` is always a symlink to `README.md` — never a second real file. Every README carries YAML frontmatter (`name` + `description`) at the top — the SKILL-compat header — so any directory is discoverable as a skill without a separate decision about which ones "count."
+
+**The README saturates normal-use needs** for the directory and everything it contains. When a directory has sub-docs (or sub-modules, sub-skills, sub-guides), the README absorbs enough of each of them — concept, minimal usage, inline pointer — that the reader only follows a sub-doc link when they need overflow detail (full API reference, edge cases, design rationale). The README is the primary layer; sub-docs are the second layer, read on demand.
 
 ## TLDR
 
 - File layout per directory:
   ```
   foo/
-    README.md       # real file — frontmatter + TLDR + body + (optional) index of links
+    README.md       # real file — frontmatter + body that absorbs the sub-tree
     SKILL.md        # symlink → README.md
   ```
 - Document skeleton, top to bottom:
@@ -24,14 +26,14 @@ One canonical entry-point doc per directory: `README.md`. `SKILL.md` is always a
 
   # foo
 
-  ## TLDR
-  one paragraph + minimal usage example — the API surface a reader needs to use this
+  <short orientation — 1–3 lines, the 30-second pitch of the directory>
 
-  ## <body sections...>
-  deeper docs, architecture, reference, quirks
+  ## <first sub-item or body section>
+  self-contained digest: concept + minimal usage, then an inline
+  `-> [spec](path/to/deeper-doc)` pointer for overflow detail
 
-  ## <index of links>     # only if the dir fans out to sub-docs worth linking
-  - [path/to/sub-doc.md](path/to/sub-doc.md) — one-line hook on why you'd read this
+  ## <next sub-item or body section>
+  ...
   ```
 - Create the symlink in the same commit as the README:
   ```bash
@@ -39,40 +41,47 @@ One canonical entry-point doc per directory: `README.md`. `SKILL.md` is always a
   ln -s README.md SKILL.md
   ```
 
-## The TLDR section
+## The saturation principle
 
-- Explicitly labeled `## TLDR`. Not "the paragraph above the first `##` header." A labeled section is grep-able and unambiguous.
-- Contents: one short paragraph stating what the thing is + one or two minimal, copy-pasteable usage examples. If install is a one-liner, it can fit inside TLDR; otherwise put it in a separate `## Install` section below.
-- **A reader who only ever reads TLDR should be able to use the thing.** That's the bar. If that's impossible, the TLDR is wrong (or the thing is too broad — split it).
-- Absence of TLDR means "this README hasn't been reshaped yet." It is **not** a deliberate "low importance" signal. Agents should read the whole doc when no TLDR is present, not skip the doc.
-- When updating a README, the TLDR is the part most likely to stay stable. If the TLDR changes meaningfully, the thing's API surface or purpose changed — flag that in the commit message.
+- The whole README is a self-contained intro to the directory and its sub-tree. Readers should be able to do a normal task without clicking through.
+- Deeper sub-docs (full specs, reference APIs, design rationale) stay as separate files, but the README *absorbs* enough of each that the link is only followed when extra detail is genuinely needed.
+- If you find yourself writing "see X for details" as the only coverage of a sub-thing, the README is under-absorbing. Pull the normal-use surface — one paragraph, one usage block — into the README and keep `-> [spec](X)` as the overflow pointer.
 
-## Body
+### For a leaf directory (one tool, one skill, one concept)
 
-Everything a reader needs beyond TLDR: install, usage reference, architecture, quirks, known pitfalls. Structure with `##` section headers. No rules here beyond "write what the reader actually needs" — body shape varies by subject matter.
+The README documents the one thing end-to-end: short orientation, usage, any reference the reader needs. No internal fan-out.
 
-## Index of links
+### For a hub directory (a library, a skill collection, a repo root with many sub-docs)
 
-Below the body, optionally, list sub-docs / sub-guides / sub-libs / design specs / related files worth inducing on-demand reading of. One README per directory; an index-of-links section is how the canonical README fans out to everything else.
+The body is per-sub-item digests. Each sub-item gets a `##` section containing:
 
-Each entry is a link + a one-line hook on why you'd read it:
+- A one- or two-paragraph description — concept + any quirks a normal user needs to know.
+- A minimal copy-pasteable usage example (per language, if multi-language).
+- A trailing `-> [spec](path/to/sub-doc/)` link (or several, pipe-separated) pointing at the deeper reference for overflow detail.
+
+Sketch:
 
 ```markdown
-## Deeper reading
+## logger — Structured Logging
 
-- [docs/design.md](docs/design.md) — Why the dispatch loop uses a ring buffer instead of a channel
-- [docs/protocol.md](docs/protocol.md) — Wire-format spec for the agent-side tap API
+Colored console output + JSONL file log. `LOG_LEVEL` (debug/info/warn/error,
+default info) controls verbosity.
+
+    from hayeah.core.logger import new
+    log = new("my-tool")
+    log.info("starting", port=8080)
+
+-> [spec](path/to/logger/)
+
+## fzfmatch — Fuzzy Path Matcher
+...
 ```
 
-Rules:
+A reader can use the sub-thing from the README alone; they only click through to the spec when they need the full API or design rationale.
 
-- The hook is a single short sentence. No period. No generic "about X" phrasing — state the actual reason to read.
-- Link text uses the repo-relative path (show location at a glance).
-- Heading name is whatever fits the content: `## Deeper reading`, `## Sub-guides`, `## Catalog`, `## Related`. Pick one, don't agonize.
+### For a big catalog (many sub-things across categories, where per-item digests don't fit)
 
-### When the fan-out is a large catalog
-
-If the index grows past ~5 entries and readers will discover by topic, richen the format: group under category headers and use `what:` / `when:` nested bullets per entry. The classic shape (live instance: `~/github.com/hayeah/dotfiles/INDEX.md`):
+When the fan-out grows past what you can digest in full — say 15+ entries spread across categories — compress to a catalog. Each entry collapses to a link plus a terse pair of labelled hooks:
 
 ```markdown
 ## <Category>
@@ -90,7 +99,9 @@ If the index grows past ~5 entries and readers will discover by topic, richen th
 - Repo-relative links for targets inside the repo; full `https://github.com/...` URL for external repos.
 - Five conventional categories for a user-wide catalog: **Coding Conventions**, **Personal Tools**, **Opensource Tools**, **Research Notes**, **Design Specs**. Raise the bar for a sixth (≥3 entries with no natural home).
 
-The fan-out format is a dial, not a switch: one-line + hook for small indexes, `what:`/`when:` for large catalogs, continuum in between. Same section in the same doc, same canonical shape — it just gets more structure as the linked surface grows.
+The saturation principle still applies — even a big catalog is trying to make the reader self-sufficient for discovery ("which of these should I reach for?"), not make them click through to find out.
+
+The three shapes — leaf, hub, catalog — are a continuum, not categories. Pick the amount of absorption proportional to the fan-out: full coverage for 1, per-item digest for a handful, compressed catalog for many.
 
 ## Frontmatter and the SKILL.md symlink
 
@@ -123,8 +134,9 @@ git diff <last-readme-commit>..HEAD -- <subpath>
 
 - Scope with the subpath — for `skills/foo/README.md`, use `skills/foo/` as the subpath.
 - If the README is at repo root, drop the subpath filter (use all commits since).
-- Read the diff, then update the README to reflect the changes. TLDR usually stays; body sections and index entries are the parts that drift.
-- If there's a large-catalog index, also check whether any catalog entries point to files that were renamed or deleted (`git log --diff-filter=D --name-only <last>..HEAD -- <subpath>`). Broken links in a catalog are worse than no entry.
+- Read the diff, then update the README to reflect the changes. Orientation usually stays; per-sub-item digests and catalog entries are the parts that drift.
+- For hub and catalog READMEs, also check whether any links point to files that were renamed or deleted (`git log --diff-filter=D --name-only <last>..HEAD -- <subpath>`). Broken pointers in a catalog are worse than no entry.
+- If a new sub-thing landed under the directory, absorb it: add a `##` block with a digest + inline `-> [spec]` link. Don't just append a bare link.
 
 Commit the README update alongside the work that caused it when possible — otherwise in a dedicated follow-on commit.
 
@@ -136,28 +148,17 @@ Commit the README update alongside the work that caused it when possible — oth
 cd skills/foo
 git mv SKILL.md README.md
 ln -s README.md SKILL.md
-# If the README lacks ## TLDR, add one at the top. Keep the frontmatter.
+# Keep the frontmatter. Check the README actually saturates normal use;
+# if it's just a stub with "see X for details", absorb X's normal-use
+# surface into the README.
 git add README.md SKILL.md
 git commit -m "skills/foo: README-ify SKILL.md; symlink SKILL.md"
 ```
 
 **Starting a README from scratch**:
 
-- Write frontmatter (`name: <dir>`, `description: <what> + <when>`), then `# <name>`, then `## TLDR` with a paragraph and one usage block.
-- Add body sections for anything a user needs beyond TLDR: `## Install`, `## Usage`, `## How it works`, `## Quirks`.
-- If there are sub-docs worth linking, add a final index section with one-line-plus-hook entries.
+- Write frontmatter (`name: <dir>`, `description: <what> + <when>`), then `# <name>`, then a short orientation (1–3 lines).
+- If the directory is a leaf, write body sections that cover the thing end-to-end.
+- If the directory has sub-things, write a `##` block per sub-thing — concept, minimal usage, `-> [spec](path/)` pointer.
+- If the fan-out is big enough that per-item digests stop fitting, switch to the `what:` / `when:` catalog format.
 - Symlink `SKILL.md → README.md` in the same commit.
-
-**Examples already in this shape in `~/github.com/hayeah/dotfiles/skills/`**:
-
-- [cloudflare-tunnel/](../cloudflare-tunnel/README.md) — body-heavy reference, no index section needed
-- [tmuxcap/](../tmuxcap/README.md) — installation + usage + formats
-- [plist/](../plist/README.md) — richer reference-style body
-- [gobin/](../gobin/README.md) — TLDR-style quickstart up top
-
-**Dogfood**: this skill's own README (the file you're reading) follows its own rules — labeled `## TLDR` at the top, one-line-plus-hook format for the worked-example links above, frontmatter with name + description, `SKILL.md` symlinked to this file.
-
-## What this skill doesn't do
-
-- Does not cover `$MDNOTES_ROOT/<date>/` ad-hoc notes — that's the [mdnote](../mdnote/SKILL.md) skill, different purpose.
-- Does not retire or replace the legacy [readme-skill](../readme-skill/SKILL.md) / [indexmd](../indexmd/SKILL.md) skills; they coexist for now. When working on documentation tasks, prefer this skill.
