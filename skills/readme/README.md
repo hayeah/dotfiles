@@ -1,15 +1,18 @@
 ---
 name: readme
-description: Write one canonical README.md per directory — always with SKILL-compat frontmatter (name + description) and always symlinked as SKILL.md. The README saturates normal-use needs for the directory and everything in it; sub-docs are read on demand, only when the reader needs more detail than the README provides. Use when creating a new README or updating one after code changes.
+description: Write one canonical README.md per directory — always with SKILL-compat frontmatter and a SKILL.md symlink. Grade each covered item AAA / AA / A by importance: AAA is inlined in the body, AA is a digest with a pointer to a sub-doc, A is a pointer with a terse hook. README size budget forces the ranking; promote/demote as usage shifts. Same layering generalizes to changelogs, friction logs, and other accumulating wiki docs. Use when creating a new README or updating one after code changes.
 ---
 
 # readme
 
-One canonical entry-point doc per directory: `README.md`. `SKILL.md` is always a symlink to `README.md` — never a second real file. Every README carries YAML frontmatter (`name` + `description`) at the top — the SKILL-compat header — so any directory is discoverable as a skill without a separate decision about which ones "count."
+One canonical entry-point doc per directory: `README.md`, always with SKILL-compat frontmatter (`name` + `description`) and always symlinked as `SKILL.md`. Every item it covers gets graded **AAA / AA / A** by importance: AAA is inlined in the body, AA is a `##` digest with a pointer to a sub-doc, A is just a pointer with an optional hook. The number of AAA items is bounded by how big you're willing to let the README grow, which forces a ranking.
 
-**The README absorbs enough that readers do normal tasks from the README alone.** Sub-docs are the overflow layer — full API reference, edge cases, design rationale, rarely-needed depth. Where to draw the line between "normal" and "overflow" is a balance judgment, not a rule: inline too much and the README grows long and blurry (the reader skims past corner-case sections to find the one usage block they need); offload too much and the README under-covers (the reader has to click out for what should be a README-level task).
-
-**The structure is recursive.** An overflow pointer like `-> [spec](path/)` can target a plain file OR another directory that carries its own README in this same shape — orientation, absorbed body sections, its own fan-out pointers. A reader descends only as far as their question needs; each level is self-sufficient for the things it digests.
+- [TLDR](#tldr) — file layout, document skeleton, AA and A sketches at a glance
+- [Three grades: AAA / AA / A](#three-grades-aaa--aa--a) — definitions, promote/demote signals, size budget
+- [Frontmatter and the SKILL.md symlink](#frontmatter-and-the-skill-md-symlink) — the always-required header and symlink
+- [Updating an existing README](#updating-an-existing-readme) — git-log-subpath incremental workflow
+- [Worked examples](#worked-examples) — converting an existing doc, starting from scratch
+- [The layering beyond READMEs](#the-layering-beyond-readmes) — same AAA/AA/A for changelogs, friction logs, other wiki docs
 
 ## TLDR
 
@@ -30,11 +33,15 @@ One canonical entry-point doc per directory: `README.md`. `SKILL.md` is always a
 
   <short orientation — 1–3 lines, the 30-second pitch of the directory>
 
-  ## <first sub-item or body section>
-  self-contained digest: concept + minimal usage, then an inline
-  `-> [spec](path/to/deeper-doc)` pointer for overflow detail
+  <quick-link list of AAA items — lets the reader jump to the hot path>
+  - [<AAA item 1>](#anchor-1) — one-line hook
+  - [<AAA item 2>](#anchor-2) — one-line hook
 
-  ## <next sub-item or body section>
+  ## <first body section / AAA item>
+  inlined content — the reader reads it here, no click
+
+  ## <next body section or AA block>
+  AA blocks end with `-> [spec](path/to/deeper-doc)` pointing at overflow
   ...
   ```
 - When the fan-out is too big for per-item digests, the body (or a
@@ -57,29 +64,40 @@ One canonical entry-point doc per directory: `README.md`. `SKILL.md` is always a
   ln -s README.md SKILL.md
   ```
 
-## Absorb vs. offload — the balance
+## Three grades: AAA / AA / A
 
-Every README has overflow material it could either inline (more coverage, longer and blurrier doc) or push to a sub-doc (crisper README, more clicking). The discipline is about finding the right line per section:
+Every item the README covers (a sub-thing, a concept, a section of body content) sits in exactly one grade. The grade dictates where the content lives and how much README space it takes.
 
-- **Default lean: when unsure, absorb.** A slightly longer README costs less than the reader clicking out for a common-usage detail. Over-offloading is more painful than over-inlining.
-- **Offload** material that the reader reaches for occasionally, not per task: full API reference, design rationale, migration history, unusual edge cases, deep internals.
-- **Absorb** material the reader hits on a normal path: concept, minimal usage, common quirks, defaults, the one gotcha that otherwise gets re-discovered via a stack trace.
-- If you catch yourself writing "see X for details" as the only coverage of a sub-thing, the README is under-absorbing. Pull the normal-use surface into the body; keep `-> [spec](X)` as the pointer for the overflow.
-- Every `-> [spec](X)` pointer can target either a plain file OR a directory that's itself a README in this shape. In the recursive case, the next level absorbs what's normal-use at *that* level and its own pointers fan out further. Readers stop descending once their question is answered.
+**Fan-out** = the set of items the README organizes and points at: sub-directories, sub-modules, sub-docs, sub-skills, plus any in-body topics that could plausibly earn their own section. Every item in the fan-out gets a grade.
 
-**Fan-out** = the set of sub-things this README has to organize and point at: sub-directories, sub-modules, sub-docs, sub-skills — anything that earns its own `##` block or catalog entry. A README with no sub-things has a fan-out of zero; a README cataloging 50 skills has a big fan-out. The body-organization shapes below are three points along a continuum of fan-out size — not three distinct formats. Any real README can mix them within a single doc.
+### AAA — inlined
 
-### Body organized around one thing
+Content lives fully in the README body. No link to follow; the reader reads it here. Expensive in README space, so reserved for the **hot path** — what readers hit on a normal task:
 
-When the directory documents a single concept (one tool, one skill, one library module), the body is organized around that concept: orientation, usage, reference the normal user needs. Overflow — design doc, full API reference, internal spec, unusual edge cases — goes to sub-docs under `docs/` or similar, linked inline from the body section where their context lives.
+- Concept and orientation the reader needs to get started.
+- Default behavior, common-case usage.
+- The one gotcha that would otherwise get re-discovered via a stack trace.
+- The install/setup one-liner.
 
-### Body as per-sub-item digests
+AAA is the dominant grade for a leaf-shape README — when the directory documents one thing, most of the body ends up AAA.
 
-When the directory fans out to multiple sub-things, each gets its own `##` section containing:
+**Quick-link list at the top.** Directly below the orientation paragraph, include a short bulleted list of the README's AAA items — one line per item, linking to its `##` anchor with a one-line hook. A mini-TOC of the hot path so the reader can jump straight to what they need instead of scanning:
 
-- A one- or two-paragraph description — concept + any quirks a normal user needs to know.
+```markdown
+- [Install](#install) — one-liner via `uv tool install -e .`
+- [Usage](#usage) — `foo -t <target>` for the common case
+- [Formats](#formats) — supported output extensions
+```
+
+Only AAA items go in the quick-link list. AA blocks and A entries stay in the body; the list is for the hot path, not a full TOC.
+
+### AA — absorbed (digest + pointer)
+
+A `##` block that digests the item and points to a sub-doc for full detail. Format:
+
+- A one- or two-paragraph description — concept + any quirks a normal user needs.
 - A minimal copy-pasteable usage example (per language, if multi-language).
-- A trailing `-> [spec](path/to/sub-doc/)` link (or several, pipe-separated) pointing at the deeper reference for overflow detail.
+- A trailing `-> [spec](path/to/sub-doc/)` pointer (or several, pipe-separated) to the full reference.
 
 Sketch:
 
@@ -94,16 +112,13 @@ default info) controls verbosity.
     log.info("starting", port=8080)
 
 -> [spec](path/to/logger/)
-
-## fzfmatch — Fuzzy Path Matcher
-...
 ```
 
-The `-> [spec](...)` target is often a directory with its own README carrying further absorbed content and its own pointers — the recursion. The reader can use the sub-thing at this level alone; they only descend to the spec when they need the full API or design rationale, and from there can descend further if the spec itself fans out.
+The reader can use the item from the digest alone; they descend to the spec only when they need the full API or design rationale. The `-> [spec](...)` target is often another README in this same shape — recursion — and the reader stops descending once their question is answered.
 
-### Body as compressed catalog
+### A — overflow (pointer with optional hook)
 
-When the fan-out grows past what you can digest in full — say 15+ sub-things spread across categories — compress each entry to a link plus a terse pair of labelled hooks:
+Just a pointer, with a terse hook where useful. At scale (15+ items), compresses to the `what:` / `when:` catalog format:
 
 ```markdown
 ## <Category>
@@ -116,14 +131,43 @@ When the fan-out grows past what you can digest in full — say 15+ sub-things s
 - Flat list within a category. A skill and its sub-guides are siblings, not nested children. The only nested bullets are `what:` and `when:`.
 - `what`: the "is" half identifies the kind (library, CLI, style guide, design doc); the "does" half names the capability.
 - `when`: concrete decision triggers. Drop the generic "Use when…" preamble; lead with the actual moment of need.
-- 20–30 words each — shorter is too sparse, longer means the hook is doing the linked doc's job.
+- 20–30 words each — shorter is too sparse; longer means the hook is doing the linked doc's job.
 - Sentence-case. No trailing period on `what`/`when` lines.
 - Repo-relative links for targets inside the repo; full `https://github.com/...` URL for external repos.
 - Five conventional categories for a user-wide catalog: **Coding Conventions**, **Personal Tools**, **Opensource Tools**, **Research Notes**, **Design Specs**. Raise the bar for a sixth (≥3 entries with no natural home).
 
-Even at this density, the absorb-vs-offload balance still applies — a catalog hook is trying to make the reader self-sufficient for *discovery* ("which of these should I reach for?"), not make them click through to find out. If a `what:`/`when:` pair can't do that job, the entry is under-absorbing.
+An A entry still has to orient the reader ("which of these should I reach for?"). If the hook can't do that job, the item is graded too low — promote it to AA.
 
-Each catalog target is typically a directory with its own README — follow a link and you're at the top of another level of this same recursive structure.
+### Typical grade distributions
+
+The grade mix varies with the directory's fan-out:
+
+- **Single-thing directory**: almost all AAA — the README inlines the whole concept end-to-end. Overflow (design notes, full reference) goes to sub-docs linked inline from the AAA body, treated as one-off A entries.
+- **Small-hub directory** (a handful of sub-things): AAA for shared orientation + AA blocks per sub-thing.
+- **Large-hub / wiki-root** (many sub-things): AAA for the orientation paragraph + mostly A entries grouped under categories, with a few AA blocks for the most-used sub-things that earn the bigger digest.
+
+Any real README can mix all three. The grading is per-item; the shape emerges from the mix.
+
+### Promoting and demoting
+
+Items migrate between grades as usage patterns shift:
+
+- **Promote A → AA**: the catalog hook isn't enough; readers have to click through for context that should have been in the preview. Expand the entry to a `##` block with a digest.
+- **Promote AA → AAA**: the digest is the only thing anyone reads, or the same sub-doc detail keeps getting re-looked-up via the pointer. Inline the block and retire the sub-doc (or keep it as overflow for rare depth).
+- **Demote AAA → AA**: a detail is blurring the body and most readers don't need it. Split it off into a sub-doc; leave a digest in the body.
+- **Demote AA → A**: a `##` digest has grown into a mini-reference — it's doing the sub-doc's job. Trim to a catalog entry; let the sub-doc carry the weight.
+
+**Default lean: grade up when unsure.** A slightly longer README costs less than the reader clicking through for a detail that should have been at hand. Over-offloading is more painful (and harder to notice) than over-inlining.
+
+### The size budget
+
+There's no hard limit — a per-README feel for "how long before scanning this gets annoying." Skill-level READMEs typically tolerate 200–400 lines; library hubs comfortably reach 600; wiki-root catalogs cap at whatever keeps the category lists scannable. When the budget tightens, items demote (AAA → AA → A); when it relaxes, items promote. The budget is the pressure that forces the ranking.
+
+## The layering beyond READMEs
+
+The same AAA/AA/A discipline applies to any accumulating doc where the reader's attention is limited. A **changelog**: recent releases inlined in full (AAA), older releases digested per version with a pointer to the detailed notes (AA), ancient history as a catalog of versions and dates (A). A **friction log**: hot open frictions inlined with full context (AAA), resolved-but-instructive ones digested (AA), archived/historical ones pointered (A). A **design-decision log**: load-bearing current decisions inlined, superseded ones digested, legacy pointered.
+
+Same wiki-structure reasoning: front-load what matters now, digest the middle, link out to the long tail. Same budget pressure forces the ranking. The grading is generalizable; the README is just the most common home.
 
 ## Frontmatter and the SKILL.md symlink
 
