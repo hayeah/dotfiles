@@ -7,7 +7,9 @@ description: Write one canonical README.md per directory — always with SKILL-c
 
 One canonical entry-point doc per directory: `README.md`. `SKILL.md` is always a symlink to `README.md` — never a second real file. Every README carries YAML frontmatter (`name` + `description`) at the top — the SKILL-compat header — so any directory is discoverable as a skill without a separate decision about which ones "count."
 
-**The README saturates normal-use needs** for the directory and everything it contains. When a directory has sub-docs (or sub-modules, sub-skills, sub-guides), the README absorbs enough of each of them — concept, minimal usage, inline pointer — that the reader only follows a sub-doc link when they need overflow detail (full API reference, edge cases, design rationale). The README is the primary layer; sub-docs are the second layer, read on demand.
+**The README absorbs enough that readers do normal tasks from the README alone.** Sub-docs are the overflow layer — full API reference, edge cases, design rationale, rarely-needed depth. Where to draw the line between "normal" and "overflow" is a balance judgment, not a rule: inline too much and the README grows long and blurry (the reader skims past corner-case sections to find the one usage block they need); offload too much and the README under-covers (the reader has to click out for what should be a README-level task).
+
+**The structure is recursive.** An overflow pointer like `-> [spec](path/)` can target a plain file OR another directory that carries its own README in this same shape — orientation, absorbed body sections, its own fan-out pointers. A reader descends only as far as their question needs; each level is self-sufficient for the things it digests.
 
 ## TLDR
 
@@ -55,19 +57,25 @@ One canonical entry-point doc per directory: `README.md`. `SKILL.md` is always a
   ln -s README.md SKILL.md
   ```
 
-## The saturation principle
+## Absorb vs. offload — the balance
 
-- The whole README is a self-contained intro to the directory and its sub-tree. Readers should be able to do a normal task without clicking through.
-- Deeper sub-docs (full specs, reference APIs, design rationale) stay as separate files, but the README *absorbs* enough of each that the link is only followed when extra detail is genuinely needed.
-- If you find yourself writing "see X for details" as the only coverage of a sub-thing, the README is under-absorbing. Pull the normal-use surface — one paragraph, one usage block — into the README and keep `-> [spec](X)` as the overflow pointer.
+Every README has overflow material it could either inline (more coverage, longer and blurrier doc) or push to a sub-doc (crisper README, more clicking). The discipline is about finding the right line per section:
 
-### For a leaf directory (one tool, one skill, one concept)
+- **Default lean: when unsure, absorb.** A slightly longer README costs less than the reader clicking out for a common-usage detail. Over-offloading is more painful than over-inlining.
+- **Offload** material that the reader reaches for occasionally, not per task: full API reference, design rationale, migration history, unusual edge cases, deep internals.
+- **Absorb** material the reader hits on a normal path: concept, minimal usage, common quirks, defaults, the one gotcha that otherwise gets re-discovered via a stack trace.
+- If you catch yourself writing "see X for details" as the only coverage of a sub-thing, the README is under-absorbing. Pull the normal-use surface into the body; keep `-> [spec](X)` as the pointer for the overflow.
+- Every `-> [spec](X)` pointer can target either a plain file OR a directory that's itself a README in this shape. In the recursive case, the next level absorbs what's normal-use at *that* level and its own pointers fan out further. Readers stop descending once their question is answered.
 
-The README documents the one thing end-to-end: short orientation, usage, any reference the reader needs. No internal fan-out.
+**Fan-out** = the set of sub-things this README has to organize and point at: sub-directories, sub-modules, sub-docs, sub-skills — anything that earns its own `##` block or catalog entry. A README with no sub-things has a fan-out of zero; a README cataloging 50 skills has a big fan-out. The body-organization shapes below are three points along a continuum of fan-out size — not three distinct formats. Any real README can mix them within a single doc.
 
-### For a hub directory (a library, a skill collection, a repo root with many sub-docs)
+### Body organized around one thing
 
-The body is per-sub-item digests. Each sub-item gets a `##` section containing:
+When the directory documents a single concept (one tool, one skill, one library module), the body is organized around that concept: orientation, usage, reference the normal user needs. Overflow — design doc, full API reference, internal spec, unusual edge cases — goes to sub-docs under `docs/` or similar, linked inline from the body section where their context lives.
+
+### Body as per-sub-item digests
+
+When the directory fans out to multiple sub-things, each gets its own `##` section containing:
 
 - A one- or two-paragraph description — concept + any quirks a normal user needs to know.
 - A minimal copy-pasteable usage example (per language, if multi-language).
@@ -91,11 +99,11 @@ default info) controls verbosity.
 ...
 ```
 
-A reader can use the sub-thing from the README alone; they only click through to the spec when they need the full API or design rationale.
+The `-> [spec](...)` target is often a directory with its own README carrying further absorbed content and its own pointers — the recursion. The reader can use the sub-thing at this level alone; they only descend to the spec when they need the full API or design rationale, and from there can descend further if the spec itself fans out.
 
-### For a big catalog (many sub-things across categories, where per-item digests don't fit)
+### Body as compressed catalog
 
-When the fan-out grows past what you can digest in full — say 15+ entries spread across categories — compress to a catalog. Each entry collapses to a link plus a terse pair of labelled hooks:
+When the fan-out grows past what you can digest in full — say 15+ sub-things spread across categories — compress each entry to a link plus a terse pair of labelled hooks:
 
 ```markdown
 ## <Category>
@@ -113,9 +121,9 @@ When the fan-out grows past what you can digest in full — say 15+ entries spre
 - Repo-relative links for targets inside the repo; full `https://github.com/...` URL for external repos.
 - Five conventional categories for a user-wide catalog: **Coding Conventions**, **Personal Tools**, **Opensource Tools**, **Research Notes**, **Design Specs**. Raise the bar for a sixth (≥3 entries with no natural home).
 
-The saturation principle still applies — even a big catalog is trying to make the reader self-sufficient for discovery ("which of these should I reach for?"), not make them click through to find out.
+Even at this density, the absorb-vs-offload balance still applies — a catalog hook is trying to make the reader self-sufficient for *discovery* ("which of these should I reach for?"), not make them click through to find out. If a `what:`/`when:` pair can't do that job, the entry is under-absorbing.
 
-The three shapes — leaf, hub, catalog — are a continuum, not categories. Pick the amount of absorption proportional to the fan-out: full coverage for 1, per-item digest for a handful, compressed catalog for many.
+Each catalog target is typically a directory with its own README — follow a link and you're at the top of another level of this same recursive structure.
 
 ## Frontmatter and the SKILL.md symlink
 
