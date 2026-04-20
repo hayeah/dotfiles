@@ -19,7 +19,7 @@ One canonical entry-point doc per directory: `README.md`, always with SKILL-comp
 - File layout per directory:
   ```
   foo/
-    README.md       # real file — frontmatter + body that absorbs the sub-tree
+    README.md       # real file — frontmatter + body that covers the sub-tree
     SKILL.md        # symlink → README.md
   ```
 - Document skeleton, top to bottom:
@@ -41,7 +41,7 @@ One canonical entry-point doc per directory: `README.md`, always with SKILL-comp
   inlined content — the reader reads it here, no click
 
   ## <next body section or AA block>
-  AA blocks end with `-> [spec](path/to/deeper-doc)` pointing at overflow
+  AA blocks end with `-> [spec](path/to/deeper-doc)` pointing at the full doc
   ...
   ```
 - When the fan-out is too big for per-item digests, the body (or a
@@ -91,7 +91,7 @@ AAA tends to dominate when the directory's contents are small or tightly coupled
 
 Only AAA items go in the quick-link list. AA blocks and A entries stay in the body; the list is for the hot path, not a full TOC.
 
-### AA — absorbed (digest + pointer)
+### AA — digested
 
 A `##` block that digests the item and points to a sub-doc for full detail. Format:
 
@@ -116,7 +116,7 @@ default info) controls verbosity.
 
 The reader can use the item from the digest alone; they descend to the spec only when they need the full API or design rationale. The `-> [spec](...)` target is often another README in this same shape — recursion — and the reader stops descending once their question is answered.
 
-### A — overflow (pointer with optional hook)
+### A — pointers
 
 Just a pointer, with a terse hook where useful. At scale (15+ items), compresses to the `what:` / `when:` catalog format:
 
@@ -142,7 +142,7 @@ An A entry still has to orient the reader ("which of these should I reach for?")
 
 The README is commentary on what's in the directory — whatever that is, coherent or kitchen-sink. Coherence level doesn't change the grading discipline; it just changes the mix of grades the README ends up with:
 
-- **Small or tightly-coupled contents** (one tool, one library module, a few closely-related files): mostly AAA — the README inlines most of the commentary end-to-end because there's little to distinguish into separate items. Any overflow (design notes, full reference) goes to sub-docs linked inline from the body as one-off A entries.
+- **Small or tightly-coupled contents** (one tool, one library module, a few closely-related files): mostly AAA — the README inlines most of the commentary end-to-end because there's little to distinguish into separate items. Deeper detail (design notes, full reference) goes to sub-docs linked inline from the body as one-off A pointers.
 - **Several distinguishable items** (a handful of sub-things worth their own section): AAA for shared orientation + AA blocks per item. Classic hub shape.
 - **Many loosely-related items** (wiki root, kitchen-sink collection): AAA for orientation + mostly A catalog entries grouped under categories, with a few AA blocks for the items hot enough to earn the bigger digest.
 
@@ -153,7 +153,7 @@ Any real README can mix all three. The grading is per-item; the shape emerges fr
 Items migrate between grades as usage patterns shift:
 
 - **Promote A → AA**: the catalog hook isn't enough; readers have to click through for context that should have been in the preview. Expand the entry to a `##` block with a digest.
-- **Promote AA → AAA**: the digest is the only thing anyone reads, or the same sub-doc detail keeps getting re-looked-up via the pointer. Inline the block and retire the sub-doc (or keep it as overflow for rare depth).
+- **Promote AA → AAA**: the digest is the only thing anyone reads, or the same sub-doc detail keeps getting re-looked-up via the pointer. Inline the block and retire the sub-doc (or keep it as deep-detail reference for rare needs).
 - **Demote AAA → AA**: a detail is blurring the body and most readers don't need it. Split it off into a sub-doc; leave a digest in the body.
 - **Demote AA → A**: a `##` digest has grown into a mini-reference — it's doing the sub-doc's job. Trim to a catalog entry; let the sub-doc carry the weight.
 
@@ -202,7 +202,7 @@ git diff <last-readme-commit>..HEAD -- <subpath>
 - If the README is at repo root, drop the subpath filter (use all commits since).
 - Read the diff, then update the README to reflect the changes. Orientation usually stays; per-sub-item digests and catalog entries are the parts that drift.
 - For hub and catalog READMEs, also check whether any links point to files that were renamed or deleted (`git log --diff-filter=D --name-only <last>..HEAD -- <subpath>`). Broken pointers in a catalog are worse than no entry.
-- If a new sub-thing landed under the directory, absorb it: add a `##` block with a digest + inline `-> [spec]` link. Don't just append a bare link.
+- If a new sub-thing landed under the directory, grade it at least AA: add a `##` block with a digest + inline `-> [spec]` link. Don't just append a bare link unless the item genuinely only warrants A.
 
 Commit the README update alongside the work that caused it when possible — otherwise in a dedicated follow-on commit.
 
@@ -215,7 +215,7 @@ cd skills/foo
 git mv SKILL.md README.md
 ln -s README.md SKILL.md
 # Keep the frontmatter. Check the README actually saturates normal use;
-# if it's just a stub with "see X for details", absorb X's normal-use
+# if it's just a stub with "see X for details", pull X's normal-use
 # surface into the README.
 git add README.md SKILL.md
 git commit -m "skills/foo: README-ify SKILL.md; symlink SKILL.md"
