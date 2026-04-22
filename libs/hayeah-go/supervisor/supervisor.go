@@ -124,6 +124,15 @@ func (r *Runner) Run(ctx context.Context) error {
 
 	r.registerDefaultRoutes()
 
+	// If the PTY impl wants to contribute routes (LibghosttyPTY
+	// adds /pty/*), give it the mux now. TmuxPTY does not
+	// implement this interface and contributes no routes.
+	if reg, ok := r.cfg.PTY.(interface {
+		RegisterRoutes(mux *http.ServeMux)
+	}); ok {
+		reg.RegisterRoutes(r.mux)
+	}
+
 	sock, err := r.listenSocket(stateDir)
 	if err != nil {
 		return fmt.Errorf("listen socket: %w", err)
