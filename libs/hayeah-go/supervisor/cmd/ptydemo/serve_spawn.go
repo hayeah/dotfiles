@@ -152,11 +152,10 @@ func spawnSupervise(stateDir, key string, argv []string) (string, error) {
 	cmd.Stdout = slave
 	cmd.Stderr = slave
 	cmd.ExtraFiles = []*os.File{master}
-	cmd.SysProcAttr = &syscall.SysProcAttr{
-		Setsid:  true,
-		Setctty: true,
-		Ctty:    0,
-	}
+	// Supervise runs in its own session but is session-less for
+	// this tty; the Service will Setctty on its child. See run.go
+	// for the full rationale.
+	cmd.SysProcAttr = &syscall.SysProcAttr{Setsid: true}
 	if err := cmd.Start(); err != nil {
 		return "", fmt.Errorf("fork supervise: %w", err)
 	}

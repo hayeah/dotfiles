@@ -95,15 +95,13 @@ func cmdRun(args []string) error {
 	cmd.Stdout = slave
 	cmd.Stderr = slave
 	cmd.ExtraFiles = []*os.File{master}
-	// Put the supervise process in its own session with the slave
-	// as its controlling tty, so SIGINT typed into the caller's
-	// shell doesn't propagate to it. Setctty=true uses the fd
-	// referenced by Ctty (0 = stdin = slave).
-	cmd.SysProcAttr = &syscall.SysProcAttr{
-		Setsid:  true,
-		Setctty: true,
-		Ctty:    0,
-	}
+	// Supervise runs in its own session (Setsid) but is NOT the
+	// controlling process of the tty — the Service (inside
+	// supervise) will do Setctty when it spawns the actual
+	// child. Keeping supervise session-less for this tty is the
+	// emulator pattern; it's what lets TIOCSWINSZ on the master
+	// keep working after the child claims the fg pgrp.
+	cmd.SysProcAttr = &syscall.SysProcAttr{Setsid: true}
 
 	if err := cmd.Start(); err != nil {
 		master.Close()

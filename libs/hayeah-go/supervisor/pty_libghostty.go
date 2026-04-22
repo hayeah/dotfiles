@@ -270,6 +270,15 @@ func (p *LibghosttyPTY) Capture(lines int, withEscapes bool) (string, error) {
 // Resize updates both the kernel-level PTY winsize and the
 // emulator's grid. Called by HTTP /pty/resize and directly by
 // consumers.
+//
+// TIOCSWINSZ goes on the master fd. For this to keep working
+// across the child's job-control handoff, the supervisor process
+// must NOT share the child's session/ctty — i.e. the process
+// holding the master is session-less for this tty, and the child
+// does Setctty to claim the slave. If you break that invariant
+// on macOS, master-side TIOCSWINSZ will start returning EIO as
+// soon as the child does tcsetpgrp. See ptydemo/service.go and
+// serve_spawn.go for how we set this up.
 func (p *LibghosttyPTY) Resize(cols, rows uint16) error {
 	if err := pty.Setsize(p.master, &pty.Winsize{Cols: cols, Rows: rows}); err != nil {
 		return fmt.Errorf("setsize: %w", err)

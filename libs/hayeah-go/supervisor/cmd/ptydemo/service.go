@@ -68,6 +68,19 @@ func (s *RunCmdService) Run(ctx context.Context, super supervisor.Supervisor) er
 	cmd.Stdin = os.Stdin
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
+	// Child becomes its own session leader with the slave (fd 0)
+	// as its controlling tty. This is the emulator pattern:
+	// supervise (us) holds the master but is session-less for
+	// this tty, so TIOCSWINSZ on the master keeps working even
+	// after the child's job-control setup (tcsetpgrp) takes
+	// the fg pgrp away from us. Without Setctty here, the
+	// master-side ioctl would start returning EIO on macOS as
+	// soon as an interactive shell had configured itself.
+	cmd.SysProcAttr = &syscall.SysProcAttr{
+		Setsid:  true,
+		Setctty: true,
+		Ctty:    0,
+	}
 	// Polite shutdown: SIGTERM on ctx cancel, then SIGKILL after
 	// WaitDelay if the child ignores us. exec.Cmd.Cancel is the
 	// Go 1.20+ hook for this.
