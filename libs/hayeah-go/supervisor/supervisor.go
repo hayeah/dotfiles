@@ -52,17 +52,21 @@ type SupervisorConfig struct {
 	OnIdle func(cycle int)
 }
 
-// Supervisor coordinates a single supervised process.
-type Supervisor struct {
+// Runner is the concrete supervisor entry point. It will be reshaped
+// in the forthcoming PTY-backend refactor; the type was previously
+// exported as `Supervisor` but that name is being reclaimed for the
+// new interface that Services receive. Behavior is unchanged from
+// the pre-refactor `Supervisor` struct.
+type Runner struct {
 	cfg    SupervisorConfig
 	tmux   *Tmux
 	writer *Writer
 	log    *slog.Logger
 }
 
-// New creates a Supervisor from the given config.
-func New(cfg SupervisorConfig) *Supervisor {
-	return &Supervisor{
+// New creates a Runner from the given config.
+func New(cfg SupervisorConfig) *Runner {
+	return &Runner{
 		cfg:  cfg,
 		tmux: &Tmux{},
 		log:  slog.Default().With("supervisor", cfg.Key),
@@ -81,7 +85,7 @@ func New(cfg SupervisorConfig) *Supervisor {
 //  6. Forward signals (SIGINT, SIGTERM, SIGHUP) to tmux window
 //  7. Wait for ctx cancellation or signal
 //  8. Cleanup: release flock, optionally kill tmux window
-func (s *Supervisor) Run(ctx context.Context) error {
+func (s *Runner) Run(ctx context.Context) error {
 	stateDir := filepath.Join(s.cfg.StateDir, s.cfg.Key)
 
 	// 1. Create state directory
@@ -238,7 +242,7 @@ func (s *Supervisor) Run(ctx context.Context) error {
 // pluginForCycle returns the Plugin to use for this iteration. Restart
 // cycles require a fresh instance because plugins typically hold single-
 // shot state (sync.Once, channels, bound sockets).
-func (s *Supervisor) pluginForCycle(cycle int) Plugin {
+func (s *Runner) pluginForCycle(cycle int) Plugin {
 	if s.cfg.PluginFactory != nil {
 		return s.cfg.PluginFactory()
 	}
@@ -252,7 +256,7 @@ func (s *Supervisor) pluginForCycle(cycle int) Plugin {
 // sendBriefingMessage types one briefing message into the pane and presses
 // Enter. Called from the UpdateService callback's goroutine on each rising
 // idle edge so we don't block the plugin's hot path.
-func (s *Supervisor) sendBriefingMessage(cycle, idx int, target, msg string) {
+func (s *Runner) sendBriefingMessage(cycle, idx int, target, msg string) {
 	if msg == "" {
 		return
 	}

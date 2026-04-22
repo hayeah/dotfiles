@@ -36,7 +36,7 @@ func TestPluginForCycle(t *testing.T) {
 		called++
 		return nil
 	}
-	s := &Supervisor{cfg: SupervisorConfig{PluginFactory: factory}}
+	s := &Runner{cfg: SupervisorConfig{PluginFactory: factory}}
 	for i := 0; i < 3; i++ {
 		s.pluginForCycle(i)
 	}
@@ -45,7 +45,7 @@ func TestPluginForCycle(t *testing.T) {
 	}
 
 	// Without a factory, falls through to Plugin field.
-	s2 := &Supervisor{cfg: SupervisorConfig{}}
+	s2 := &Runner{cfg: SupervisorConfig{}}
 	if p := s2.pluginForCycle(0); p != nil {
 		t.Errorf("want nil plugin when neither factory nor Plugin set")
 	}
