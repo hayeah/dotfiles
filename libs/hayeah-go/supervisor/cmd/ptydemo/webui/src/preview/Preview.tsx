@@ -28,6 +28,9 @@ export function Preview() {
           startedAt: new Date().toISOString(),
         });
       },
+      createSession(cmd: string) {
+        return ds.createSession(cmd);
+      },
     };
     return () => {
       // biome-ignore lint/suspicious/noExplicitAny: test harness hook
@@ -44,4 +47,5 @@ const PREVIEW_TAP_DOC = `
 - ds — the MockDataSource instance
 - setState(key, state) — flip a session's state ("starting" | "running" | "exited")
 - addSession(key, cmd) — push a new mock session into the sidebar
+- createSession(cmd) — same as clicking the "+" in the sidebar form (returns a Promise)
 `;

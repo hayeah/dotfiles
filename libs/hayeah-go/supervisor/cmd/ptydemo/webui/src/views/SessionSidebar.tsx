@@ -1,10 +1,12 @@
 import { observer } from "mobx-react-lite";
+import { useState } from "react";
 import type { SessionSummary } from "../data/types";
 
 interface Props {
   sessions: SessionSummary[];
   activeKey: string | null;
   onSelect(key: string): void;
+  onCreate?(cmd: string): Promise<SessionSummary>;
 }
 
 // SessionSidebar is the left column: one tab per known session.
@@ -14,6 +16,7 @@ export const SessionSidebar = observer(function SessionSidebar({
   sessions,
   activeKey,
   onSelect,
+  onCreate,
 }: Props) {
   return (
     <aside className="flex w-64 shrink-0 flex-col border-r border-border bg-card">
@@ -23,6 +26,7 @@ export const SessionSidebar = observer(function SessionSidebar({
           {sessions.length}
         </div>
       </div>
+      {onCreate && <NewSessionForm onCreate={onCreate} onCreated={(s) => onSelect(s.key)} />}
       <nav className="flex-1 overflow-y-auto p-2">
         {sessions.length === 0 && (
           <div className="px-2 py-4 text-xs text-muted-foreground">No sessions yet.</div>
@@ -42,6 +46,61 @@ export const SessionSidebar = observer(function SessionSidebar({
     </aside>
   );
 });
+
+function NewSessionForm({
+  onCreate,
+  onCreated,
+}: {
+  onCreate(cmd: string): Promise<SessionSummary>;
+  onCreated(s: SessionSummary): void;
+}) {
+  const [cmd, setCmd] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function submit(e: React.FormEvent) {
+    e.preventDefault();
+    if (busy) return;
+    setBusy(true);
+    setError(null);
+    try {
+      const s = await onCreate(cmd || "bash -l");
+      setCmd("");
+      onCreated(s);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <form
+      onSubmit={submit}
+      className="flex flex-col gap-1 border-b border-border bg-muted/30 px-3 py-2"
+    >
+      <div className="flex gap-1">
+        <input
+          type="text"
+          value={cmd}
+          onChange={(e) => setCmd(e.target.value)}
+          placeholder="bash -l"
+          disabled={busy}
+          className="min-w-0 flex-1 rounded-md border border-input bg-background px-2 py-1 font-mono text-xs focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary/40 disabled:opacity-50"
+          aria-label="Command to run"
+        />
+        <button
+          type="submit"
+          disabled={busy}
+          className="shrink-0 rounded-md bg-primary px-2 py-1 text-xs font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
+        >
+          {busy ? "…" : "+"}
+        </button>
+      </div>
+      {error && <div className="text-[10px] text-destructive">{error}</div>}
+    </form>
+  );
+}
 
 function SessionTab({
   session,

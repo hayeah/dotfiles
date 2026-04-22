@@ -25,4 +25,10 @@ export interface AttachStream {
 export interface DataSource {
   sessions: SessionSummary[];
   attach(sessionKey: string): AttachStream;
+
+  // createSession spawns a new session with the given shell command
+  // (e.g. "bash -l"). Mock returns immediately with a fake summary;
+  // Live POSTs to /api/sessions and waits for the supervisor's
+  // initial state to be published.
+  createSession(cmd: string): Promise<SessionSummary>;
 }

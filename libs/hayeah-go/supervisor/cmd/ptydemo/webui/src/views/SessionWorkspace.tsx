@@ -23,6 +23,7 @@ export const SessionWorkspace = observer(function SessionWorkspace({ ds }: Props
         sessions={ds.sessions}
         activeKey={activeKey}
         onSelect={setActiveKey}
+        onCreate={(cmd) => ds.createSession(cmd)}
       />
       <main className="flex min-w-0 flex-1 flex-col">
         {active ? (

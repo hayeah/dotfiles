@@ -122,6 +122,30 @@ export class MockDataSource implements DataSource {
     return new MockAttach(script);
   }
 
+  async createSession(cmd: string): Promise<SessionSummary> {
+    const trimmed = cmd.trim() || "bash -l";
+    const base = trimmed.split(/\s+/)[0] ?? "sess";
+    // Unique key: <base>-NN, auto-incrementing per base name.
+    const existing = this.sessions.filter((s) => s.key.startsWith(`${base}-`) || s.key === base);
+    const suffix = existing.length === 0 ? "" : `-${existing.length + 1}`;
+    const key = `${base}${suffix}`;
+    const summary: SessionSummary = {
+      key,
+      alive: true,
+      state: "starting",
+      cmd: trimmed,
+      startedAt: new Date().toISOString(),
+      pid: 9000 + this.sessions.length,
+    };
+    runInAction(() => {
+      this.sessions.push(summary);
+    });
+    // Flip from "starting" to "running" after a short beat so the
+    // preview shows the state transition naturally.
+    setTimeout(() => this.setState(key, "running"), 300);
+    return summary;
+  }
+
   // Mutators for __tap__ so the agent can drive preview states via
   // browser eval.
   setState(key: string, state: SessionSummary["state"]) {
