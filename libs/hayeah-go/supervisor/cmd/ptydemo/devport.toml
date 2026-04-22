@@ -1,0 +1,55 @@
+# ptydemo dev stack — one proxy in front of two services:
+#
+#   /api/*   → `ptydemo serve` on a devport-allocated port
+#   /*       → vite dev server on a devport-allocated port
+#
+# WebSocket upgrade for /api/sessions/<key>/attach passes through the
+# proxy transparently (see devportv3/proxy_handlers.go — hijack is
+# wired for streaming + WS semantics).
+#
+# Usage:
+#     cd libs/hayeah-go/supervisor/cmd/ptydemo
+#     devport up
+#     # Proxy port is printed by `devport up` and via `devport ls`.
+#     open "$(devport ls | jq -r 'select(.supervisor.key=="_proxy0") | .service.url')"
+#
+# LiveDataSource hits `/api/*` and the WS at
+# `/api/sessions/<key>/attach` — both served via the proxy, so the
+# browser needs to talk to exactly one origin.
+
+tmux_session = "ptydemo"
+
+[[service]]
+type = "proxy"
+
+  # ptydemo serve binds 127.0.0.1:$${PORT}. strip_prefix = true so the
+  # server sees bare /sessions, /healthz etc. (simpler than running
+  # it with --prefix=/api). Run from the libs/hayeah-go module root
+  # so `go run ./supervisor/cmd/ptydemo` resolves.
+  [[service.routes]]
+  name         = "api"
+  path         = "/api/"
+  strip_prefix = true
+  type         = "exec"
+  command      = ["go", "run", "./supervisor/cmd/ptydemo", "serve", "--port", "$${PORT}"]
+  cwd          = "../../.."
+
+    [service.routes.health]
+    type     = "http"
+    path     = "/healthz"
+    interval = "1s"
+    timeout  = "60s"
+
+  # Webui (vite dev server) at /. Uses vp (vite-plus) to match the
+  # template's scripts.
+  [[service.routes]]
+  name    = "webui"
+  path    = "/"
+  type    = "exec"
+  command = ["bunx", "vp", "dev", "--port", "$${PORT}", "--strictPort"]
+  cwd     = "webui"
+
+    [service.routes.health]
+    type     = "tcp"
+    interval = "1s"
+    timeout  = "60s"

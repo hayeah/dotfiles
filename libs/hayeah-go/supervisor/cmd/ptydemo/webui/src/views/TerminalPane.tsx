@@ -9,18 +9,13 @@ interface Props {
 }
 
 // TerminalPane renders a single session's PTY in the main column.
-// The header shows session metadata; the body mounts ghostty-web
-// into a div and subscribes to the AttachStream returned by the
-// data source. When the session key changes (user clicks a
-// different sidebar tab), the old terminal is torn down and a new
-// one mounts — the component key below forces a remount.
+// No header: the sidebar card carries all session metadata and the
+// close control. Pane is pure terminal, padded in black so the
+// ghostty-web canvas has a visible bezel. The outer wrapper owns
+// the padding + bg; the inner div is what ghostty-web mounts into
+// (canvas children fill 100% of their parent, so padding has to
+// live one level up).
 export const TerminalPane = observer(function TerminalPane({ ds, session }: Props) {
-  // No header: the sidebar card carries all session metadata and
-  // the close control. Terminal pane is pure terminal, padded in
-  // black so the ghostty-web canvas has a visible bezel. The outer
-  // wrapper owns the padding + bg; the inner div is what ghostty-
-  // web mounts into (canvas children fill 100% of their parent,
-  // so padding has to live one level up).
   return (
     <div className="flex flex-1 flex-col bg-[#0f1018] p-3">
       <div className="relative flex min-h-0 flex-1 overflow-hidden rounded-sm bg-[#0f1018]">
@@ -49,14 +44,17 @@ function TerminalHost({
 
 // mountTerminal lazily imports ghostty-web, initializes the WASM
 // runtime once, constructs a Terminal, and wires up the
-// bidirectional AttachStream. Returns a disposer that the effect
-// uses on unmount.
+// bidirectional AttachStream. FitAddon handles container-fit:
+// fit() once on mount (sets initial cols/rows + triggers the
+// backend resize via the onResize event wired to stream.resize),
+// observeResize() keeps it sized as the window changes. Returns a
+// disposer that the effect uses on unmount.
 function mountTerminal(mount: HTMLDivElement, ds: DataSource, sessionKey: string) {
   let disposed = false;
   const teardown: Array<() => void> = [];
 
   (async () => {
-    const { init, Terminal } = await import("ghostty-web");
+    const { init, Terminal, FitAddon } = await import("ghostty-web");
     if (disposed) return;
     await init();
     if (disposed) return;
@@ -74,18 +72,44 @@ function mountTerminal(mount: HTMLDivElement, ds: DataSource, sessionKey: string
     const stream = ds.attach(sessionKey);
     teardown.push(() => stream.close());
 
+    // Backend → terminal bytes.
     const unsubscribe = stream.onBytes((bytes) => {
       term.write(bytes);
     });
     teardown.push(unsubscribe);
 
+    // Terminal → backend input (keystrokes, paste).
     const onDataDispose = term.onData?.((data: string) => {
       stream.send(new TextEncoder().encode(data));
     });
     if (onDataDispose) teardown.push(() => onDataDispose.dispose?.());
+
+    // Fit-to-container. The addon sets term.cols/rows based on
+    // mount's client dimensions; the onResize event fires
+    // synchronously inside fit(), which is our one place to
+    // forward the size to the remote PTY.
+    const fit = new FitAddon();
+    term.loadAddon(fit);
+
+    const onResizeDispose = term.onResize?.(({ cols, rows }: { cols: number; rows: number }) => {
+      stream.resize(cols, rows);
+    });
+    if (onResizeDispose) teardown.push(() => onResizeDispose.dispose?.());
+
+    // Initial fit (plus whatever observeResize schedules after).
+    // Wrap in rAF so the mount has been laid out.
+    requestAnimationFrame(() => {
+      if (disposed) return;
+      try {
+        fit.fit();
+      } catch {
+        // If fit fails (container not sized yet), observeResize
+        // will catch it on the next frame.
+      }
+      fit.observeResize();
+    });
+    teardown.push(() => fit.dispose?.());
   })().catch((err) => {
-    // In preview we don't have a real backend; surface the error
-    // to the mount so it's obvious something failed.
     mount.innerText = `terminal failed: ${err?.message ?? String(err)}`;
   });
 
@@ -100,4 +124,3 @@ function mountTerminal(mount: HTMLDivElement, ds: DataSource, sessionKey: string
     }
   };
 }
-
