@@ -60,11 +60,11 @@ func usage() {
 	fmt.Fprint(os.Stderr, `ptydemo — demo app for the hayeah-go/supervisor library
 
 Usage:
-  ptydemo run [--state-dir=~/.ptydemo] [--key=<id>] -- <cmd> [args...]
-  ptydemo supervise --state-dir <d> --key <k> -- <cmd> [args...]
+  ptydemo run [--state-dir=~/.ptydemo] [--key=<id>] [--attach=true] -- <cmd> [args...]
+  ptydemo supervise --state-dir <d> --key <k> -- <cmd> [args...]   (internal)
   ptydemo ls [--state-dir=~/.ptydemo]
   ptydemo attach <key> [--state-dir=~/.ptydemo]
   ptydemo kill <key> [--state-dir=~/.ptydemo]
-  ptydemo serve [--addr=:8080] [--state-dir=~/.ptydemo] [--vite=http://localhost:5173]
+  ptydemo serve --port <n> [--addr=127.0.0.1] [--state-dir=~/.ptydemo] [--prefix=/api]
 `)
 }

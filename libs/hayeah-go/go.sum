@@ -1,5 +1,7 @@
 code.selman.me/hauntty v0.0.0-20260407173547-4d54dc15cb4f h1:uubheo+REtlCEvTMco/loSBBeDIpyHfASZUcwX5mIKk=
 code.selman.me/hauntty v0.0.0-20260407173547-4d54dc15cb4f/go.mod h1:lJq86b5hoaQMvJBrtitn5pZ5EL6zfNw/+39l+NTp34s=
+github.com/coder/websocket v1.8.14 h1:9L0p0iKiNOibykf283eHkKUHHrpG7f65OE3BhhO7v9g=
+github.com/coder/websocket v1.8.14/go.mod h1:NX3SzP+inril6yawo5CQXx8+fk145lPDC6pumgx0mVg=
 github.com/creack/pty v1.1.24 h1:bJrF4RRfyJnbTJqzRLHzcGaZK1NeM5kTC9jGgovnR1s=
 github.com/creack/pty v1.1.24/go.mod h1:08sCNb52WyoAwi2QDyzUCTgcvVFhUzewun7wtTfvcwE=
 github.com/lmittmann/tint v1.1.3 h1:Hv4EaHWXQr+GTFnOU4VKf8UvAtZgn0VuKT+G0wFlO3I=

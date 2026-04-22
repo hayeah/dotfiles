@@ -11,6 +11,7 @@ require (
 
 require (
 	code.selman.me/hauntty v0.0.0-20260407173547-4d54dc15cb4f // indirect
+	github.com/coder/websocket v1.8.14 // indirect
 	github.com/creack/pty v1.1.24 // indirect
 	golang.org/x/sys v0.41.0 // indirect
 )
