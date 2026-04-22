@@ -34,11 +34,16 @@ type SupervisorConfig struct {
 	// When RestartOnExit is false, only Plugin is consulted.
 	PluginFactory func() Plugin
 
-	// Briefing is a message replayed to the child after each (re)spawn
-	// when the plugin reports "idle". Used to reconstruct operational
-	// context for a boss-style agent after a kill. Sent via `tmux
-	// send-keys -l` + Enter. Empty = no replay.
-	Briefing string
+	// Briefings is a list of messages replayed to the child after each
+	// (re)spawn. The first message is sent on the cycle's first idle;
+	// each subsequent message is sent on the next idle transition (i.e.
+	// once the child has finished processing the previous one). Used to
+	// reconstruct operational context for a boss-style agent after a
+	// kill, and to chain follow-up commands (e.g. an opening briefing
+	// plus a slash-command toggle) into a single setup script. Each
+	// message is sent via `tmux send-keys -l <text>` + Enter. Empty/nil
+	// = no replay.
+	Briefings []string
 
 	// OnIdle, if set, is called once per spawn cycle the first time the
 	// plugin publishes state=="idle". Used by callers to drive
@@ -159,18 +164,34 @@ func (s *Supervisor) Run(ctx context.Context) error {
 
 		plugin := s.pluginForCycle(cycle)
 
-		// Per-cycle idle observer: wraps UpdateService to detect the first
-		// "idle" transition and fire briefing replay + OnIdle.
-		idleFired := false
+		// Per-cycle idle observer: wraps UpdateService to detect every
+		// rising edge (non-idle → idle) and fire OnIdle + the next
+		// briefing message. The first rising edge fires OnIdle and the
+		// first briefing; each subsequent edge (after the previous
+		// briefing has been processed and the child is back at the
+		// prompt) fires the next message in s.cfg.Briefings.
+		var prevIdle bool
+		var idleCount int
+		var nextBriefingIdx int
 		env := PluginEnv{
 			UpdateService: func(state any) error {
 				if err := writer.UpdateService(state); err != nil {
 					return err
 				}
-				if !idleFired && isIdleState(state) {
-					idleFired = true
-					s.onFirstIdle(cycle, target)
+				currentlyIdle := isIdleState(state)
+				if !prevIdle && currentlyIdle {
+					idleCount++
+					if idleCount == 1 && s.cfg.OnIdle != nil {
+						s.cfg.OnIdle(cycle)
+					}
+					if nextBriefingIdx < len(s.cfg.Briefings) {
+						msg := s.cfg.Briefings[nextBriefingIdx]
+						idx := nextBriefingIdx
+						nextBriefingIdx++
+						go s.sendBriefingMessage(cycle, idx, target, msg)
+					}
 				}
+				prevIdle = currentlyIdle
 				return nil
 			},
 			Tmux:     s.tmux,
@@ -228,32 +249,24 @@ func (s *Supervisor) pluginForCycle(cycle int) Plugin {
 	return s.cfg.Plugin
 }
 
-// onFirstIdle is invoked at most once per spawn cycle the first time the
-// plugin reports state "idle". Fires the OnIdle hook and replays the
-// briefing if one was configured.
-func (s *Supervisor) onFirstIdle(cycle int, target string) {
-	if s.cfg.OnIdle != nil {
-		s.cfg.OnIdle(cycle)
-	}
-	if s.cfg.Briefing == "" {
+// sendBriefingMessage types one briefing message into the pane and presses
+// Enter. Called from the UpdateService callback's goroutine on each rising
+// idle edge so we don't block the plugin's hot path.
+func (s *Supervisor) sendBriefingMessage(cycle, idx int, target, msg string) {
+	if msg == "" {
 		return
 	}
-	// Send briefing in a goroutine so we don't block the UpdateService
-	// callback (which is on the plugin's hot path).
-	briefing := s.cfg.Briefing
-	go func() {
-		// Small delay so the agent's input box is settled before typing.
-		time.Sleep(500 * time.Millisecond)
-		if err := s.tmux.SendText(target, briefing); err != nil {
-			s.log.Warn("briefing send-text failed", "err", err, "cycle", cycle)
-			return
-		}
-		if err := s.tmux.SendKeys(target, "Enter"); err != nil {
-			s.log.Warn("briefing send-enter failed", "err", err, "cycle", cycle)
-			return
-		}
-		s.log.Info("briefing replayed", "target", target, "cycle", cycle)
-	}()
+	// Small delay so the agent's input box is settled before typing.
+	time.Sleep(500 * time.Millisecond)
+	if err := s.tmux.SendText(target, msg); err != nil {
+		s.log.Warn("briefing send-text failed", "err", err, "cycle", cycle, "idx", idx)
+		return
+	}
+	if err := s.tmux.SendKeys(target, "Enter"); err != nil {
+		s.log.Warn("briefing send-enter failed", "err", err, "cycle", cycle, "idx", idx)
+		return
+	}
+	s.log.Info("briefing message sent", "target", target, "cycle", cycle, "idx", idx)
 }
 
 // isIdleState inspects a marshaled service-state payload for a top-level
