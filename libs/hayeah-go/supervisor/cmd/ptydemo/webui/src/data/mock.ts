@@ -122,6 +122,13 @@ export class MockDataSource implements DataSource {
     return new MockAttach(script);
   }
 
+  async closeSession(key: string): Promise<void> {
+    runInAction(() => {
+      const idx = this.sessions.findIndex((s) => s.key === key);
+      if (idx >= 0) this.sessions.splice(idx, 1);
+    });
+  }
+
   async createSession(cmd: string): Promise<SessionSummary> {
     const trimmed = cmd.trim() || "bash -l";
     const base = trimmed.split(/\s+/)[0] ?? "sess";

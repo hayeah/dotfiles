@@ -17,6 +17,15 @@ export const SessionWorkspace = observer(function SessionWorkspace({ ds }: Props
 
   const active = ds.sessions.find((s) => s.key === activeKey) ?? null;
 
+  async function closeSession(key: string) {
+    await ds.closeSession(key);
+    // If we just closed the active tab, focus whatever's still there.
+    if (key === activeKey) {
+      const next = ds.sessions[0]?.key ?? null;
+      setActiveKey(next);
+    }
+  }
+
   return (
     <div className="flex h-dvh bg-background text-foreground">
       <SessionSidebar
@@ -24,6 +33,7 @@ export const SessionWorkspace = observer(function SessionWorkspace({ ds }: Props
         activeKey={activeKey}
         onSelect={setActiveKey}
         onCreate={(cmd) => ds.createSession(cmd)}
+        onClose={closeSession}
       />
       <main className="flex min-w-0 flex-1 flex-col">
         {active ? (

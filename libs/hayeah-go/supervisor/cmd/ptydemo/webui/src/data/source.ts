@@ -31,4 +31,9 @@ export interface DataSource {
   // Live POSTs to /api/sessions and waits for the supervisor's
   // initial state to be published.
   createSession(cmd: string): Promise<SessionSummary>;
+
+  // closeSession tears down a session. Mock removes it from the
+  // list; Live sends SIGTERM via /api/sessions/<key>/close (or
+  // DELETE) and removes it once the flock releases.
+  closeSession(key: string): Promise<void>;
 }

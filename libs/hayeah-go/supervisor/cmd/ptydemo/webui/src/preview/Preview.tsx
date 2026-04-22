@@ -31,6 +31,9 @@ export function Preview() {
       createSession(cmd: string) {
         return ds.createSession(cmd);
       },
+      closeSession(key: string) {
+        return ds.closeSession(key);
+      },
     };
     return () => {
       // biome-ignore lint/suspicious/noExplicitAny: test harness hook
@@ -48,4 +51,5 @@ const PREVIEW_TAP_DOC = `
 - setState(key, state) — flip a session's state ("starting" | "running" | "exited")
 - addSession(key, cmd) — push a new mock session into the sidebar
 - createSession(cmd) — same as clicking the "+" in the sidebar form (returns a Promise)
+- closeSession(key) — same as clicking the X on a tab / the Close button in the header
 `;
