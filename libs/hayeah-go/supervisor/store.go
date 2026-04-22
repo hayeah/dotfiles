@@ -135,15 +135,17 @@ func (w *Writer) Update(fn func(*StateFile)) error {
 	return w.flush()
 }
 
-// UpdateService marshals the provided value into the "service" section
-// of state.json. This is the method plugins call.
-func (w *Writer) UpdateService(state any) error {
+// UpdateState marshals the provided value into the "state" section
+// of state.json. This is the method Services call (directly or
+// through Supervisor.UpdateState, which additionally publishes to
+// /events subscribers).
+func (w *Writer) UpdateState(state any) error {
 	return w.Update(func(s *StateFile) {
 		data, err := json.Marshal(state)
 		if err != nil {
 			return
 		}
-		s.Service = json.RawMessage(data)
+		s.State = json.RawMessage(data)
 	})
 }
 

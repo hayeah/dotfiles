@@ -34,18 +34,18 @@ func TestWriterAndStore(t *testing.T) {
 		t.Errorf("got key=%s, want vite", state.Supervisor.Key)
 	}
 
-	// Update service section
+	// Update state section
 	svcState := map[string]any{"state": "healthy", "port": 20042}
-	if err := w.UpdateService(svcState); err != nil {
-		t.Fatalf("UpdateService: %v", err)
+	if err := w.UpdateState(svcState); err != nil {
+		t.Fatalf("UpdateState: %v", err)
 	}
 
 	// Re-read from store
 	state, _ = store.Load("vite")
 	var svc map[string]any
-	json.Unmarshal(state.Service, &svc)
+	json.Unmarshal(state.State, &svc)
 	if svc["state"] != "healthy" {
-		t.Errorf("got service.state=%v, want healthy", svc["state"])
+		t.Errorf("got state.state=%v, want healthy", svc["state"])
 	}
 
 	// List
