@@ -45,7 +45,10 @@ func cmdServe(args []string) error {
 
 	mux := http.NewServeMux()
 	register(mux, *prefix, "/sessions", srv.handleSessions)
+	register(mux, *prefix, "/sessions/{key}", srv.handleSession)
 	register(mux, *prefix, "/sessions/{key}/state", srv.handleState)
+	register(mux, *prefix, "/sessions/{key}/events", srv.handleEvents)
+	register(mux, *prefix, "/sessions/{key}/attach", srv.handleAttach)
 	register(mux, *prefix, "/healthz", srv.handleHealth)
 
 	listenAddr := fmt.Sprintf("%s:%d", *addr, *port)
@@ -70,10 +73,26 @@ type serveState struct {
 	stateDir string
 }
 
-// handleSessions returns JSON {sessions: [...]} — each entry is a
-// StateFile. Sessions are walked off the filesystem; no process
-// interaction needed.
+// handleSessions handles:
+//
+//	GET  /sessions       — list all known sessions (alive or exited)
+//	POST /sessions       — create a new session (body: {cmd, key?})
+//
+// Create forks `ptydemo supervise` directly from within the server
+// process, so the child's supervise is our grandchild and the
+// webui's POST returns once rpc.sock appears (up to 3s).
 func (s *serveState) handleSessions(w http.ResponseWriter, r *http.Request) {
+	switch r.Method {
+	case http.MethodGet:
+		s.getSessions(w, r)
+	case http.MethodPost:
+		s.createSession(w, r)
+	default:
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+	}
+}
+
+func (s *serveState) getSessions(w http.ResponseWriter, _ *http.Request) {
 	states, err := s.store.List()
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -95,6 +114,25 @@ func (s *serveState) handleSessions(w http.ResponseWriter, r *http.Request) {
 	}
 	w.Header().Set("Content-Type", "application/json")
 	_ = json.NewEncoder(w).Encode(out)
+}
+
+// handleSession routes per-session methods:
+//
+//	GET    /sessions/{key}    — state.json for one session
+//	DELETE /sessions/{key}    — SIGTERM supervisor by pid
+//
+// GET is identical to /sessions/{key}/state; the duplicate path
+// lets the frontend use /api/sessions/{key} as both fetch target
+// (GET) and delete target (DELETE) without hitting a 404.
+func (s *serveState) handleSession(w http.ResponseWriter, r *http.Request) {
+	switch r.Method {
+	case http.MethodGet:
+		s.handleState(w, r)
+	case http.MethodDelete:
+		s.closeSession(w, r)
+	default:
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+	}
 }
 
 // handleState returns the state.json for one session.
