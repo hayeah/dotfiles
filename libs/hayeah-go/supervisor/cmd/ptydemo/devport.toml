@@ -46,7 +46,11 @@ type = "proxy"
   name    = "webui"
   path    = "/"
   type    = "exec"
-  command = ["bunx", "vp", "dev", "--port", "$${PORT}", "--strictPort"]
+  # --host 127.0.0.1 so we bind IPv4; vite's default "localhost"
+  # on macOS resolves to ::1 (IPv6 only) and devport's TCP health
+  # check probes 127.0.0.1 (IPv4), so without this the webui
+  # never reports healthy even though it's up.
+  command = ["bunx", "vp", "dev", "--port", "$${PORT}", "--strictPort", "--host", "127.0.0.1"]
   cwd     = "webui"
 
     [service.routes.health]
