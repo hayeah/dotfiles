@@ -1,0 +1,10 @@
+{
+  "name": "supervisor-workspace",
+  "version": "0.0.0",
+  "private": true,
+  "description": "pnpm workspace for the supervisor library's TypeScript packages (@hayeah/termui + supervisor-webui).",
+  "scripts": {
+    "build": "pnpm -r build",
+    "test": "pnpm -r test"
+  }
+}

@@ -1,0 +1,6 @@
+packages:
+  - termui
+  - webui
+
+onlyBuiltDependencies:
+  - esbuild
