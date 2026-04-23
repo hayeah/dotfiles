@@ -1,5 +1,5 @@
 {
-  "name": "ptydemo-webui",
+  "name": "supervisor-webui",
   "version": "0.0.0",
   "private": true,
   "type": "module",
@@ -10,6 +10,7 @@
     "prepare": "vp config"
   },
   "dependencies": {
+    "@hayeah/termui": "workspace:*",
     "framer-motion": "^12.38.0",
     "ghostty-web": "^0.3.0",
     "lucide-react": "^1.7.0",
@@ -31,11 +32,5 @@
     "vite": "npm:@voidzero-dev/vite-plus-core@latest",
     "vite-plus": "latest",
     "vitest": "npm:@voidzero-dev/vite-plus-test@latest"
-  },
-  "pnpm": {
-    "overrides": {
-      "vite": "npm:@voidzero-dev/vite-plus-core@latest",
-      "vitest": "npm:@voidzero-dev/vite-plus-test@latest"
-    }
   }
 }

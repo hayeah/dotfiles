@@ -41,9 +41,7 @@ export const SessionWorkspace = observer(function SessionWorkspace({ ds }: Props
         ) : (
           <div className="flex flex-1 items-center justify-center text-muted-foreground">
             No sessions. Run{" "}
-            <code className="mx-2 rounded bg-muted px-1.5 py-0.5 text-sm">
-              ptydemo run -- bash
-            </code>{" "}
+            <code className="mx-2 rounded bg-muted px-1.5 py-0.5 text-sm">ptydemo run -- bash</code>{" "}
             to start one.
           </div>
         )}

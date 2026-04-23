@@ -1,5 +1,6 @@
+import { WebSocketAttach, type AttachStream } from "@hayeah/termui";
 import { makeAutoObservable, runInAction } from "mobx";
-import type { AttachStream, DataSource } from "./source";
+import type { DataSource } from "./source";
 import type { SessionSummary } from "./types";
 
 // Raw shape returned by GET /api/sessions. Mirrors StateFile +
@@ -28,83 +29,6 @@ function toSummary(e: ApiEntry): SessionSummary {
     startedAt: s.started_at ?? e.supervisor.created_at,
     pid: s.pid,
   };
-}
-
-// LiveAttach wraps a WebSocket to /api/sessions/<key>/attach.
-// Binary frames are PTY bytes both directions; text frames carry
-// JSON sidebands (today only {type:"resize"}).
-class LiveAttach implements AttachStream {
-  private listeners = new Set<(bytes: Uint8Array) => void>();
-  private ws: WebSocket;
-  private closed = false;
-  private queuedResize: { cols: number; rows: number } | null = null;
-
-  constructor(wsUrl: string) {
-    this.ws = new WebSocket(wsUrl);
-    this.ws.binaryType = "arraybuffer";
-
-    this.ws.addEventListener("open", () => {
-      if (this.queuedResize) {
-        this.sendResize(this.queuedResize.cols, this.queuedResize.rows);
-        this.queuedResize = null;
-      }
-    });
-
-    this.ws.addEventListener("message", (ev) => {
-      if (this.closed) return;
-      if (typeof ev.data === "string") {
-        // Today the server never sends text frames; reserved for
-        // future {type:"state"} or {type:"exited"} envelopes.
-        return;
-      }
-      if (ev.data instanceof ArrayBuffer) {
-        const bytes = new Uint8Array(ev.data);
-        for (const fn of this.listeners) fn(bytes);
-      }
-    });
-
-    this.ws.addEventListener("close", () => {
-      this.closed = true;
-    });
-  }
-
-  onBytes(fn: (bytes: Uint8Array) => void): () => void {
-    this.listeners.add(fn);
-    return () => {
-      this.listeners.delete(fn);
-    };
-  }
-
-  send(bytes: Uint8Array): void {
-    if (this.closed || this.ws.readyState !== WebSocket.OPEN) return;
-    this.ws.send(bytes);
-  }
-
-  resize(cols: number, rows: number): void {
-    if (this.closed) return;
-    if (this.ws.readyState !== WebSocket.OPEN) {
-      // Coalesce the last pending resize; no point sending the
-      // interim sizes from a burst.
-      this.queuedResize = { cols, rows };
-      return;
-    }
-    this.sendResize(cols, rows);
-  }
-
-  private sendResize(cols: number, rows: number) {
-    this.ws.send(JSON.stringify({ type: "resize", cols, rows }));
-  }
-
-  close(): void {
-    if (this.closed) return;
-    this.closed = true;
-    this.listeners.clear();
-    try {
-      this.ws.close();
-    } catch {
-      // ignore
-    }
-  }
 }
 
 // LiveDataSource talks to ptydemo's HTTP API (/api/*) and WS
@@ -151,7 +75,7 @@ export class LiveDataSource implements DataSource {
 
   attach(sessionKey: string): AttachStream {
     const url = `${this.wsBase}/sessions/${encodeURIComponent(sessionKey)}/attach`;
-    return new LiveAttach(url);
+    return new WebSocketAttach({ url });
   }
 
   async createSession(cmd: string): Promise<SessionSummary> {

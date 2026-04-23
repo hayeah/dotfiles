@@ -194,9 +194,7 @@ function SessionTab({
           </button>
         )}
       </div>
-      <div className="truncate pl-4 font-mono text-xs text-muted-foreground">
-        {session.cmd}
-      </div>
+      <div className="truncate pl-4 font-mono text-xs text-muted-foreground">{session.cmd}</div>
       <div className="flex gap-2 pl-4 text-[10px] text-muted-foreground/80">
         {session.pid != null && <span>pid {session.pid}</span>}
         {session.pid != null && <span>·</span>}

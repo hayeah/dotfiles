@@ -1,23 +1,10 @@
+import type { AttachStream } from "@hayeah/termui";
 import type { SessionSummary } from "./types";
 
-// AttachStream is a bidirectional byte pipe. Both impls (mock +
-// live) return one per `attach(sessionKey)` call. It's the thin
-// contract ghostty-web needs: bytes flow both directions, plus a
-// resize signal toward the backend.
-export interface AttachStream {
-  // onBytes is invoked as the backend produces output. Delivered
-  // in chunks; consumer doesn't need to re-parse boundaries.
-  onBytes(fn: (bytes: Uint8Array) => void): () => void;
-
-  // send writes user input to the backend PTY master.
-  send(bytes: Uint8Array): void;
-
-  // resize informs the backend of a new terminal size.
-  resize(cols: number, rows: number): void;
-
-  // close tears down the stream. Safe to call multiple times.
-  close(): void;
-}
+// AttachStream is re-exported from @hayeah/termui — the same byte-
+// pipe contract both the mock and live data sources produce,
+// consumed by @hayeah/termui's TerminalPane.
+export type { AttachStream };
 
 // DataSource is the only API the views see. MockDataSource (for
 // /preview) and LiveDataSource (for the real app) both implement
