@@ -11,9 +11,16 @@ import (
 	"os"
 	"os/signal"
 	"path/filepath"
+	"sync"
 	"syscall"
 	"time"
 )
+
+// chdirMu serializes the chdir dance in listenSocket's long-path
+// fallback. chdir is process-global; without this, two concurrent
+// listenSocket calls from different Runners in the same process
+// (common in tests) could interleave their chdirs.
+var chdirMu sync.Mutex
 
 // SupervisorConfig configures a Runner. Four fields, no more:
 //   - StateDir: the base directory (e.g. ~/.agentboss or .devport).
@@ -213,6 +220,14 @@ func (r *Runner) handleEvents(w http.ResponseWriter, req *http.Request) {
 // listenSocket creates rpc.sock inside stateDir and serves r.mux on
 // it. Returns a closer that both stops the listener and waits for
 // in-flight handlers to finish.
+//
+// Long-path handling: unix socket paths go into `struct sockaddr_un`
+// whose `sun_path` holds at most 104 bytes on macOS / 108 on Linux.
+// State dirs deep inside $TMPDIR or a project's `.devport/...` can
+// easily blow past that. Fallback: chdir into the state dir and
+// bind a relative path. chdir is process-global, so we gate it on
+// a package-level mutex (short critical section: just Chdir +
+// Listen + Chdir back).
 func (r *Runner) listenSocket(stateDir string) (interface{ Close() error }, error) {
 	sockPath := filepath.Join(stateDir, "rpc.sock")
 	// Remove any stale socket file from a previous run that didn't
@@ -222,7 +237,20 @@ func (r *Runner) listenSocket(stateDir string) (interface{ Close() error }, erro
 
 	ln, err := net.Listen("unix", sockPath)
 	if err != nil {
-		return nil, fmt.Errorf("listen %s: %w", sockPath, err)
+		// Fall back to relative-path bind for overlong sun_path.
+		// On macOS the syscall surfaces this as EINVAL rather than
+		// ENAMETOOLONG, so we just retry on any listen error when
+		// the absolute path is over the conservative 100-byte bound.
+		if len(sockPath) >= 100 {
+			relLn, relErr := listenUnixRelative(stateDir)
+			if relErr == nil {
+				ln = relLn
+				err = nil
+			}
+		}
+		if err != nil {
+			return nil, fmt.Errorf("listen %s: %w", sockPath, err)
+		}
 	}
 	srv := &http.Server{Handler: r.mux}
 	go func() {
@@ -231,6 +259,30 @@ func (r *Runner) listenSocket(stateDir string) (interface{ Close() error }, erro
 		}
 	}()
 	return socketCloser{srv: srv, ln: ln}, nil
+}
+
+// listenUnixRelative binds rpc.sock via a temporary chdir into
+// stateDir so the kernel only sees the 8-byte relative name. See
+// listenSocket for why this is necessary. The returned listener
+// behaves identically to a net.Listen("unix", absPath) listener.
+func listenUnixRelative(stateDir string) (net.Listener, error) {
+	chdirMu.Lock()
+	defer chdirMu.Unlock()
+
+	cwd, err := os.Getwd()
+	if err != nil {
+		return nil, fmt.Errorf("getcwd: %w", err)
+	}
+	if err := os.Chdir(stateDir); err != nil {
+		return nil, fmt.Errorf("chdir %s: %w", stateDir, err)
+	}
+	defer func() { _ = os.Chdir(cwd) }()
+
+	// A fresh _ = os.Remove in case the absolute-path remove at the
+	// caller didn't reach the socket (path length issue there too,
+	// but os.Remove uses unlink(2) which accepts PATH_MAX).
+	_ = os.Remove("rpc.sock")
+	return net.Listen("unix", "rpc.sock")
 }
 
 type socketCloser struct {
