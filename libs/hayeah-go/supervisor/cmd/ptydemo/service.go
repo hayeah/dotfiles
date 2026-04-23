@@ -68,6 +68,7 @@ func (s *RunCmdService) Run(ctx context.Context, super supervisor.Supervisor) er
 	cmd.Stdin = os.Stdin
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
+	cmd.Env = sanitizeChildEnv(os.Environ())
 	// Child becomes its own session leader with the slave (fd 0)
 	// as its controlling tty. This is the emulator pattern:
 	// supervise (us) holds the master but is session-less for
@@ -117,4 +118,42 @@ func (s *RunCmdService) Run(ctx context.Context, super supervisor.Supervisor) er
 	}
 	_ = super.UpdateState(state)
 	return nil
+}
+
+// sanitizeChildEnv rewrites env so the child doesn't think it is
+// running inside an outer multiplexer or under some other emulator's
+// terminfo. ptydemo owns its own libghostty VT; the child should
+// behave as if launched directly under a plain xterm-compatible
+// terminal.
+//
+// Motivation: when `ptydemo serve` is launched from inside a tmux
+// window (e.g. via devport), it inherits TMUX, TMUX_PANE, and
+// TERM=tmux-256color. When it forks an interactive shell, zsh's
+// powerlevel10k prompt detects $TMUX and emits tmux-native title
+// escapes (`\x1bk<title>\x1b\`, not OSC 2). Libghostty doesn't
+// consume those — the inner bytes render as literal text, and the
+// user sees the command echo glued to the first row of output.
+// Stripping TMUX/TMUX_PANE and forcing TERM avoids the confusion
+// at the source.
+func sanitizeChildEnv(parent []string) []string {
+	const childTerm = "xterm-256color"
+	drop := map[string]bool{
+		"TMUX":      true,
+		"TMUX_PANE": true,
+		"TERM":      true, // re-added below
+	}
+	out := make([]string, 0, len(parent)+1)
+	for _, kv := range parent {
+		eq := strings.IndexByte(kv, '=')
+		if eq < 0 {
+			out = append(out, kv)
+			continue
+		}
+		if drop[kv[:eq]] {
+			continue
+		}
+		out = append(out, kv)
+	}
+	out = append(out, "TERM="+childTerm)
+	return out
 }
