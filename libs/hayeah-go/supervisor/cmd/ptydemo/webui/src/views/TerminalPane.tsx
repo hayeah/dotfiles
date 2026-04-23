@@ -141,6 +141,34 @@ function mountTerminal(mount: HTMLDivElement, ds: DataSource, sessionKey: string
     });
     if (onDataDispose) teardown.push(() => onDataDispose.dispose?.());
 
+    // Mode-aware mouse-wheel. On normal screen, the wheel scrolls the
+    // emulator's local scrollback (xterm.js-style). On alt screen
+    // (vim, less, htop), wheel ticks are forwarded to the PTY as
+    // arrow-key escapes so the app scrolls its own buffer. Owning
+    // this dispatch here — rather than relying on ghostty-web's
+    // built-in — keeps the behaviour testable from our code and
+    // decouples us from upstream regressions. Installed per-mount,
+    // so each session's fresh Terminal (the keyed-remount in
+    // TerminalHost creates one) gets its own handler with the right
+    // `stream` closed over.
+    const encoder = new TextEncoder();
+    term.attachCustomWheelEventHandler?.((e: WheelEvent) => {
+      e.preventDefault();
+      const isAlt = term.buffer?.active?.type === "alternate";
+      if (isAlt) {
+        const seq = e.deltaY > 0 ? "\x1b[B" : "\x1b[A";
+        const lines = normaliseDeltaToLines(e, term.rows ?? 24);
+        const ticks = Math.min(5, Math.max(1, Math.abs(Math.round(lines))));
+        const bytes = encoder.encode(seq.repeat(ticks));
+        stream.send(bytes);
+      } else {
+        const lines = normaliseDeltaToLines(e, term.rows ?? 24);
+        const rounded = Math.trunc(lines);
+        if (rounded !== 0) term.scrollLines?.(rounded);
+      }
+      return true; // we handled it; ghostty-web should skip its default.
+    });
+
     // Ongoing container-fit events — each fit() fires onResize,
     // which we forward to the remote PTY.
     const onResizeDispose = term.onResize?.(({ cols, rows }: { cols: number; rows: number }) => {
@@ -165,4 +193,15 @@ function mountTerminal(mount: HTMLDivElement, ds: DataSource, sessionKey: string
       }
     }
   };
+}
+
+// normaliseDeltaToLines converts a WheelEvent's deltaY into an
+// approximate line count, handling the three deltaMode values browsers
+// may emit. Pixel deltas are divided by a nominal row height; line
+// deltas pass through; page deltas multiply by the viewport row count.
+function normaliseDeltaToLines(e: WheelEvent, rows: number): number {
+  if (e.deltaMode === WheelEvent.DOM_DELTA_PAGE) return e.deltaY * rows;
+  if (e.deltaMode === WheelEvent.DOM_DELTA_LINE) return e.deltaY;
+  // DOM_DELTA_PIXEL (0). 22 matches a typical 13-15px monospace line.
+  return e.deltaY / 22;
 }
