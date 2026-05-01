@@ -107,6 +107,29 @@ def ssh_github_projects(host: str) -> list[tuple[str, str]]:
 # ---------------------------------------------------------------------------
 
 
+def _is_path_like(query: str) -> bool:
+    """Heuristic: query looks like a filesystem path, not a project label."""
+    return query.startswith(("/", "~", "./", "../"))
+
+
+def _ssh_path_exists(host: str, path: str) -> str | None:
+    """Return the resolved absolute path on `host` if the directory exists, else None."""
+    remote = (
+        f'p={shlex.quote(path)}; '
+        'eval "p=$p"; '
+        'if [ -d "$p" ]; then (cd "$p" && pwd); fi'
+    )
+    try:
+        r = subprocess.run(
+            ["ssh", host, remote],
+            capture_output=True, text=True, check=True,
+        )
+    except subprocess.CalledProcessError:
+        return None
+    out = r.stdout.strip()
+    return out or None
+
+
 def _fzf_select(
     projects: list[tuple[str, str]],
     query: str | None,
