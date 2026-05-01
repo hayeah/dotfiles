@@ -12,7 +12,18 @@ ed() {
 }
 alias project='shell-helper project'
 
-alias tm='shell-helper tm'
+# tm: tmux project session manager
+# tm @host [query] — shortcut for tm --ssh host [query] (autossh + remote tmux)
+unalias tm 2>/dev/null
+tm() {
+    if [[ "$1" == @* ]]; then
+        local host="${1#@}"
+        shift
+        shell-helper tm --ssh "$host" "$@"
+    else
+        shell-helper tm "$@"
+    fi
+}
 
 # gg: clone to ~/<host>/<user>/<repo> and cd into it (shorthand for g qc)
 unalias gg 2>/dev/null

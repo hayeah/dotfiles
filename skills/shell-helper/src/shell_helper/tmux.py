@@ -5,13 +5,16 @@ from __future__ import annotations
 import os
 import re
 import shlex
+import shutil
 import subprocess
 from pathlib import Path
+from typing import Callable, Optional
 
 import typer
 
 from . import fzf
 from .cli import fallback_group
+from .editor import _is_path_like, _ssh_path_exists, ssh_github_projects
 from .project import (
     _git_remote_url,
     _name_from_files,
@@ -183,14 +186,99 @@ def _do_resolve(query: str | None, action: callable) -> None:
 
 
 # ---------------------------------------------------------------------------
+# SSH remote attach via autossh
+# ---------------------------------------------------------------------------
+
+
+def _remote_session_name(remote_path: str) -> str:
+    """Derive a tmux session name from a remote ~/github.com/<user>/<repo> path."""
+    parts = [p for p in remote_path.split("/") if p]
+    if "github.com" in parts:
+        i = parts.index("github.com")
+        if i + 2 < len(parts):
+            return _sanitize_session_name(f"{parts[i + 1]}/{parts[i + 2]}")
+    return _sanitize_session_name(parts[-1] if parts else "remote")
+
+
+def _enter_ssh(host: str, remote_path: str) -> None:
+    """Exec autossh into a tmux session on the remote host."""
+    if shutil.which("autossh") is None:
+        typer.echo("autossh not found. Install with: brew install autossh", err=True)
+        raise typer.Exit(1)
+
+    name = _remote_session_name(remote_path)
+    remote_cmd = f"tmux new -A -s {shlex.quote(name)} -c {shlex.quote(remote_path)}"
+    args = [
+        "autossh",
+        "-M", "0",
+        "-o", "ServerAliveInterval=30",
+        "-o", "ServerAliveCountMax=3",
+        "-t", host,
+        remote_cmd,
+    ]
+    env = os.environ.copy()
+    # Without this, autossh exits if the very first connection fails — we want it to keep trying.
+    env.setdefault("AUTOSSH_GATETIME", "0")
+    os.execvpe("autossh", args, env)
+
+
+def _do_resolve_ssh(
+    host: str,
+    query: str | None,
+    action: Callable[[str, str], None],
+) -> None:
+    """Resolve a remote project query via fzf/fuzzy, then run action(host, remote_path)."""
+    if query and _is_path_like(query):
+        remote_path = _ssh_path_exists(host, query)
+        if remote_path:
+            action(host, remote_path)
+            return
+        typer.echo(f"Path '{query}' not found on {host}", err=True)
+        raise typer.Exit(1)
+
+    projects = ssh_github_projects(host)
+    if not projects:
+        typer.echo(f"No projects found on {host}", err=True)
+        raise typer.Exit(1)
+
+    if query:
+        q_lower = query.lower()
+        matches = [(label, p) for label, p in projects if q_lower in label.lower()]
+        if len(matches) == 1:
+            action(host, matches[0][1])
+            return
+        if not matches:
+            typer.echo(f"No projects matching '{query}' on {host}", err=True)
+            raise typer.Exit(1)
+        projects = matches
+
+    result = fzf.select_project(
+        projects, query, list_label=f"Projects ({host})", preview_label="Files",
+    )
+    if result:
+        _, remote_path = result
+        action(host, remote_path)
+
+
+# ---------------------------------------------------------------------------
 # default callback — `shell-helper tm` with no subcommand runs enter
 # ---------------------------------------------------------------------------
 
 
 @app.callback(invoke_without_command=True)
-def _default(ctx: typer.Context) -> None:
+def _default(
+    ctx: typer.Context,
+    ssh: Optional[str] = typer.Option(
+        None, "--ssh", help="SSH host — attach tmux on the remote via autossh",
+    ),
+) -> None:
+    ctx.ensure_object(dict)
+    ctx.obj["ssh"] = ssh
     if ctx.invoked_subcommand is None:
-        _do_resolve(None, _enter_path)
+        if ssh:
+            _do_resolve_ssh(ssh, None, _enter_ssh)
+        else:
+            _do_resolve(None, _enter_path)
 
 
 # ---------------------------------------------------------------------------
@@ -200,6 +288,7 @@ def _default(ctx: typer.Context) -> None:
 
 @app.command()
 def enter(
+    ctx: typer.Context,
     query: str = typer.Argument(None, help="Path or project name to match (default: fzf picker)"),
 ) -> None:
     """Attach to a project session.
@@ -207,8 +296,13 @@ def enter(
     With no argument, opens an interactive fzf picker.
     With a directory path, enters that project directly.
     With a search string, fuzzy-matches against ~/github.com repos.
+    With --ssh, runs autossh + tmux on a remote host (auto-reconnects on drops).
     """
-    _do_resolve(query, _enter_path)
+    ssh = ctx.obj.get("ssh") if ctx.obj else None
+    if ssh:
+        _do_resolve_ssh(ssh, query, _enter_ssh)
+    else:
+        _do_resolve(query, _enter_path)
 
 
 # ---------------------------------------------------------------------------

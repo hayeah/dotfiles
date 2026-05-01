@@ -58,6 +58,11 @@ shell-helper tm
 # Fuzzy match and attach
 shell-helper tm <query>
 
+# SSH remote: list projects on host, fzf pick, autossh + remote tmux
+# (auto-reconnects on dropped connections; needs `brew install autossh`)
+shell-helper tm --ssh <host>
+shell-helper tm --ssh <host> <query>
+
 # Show what a query resolves to (includes session name)
 shell-helper tm which
 shell-helper tm which <query>
@@ -67,7 +72,8 @@ shell-helper tm which <query>
 
 Source `helpers.sh` in your zshrc to get:
 
-- `ed` — alias for `shell-helper editor`
+- `ed` — alias for `shell-helper editor` (`ed @host [query]` for `--ssh host`)
+- `tm` — alias for `shell-helper tm` (`tm @host [query]` for `--ssh host`)
 - `project` — alias for `shell-helper project`
 - `gg <repo>` — clone to `~/<host>/<user>/<repo>` and cd into it
 - `g` — git wrapper with extensions (`g qc` for quick-clone with cd)
